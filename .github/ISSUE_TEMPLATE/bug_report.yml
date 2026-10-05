@@ -1,0 +1,57 @@
+name: Bug report
+description: Something doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe what you saw in your own words. If an AI tool helped you find or analyse this, say so below and check its claims first. Paste logs, not summaries of them.
+
+        Never paste tokens, passwords or rclone config secrets. For security issues, see [SECURITY.md](https://github.com/AmyJeanes/OpenBackupManager/blob/main/SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: input
+    id: version
+    attributes:
+      label: OpenBackupManager version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: remote
+    attributes:
+      label: Remote
+      placeholder: e.g. OneDrive personal
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      render: text
+  - type: textarea
+    id: ai
+    attributes:
+      label: AI assistance (if any)
+      description: Which tool, and what it did
