@@ -23,6 +23,10 @@
       "matchPackageNames": ["NUnit", "NUnit.*", "NUnit3TestAdapter"]
     },
     {
+      "groupName": "Windows App SDK",
+      "matchPackageNames": ["Microsoft.WindowsAppSDK.*"]
+    },
+    {
       // rclone's behaviour can change between releases in ways CI doesn't catch yet, so its updates wait for review
       "matchDepNames": ["rclone/rclone"],
       "automerge": false

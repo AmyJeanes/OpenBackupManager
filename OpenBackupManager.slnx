@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/OpenBackupManager.App.Windows/OpenBackupManager.App.Windows.csproj" />
     <Project Path="src/OpenBackupManager.Core/OpenBackupManager.Core.csproj" />
     <Project Path="src/OpenBackupManager.Rclone/OpenBackupManager.Rclone.csproj" />
   </Folder>
