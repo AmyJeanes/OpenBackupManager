@@ -83,3 +83,15 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::error::Some files aren't formatted. The run summary shows the changes and how to fix them."
           exit 1
+
+  all-checks:
+    name: All checks
+    if: always()
+    needs: [test, format]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {} # Only reads needs.*.result
+    steps:
+      - name: Check every job passed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
