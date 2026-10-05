@@ -9,6 +9,7 @@ OpenBackupManager is a cross-platform backup and two-way sync app. Our own sync 
 - **One focused change per pull request**, small enough to review in one sitting: a feature slice, a fix, a refactor or a set of tests. No large scaffolds or dumps of generated code.
 - **Green before review.** Build, tests and format checks pass. CI runs them on every pull request.
 - **Update the design doc.** Each area of the app has `docs/design/<area>.md` once it's implemented: how it works, why (decisions, rejected alternatives, evidence) and accepted limits that shouldn't be "fixed". Read it before changing that area, and update it in the same pull request. List new docs in [docs/design/README.md](docs/design/README.md).
+- **Update the user guide.** If a change affects what people see or do, update its page in [`docs/guide/`](docs/guide/README.md) in the same pull request.
 
 ## Real data stays safe
 
