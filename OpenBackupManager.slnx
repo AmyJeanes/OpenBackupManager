@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OpenBackupManager.Core/OpenBackupManager.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OpenBackupManager.Core.Tests/OpenBackupManager.Core.Tests.csproj" />
+  </Folder>
+</Solution>

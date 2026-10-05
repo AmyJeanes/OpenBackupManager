@@ -18,3 +18,18 @@ OpenBackupManager is a cross-platform backup and two-way sync app. Our own sync 
 ## Design docs
 
 Each area of the app gets `docs/design/<area>.md` when it's implemented: how it works, why (decisions, rejected alternatives, evidence) and accepted limits that shouldn't be "fixed". Read the relevant doc before changing an area, and update it in the same step as the code.
+
+## Build and test
+
+```sh
+dotnet build OpenBackupManager.slnx
+dotnet test OpenBackupManager.slnx
+dotnet format whitespace OpenBackupManager.slnx
+dotnet format style OpenBackupManager.slnx --severity info
+dotnet format analyzers OpenBackupManager.slnx
+```
+
+- Run `git config core.hooksPath .githooks` once per clone. The pre-commit hook then formats staged C# files.
+- Style is auto-fixed, so style rules are suggestions. Rules that can't be auto-fixed, such as naming, are warnings, and warnings are errors.
+- Turn a noisy analyzer rule down in `.editorconfig`, with a comment saying why.
+- Package versions live in `Directory.Packages.props`.
