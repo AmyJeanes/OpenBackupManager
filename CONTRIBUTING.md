@@ -29,6 +29,7 @@ dotnet format analyzers OpenBackupManager.slnx
 - Run `git config core.hooksPath .githooks` once per clone. The hooks then format staged C# files and turn AI tools' `Co-authored-by` trailers into `Assisted-by`.
 - Style is auto-fixed, so style rules are suggestions. Rules that can't be auto-fixed, such as naming, are warnings, and warnings are errors.
 - Fix warnings rather than suppress them. When suppressing is right, add a comment saying why: a `#pragma` for a one-off case, or `.editorconfig` for a rule that doesn't fit the project.
+- Log messages, error messages and code comments don't end with a full stop. A longer one can have full stops between its sentences, just not after the last.
 - Package versions live in `Directory.Packages.props`.
 
 ## Commits

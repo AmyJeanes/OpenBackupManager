@@ -1,5 +1,5 @@
 #!/bin/sh
-# Formats staged C# files with dotnet format before each commit, so style is always fixed.
+# Formats staged C# files with dotnet format before each commit, so style is always fixed
 # Enable once per clone: git config core.hooksPath .githooks
 
 files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cs')
@@ -10,7 +10,7 @@ partial=$(git diff --name-only -- $files)
 if [ -n "$partial" ]; then
     echo "pre-commit: these files have unstaged changes, so they can't be formatted safely:"
     echo "$partial"
-    echo "Stage or stash those changes, then commit again."
+    echo "Stage or stash those changes, then commit again"
     exit 1
 fi
 

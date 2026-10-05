@@ -1,5 +1,5 @@
 #!/bin/sh
-# Turns AI tools' Co-authored-by trailers into Assisted-by, since some tools add them whatever their instructions say.
+# Turns AI tools' Co-authored-by trailers into Assisted-by, since some tools add them whatever their instructions say
 
 awk '
 {

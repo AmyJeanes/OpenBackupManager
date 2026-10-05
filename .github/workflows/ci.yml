@@ -81,7 +81,7 @@ jobs:
             git diff
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "::error::Some files aren't formatted. The run summary shows the changes and how to fix them."
+          echo "::error::Some files aren't formatted: the run summary shows the changes and how to fix them"
           exit 1
 
   all-checks:

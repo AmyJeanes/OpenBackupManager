@@ -5,7 +5,7 @@ namespace OpenBackupManager.Core;
 
 /// <summary>
 /// A synced folder's permanent ID: 8 random characters of lowercase Crockford base32.
-/// It names the folder's bookkeeping files on the remote, so it never changes.
+/// It names the folder's bookkeeping files on the remote, so it never changes
 /// </summary>
 public readonly record struct FolderId
 {
