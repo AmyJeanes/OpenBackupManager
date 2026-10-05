@@ -12,10 +12,7 @@ public readonly record struct FolderId
     private const string Alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
     private const int Length = 8;
 
-    public string Value
-    {
-        get;
-    }
+    public string Value { get; }
 
     private FolderId(string value) => Value = value;
 
