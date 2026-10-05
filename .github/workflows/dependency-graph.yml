@@ -1,0 +1,34 @@
+name: Dependency graph
+
+# Manual scan due to https://github.com/dependabot/dependabot-core/issues/16053 - delete this workflow and re-enable the built-in
+# scanner in https://github.com/AmyJeanes/OpenBackupManager/settings/security_analysis once the issue is resolved
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    name: Submit NuGet dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # The dependency submission API needs it
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore OpenBackupManager.slnx
+
+      - name: Submit dependencies
+        uses: advanced-security/component-detection-dependency-submission-action@a02aeda7a175ad4dd38a13c4d3ff2df9da8f2cf0 # v0.2.0
+        with:
+          detectorsCategories: NuGet
+          fail-on-empty: true
