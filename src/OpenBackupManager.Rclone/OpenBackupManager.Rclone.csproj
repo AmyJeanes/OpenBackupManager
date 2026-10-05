@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- The bundled rclone: tools/RcloneFetch downloads and verifies it, and it's copied to the output of
+       this project and every project that references it. RcloneRuntimeIdentifier picks another platform -->
+  <PropertyGroup>
+    <RcloneVersionFile>$(MSBuildThisFileDirectory)..\..\rclone.version</RcloneVersionFile>
+    <RcloneKeyFile>$(MSBuildThisFileDirectory)..\..\tools\RcloneFetch\rclone-signing-key.asc</RcloneKeyFile>
+    <RcloneVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(RcloneVersionFile))), 'v\d+\.\d+\.\d+').Value)</RcloneVersion>
+    <RcloneRuntimeIdentifier Condition="'$(RcloneRuntimeIdentifier)' == ''">$(RuntimeIdentifier)</RcloneRuntimeIdentifier>
+    <RcloneRuntimeIdentifier Condition="'$(RcloneRuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</RcloneRuntimeIdentifier>
+    <RcloneFileName>rclone</RcloneFileName>
+    <RcloneFileName Condition="$(RcloneRuntimeIdentifier.StartsWith('win'))">rclone.exe</RcloneFileName>
+    <RcloneFile>$(BaseIntermediateOutputPath)rclone\$(RcloneVersion)\$(RcloneRuntimeIdentifier)\$(RcloneFileName)</RcloneFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="RcloneVersion" Value="$(RcloneVersion)" />
+    <None Include="$(RcloneFile)" Link="$(RcloneFileName)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\tools\RcloneFetch\RcloneFetch.csproj" ReferenceOutputAssembly="false" Private="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <Target Name="FetchRclone" DependsOnTargets="ResolveProjectReferences" BeforeTargets="AssignTargetPaths"
+          Inputs="$(RcloneVersionFile);$(RcloneKeyFile)" Outputs="$(RcloneFile)" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="..\..\tools\RcloneFetch\RcloneFetch.csproj" Targets="GetTargetPath">
+      <Output TaskParameter="TargetOutputs" PropertyName="RcloneFetchPath" />
+    </MSBuild>
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;$(RcloneFetchPath)&quot; --version-file &quot;$(RcloneVersionFile)&quot; --key &quot;$(RcloneKeyFile)&quot; --runtime $(RcloneRuntimeIdentifier) --output &quot;$(RcloneFile)&quot;" />
+  </Target>
+
+</Project>

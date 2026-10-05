@@ -1,0 +1,3 @@
+# The rclone release bundled with the app. The build checks it against rclone's signed SHA256SUMS
+# renovate: datasource=github-releases depName=rclone/rclone
+v1.75.1

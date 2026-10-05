@@ -9,10 +9,23 @@
   "pinDigest": {
     "automerge": true
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The rclone release bundled with the app",
+      "managerFilePatterns": ["/^rclone\\.version$/"],
+      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+(?<currentValue>v\\S+)"]
+    }
+  ],
   "packageRules": [
     {
       "groupName": "NUnit",
       "matchPackageNames": ["NUnit", "NUnit.*", "NUnit3TestAdapter"]
+    },
+    {
+      // rclone's behaviour can change between releases in ways CI doesn't catch yet, so its updates wait for review
+      "matchDepNames": ["rclone/rclone"],
+      "automerge": false
     }
   ]
 }

@@ -26,6 +26,7 @@ dotnet format style OpenBackupManager.slnx --severity info
 dotnet format analyzers OpenBackupManager.slnx
 ```
 
+- The first build downloads rclone and checks its signature, so it needs internet access. After that it's cached; see [Bundled rclone](docs/design/rclone-bundling.md).
 - Run `git config core.hooksPath .githooks` once per clone. The hooks then format staged C# files and turn AI tools' `Co-authored-by` trailers into `Assisted-by`.
 - Style is auto-fixed, so style rules are suggestions. Rules that can't be auto-fixed, such as naming, are warnings, and warnings are errors.
 - Fix warnings rather than suppress them. When suppressing is right, add a comment saying why: a `#pragma` for a one-off case, or `.editorconfig` for a rule that doesn't fit the project.
