@@ -26,6 +26,7 @@ dotnet format style OpenBackupManager.slnx --severity info
 dotnet format analyzers OpenBackupManager.slnx
 ```
 
+- On macOS and Linux, the solution leaves out the Windows-only projects, which have `.Windows` in their names, because WinUI only builds on Windows.
 - The first build downloads rclone and checks its signature, so it needs internet access. After that it's cached; see [Bundled rclone](docs/design/rclone-bundling.md).
 - Run `git config core.hooksPath .githooks` once per clone. The hooks then format staged C# files and turn AI tools' `Co-authored-by` trailers into `Assisted-by`.
 - Style is auto-fixed, so style rules are suggestions. Rules that can't be auto-fixed, such as naming, are warnings, and warnings are errors.
