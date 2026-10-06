@@ -8,5 +8,8 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <!-- Releases set the version from their tag -->
     <Version>0.0.0</Version>
+    <CopyrightYears>2026</CopyrightYears>
+    <CopyrightYears Condition="$([System.DateTime]::UtcNow.Year) &gt; 2026">2026&#x2013;$([System.DateTime]::UtcNow.Year)</CopyrightYears>
+    <Copyright>© $(CopyrightYears) Amy Jeanes</Copyright>
   </PropertyGroup>
 </Project>

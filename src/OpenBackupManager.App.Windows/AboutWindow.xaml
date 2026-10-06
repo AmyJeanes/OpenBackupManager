@@ -45,9 +45,9 @@
       <HyperlinkButton Content="Third-party notices" NavigateUri="https://github.com/AmyJeanes/OpenBackupManager/blob/main/THIRD-PARTY-NOTICES.md" />
     </StackPanel>
     <TextBlock
+      x:Name="CopyrightText"
       HorizontalAlignment="Center"
       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-      Style="{StaticResource CaptionTextBlockStyle}"
-      Text="© 2026 Amy Jeanes" />
+      Style="{StaticResource CaptionTextBlockStyle}" />
   </StackPanel>
 </Window>

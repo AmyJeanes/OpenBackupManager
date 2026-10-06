@@ -26,6 +26,7 @@ public sealed partial class AboutWindow : Window
         Title = "About " + Program.AppName;
         NameText.Text = Program.AppName;
         VersionText.Text = "Version " + Version() + (updater.IsTestSource ? " (test updates)" : "");
+        CopyrightText.Text = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright;
         ShowUpdateButton();
         if (updater.CanUpdate)
         {
