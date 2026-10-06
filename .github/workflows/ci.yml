@@ -155,6 +155,7 @@ jobs:
           --mainExe OpenBackupManager.App.Windows.exe
           --icon src/OpenBackupManager.App.Windows/Assets/AppIcon.ico
           --shortcuts StartMenuRoot
+          --noPortable
           --runtime $RUNTIME
           --channel $RUNTIME
           --outputDir releases

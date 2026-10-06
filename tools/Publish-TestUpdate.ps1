@@ -55,6 +55,7 @@ $packArgs = @(
     '--mainExe', 'OpenBackupManager.App.Windows.exe'
     '--icon', (Join-Path $root 'src/OpenBackupManager.App.Windows/Assets/AppIcon.ico')
     '--shortcuts', 'StartMenuRoot'
+    '--noPortable'
     '--runtime', $Runtime
     '--channel', $Runtime
     '--outputDir', $feed
