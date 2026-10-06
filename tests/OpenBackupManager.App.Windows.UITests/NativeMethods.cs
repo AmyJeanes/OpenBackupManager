@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Input;
@@ -27,9 +28,23 @@ internal static class NativeMethods
         Keyboard.Press(VirtualKeyShort.ALT);
         _ = PInvoke.SetForegroundWindow(hwnd);
         Keyboard.Release(VirtualKeyShort.ALT);
-        if (PInvoke.GetForegroundWindow() != hwnd)
+        var foreground = PInvoke.GetForegroundWindow();
+        if (foreground != hwnd)
         {
-            throw new InvalidOperationException("Couldn't bring the window to the front");
+            throw new InvalidOperationException($"Couldn't bring the window to the front, which {ProcessName(foreground)} has");
+        }
+    }
+
+    private static string ProcessName(HWND hwnd)
+    {
+        _ = PInvoke.GetWindowThreadProcessId(hwnd, out var id);
+        try
+        {
+            return Process.GetProcessById((int)id).ProcessName;
+        }
+        catch (ArgumentException)
+        {
+            return "a process that has exited";
         }
     }
 

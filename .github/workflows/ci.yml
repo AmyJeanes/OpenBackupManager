@@ -43,6 +43,11 @@ jobs:
       - name: Build
         run: dotnet build OpenBackupManager.slnx
 
+      - name: Clear the desktop
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./.github/scripts/Clear-Desktop.ps1
+
       - name: Test
         run: dotnet test OpenBackupManager.slnx --no-build
 
