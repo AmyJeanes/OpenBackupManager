@@ -11,6 +11,8 @@
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <!-- Default to this machine's runtime, which the self-contained Windows App SDK needs -->
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
+    <!-- CsWin32's generated Windows API code uses pointers -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <!-- XAML code-behind for C# Dev Kit's IntelliSense until https://github.com/microsoft/vscode-dotnettools/issues/2990 is fixed -->
@@ -22,6 +24,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" />
     <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
+    <PackageReference Include="Microsoft.Windows.CsWin32" />
     <PackageReference Include="WinUIEx" />
   </ItemGroup>
 

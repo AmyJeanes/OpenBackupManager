@@ -10,5 +10,6 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
+        FirstDraw.HideUntilDrawn(this);
     }
 }
