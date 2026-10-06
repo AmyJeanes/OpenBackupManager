@@ -1,5 +1,7 @@
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.Windows.AppLifecycle;
 using WinUIEx;
 
 namespace OpenBackupManager.App.Windows;
@@ -20,6 +22,9 @@ public sealed partial class App : Application, IDisposable
     {
         _tray = new Tray(Open, Quit);
         _tray.ShowFlyout();
+        // Raised off the UI thread when the app is launched again
+        var dispatcher = DispatcherQueue.GetForCurrentThread();
+        AppInstance.GetCurrent().Activated += (_, _) => dispatcher.TryEnqueue(_tray.ShowFlyout);
     }
 
     // Windows are created when opened and destroyed when closed, so the app stays small while it sits in the tray

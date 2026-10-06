@@ -11,6 +11,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 - The app icon, `Assets/AppIcon.ico`, is used for the exe, the window and its taskbar button. It's full colour, so one version has to read on both light and dark taskbars.
 - The tray icon is single-colour and shows one of five states: idle, syncing, paused, needs attention and error. Each state has an SVG for a light taskbar and one for a dark taskbar in `Assets/Tray/`, and the icon switches when the Windows mode changes.
 - Launching the app opens the status flyout rather than the main window, which is the full view and opens from Open. Closing the window destroys it, and the tray keeps the app running. Quit removes the tray icon and exits.
+- Only one copy runs. Launching the app again hands over to the running copy, which opens its flyout, and the new copy exits.
 
 ## Why
 
@@ -18,6 +19,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 - **WinUIEx for the tray icon.** WinUI has none of its own. WinUIEx's needs no window, takes any WinUI flyout as its menu, and accepts SVG icons. H.NotifyIcon was the alternative, but WinUIEx did everything we needed and its window helpers are useful elsewhere too.
 - **CsWin32 for the Windows APIs that WinUI and WinUIEx don't cover.** It generates the declarations, structs and constants from Windows' own metadata for the names in `NativeMethods.txt`, which is Microsoft's recommended way to call them, so `NativeMethods.cs` only holds our helpers.
 - **A double-click doesn't wait to rule out a single click.** Waiting for the double-click time (500 ms by default) would slow every flyout open, which otherwise takes about 20 ms. The first click opens the flyout, and the double-click opens the main window, which takes focus and closes it.
+- **One copy through the Windows App SDK's `AppInstance`, not a named mutex.** A mutex only tells the new copy that another is running, while `AppInstance` also hands the launch over so the running copy can open its flyout. `Program.cs` replaces WinUI's generated `Main` so the check happens before anything is created. The new copy has to pass its right to take focus to the running copy, since Windows only gives it to the app the user just launched.
 - **Windows are destroyed when closed, not hidden,** so the app stays small while it sits in the tray.
 - **The tray icon and flyout follow the taskbar's theme, not the app's.** Windows lets the taskbar (Windows mode) and apps (app mode) differ, and both belong to the taskbar. Windows' own tray flyouts and EarTrumpet's do the same.
 - **The flyout uses Windows' blur with one colour over it, not WinUI's acrylic.** WinUI's acrylic adds a luminosity layer that turns dark backgrounds solid black or makes light ones too pale. The colours (`#232323` at 77% for dark, `#E3E3E3` at 86% for light) were measured from EarTrumpet's flyout over black and white, which reads well on any background.
@@ -43,3 +45,4 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 - 150% scaling on the display with the taskbar, both switched while the app is running and at launch, with another display at a different scaling.
 - The tray icon on the taskbar, in the hidden icons popup, and near each end of the taskbar.
 - Clicking the icon while the flyout is open, Esc, double-click, and opening the main window from the flyout.
+- Launching the app again from the Start menu while it's running, with the main window open and closed: the flyout should open and take focus.

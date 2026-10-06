@@ -1,3 +1,4 @@
+AllowSetForegroundWindow
 DwmFlush
 DwmSetWindowAttribute
 EnumThreadWindows
