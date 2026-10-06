@@ -81,3 +81,7 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 1. Push a tag such as `v0.1.0`, or `v0.1.0-alpha.1` for a prerelease.
 2. CI's release job builds x64 and ARM64, packs each with Velopack, and uploads them to a draft release called `Release v0.1.0`, marked as a prerelease if the version has a `-`.
 3. Write the notes and publish the draft. Installed copies only see published releases, so nobody updates until then.
+
+The repository makes published releases immutable, so a broken release is replaced by a new version, never patched, and a release job can only be re-run before publishing.
+
+To try the release job itself, tag throwaway prereleases such as `v0.0.2-test.1` and `v0.0.2-test.2`, with a version number never used before, since an old tag name may not be reusable and copies that installed it wouldn't update to it again. Delete the releases and their tags afterwards.
