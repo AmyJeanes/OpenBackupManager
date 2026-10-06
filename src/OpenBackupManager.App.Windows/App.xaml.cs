@@ -10,7 +10,9 @@ public sealed partial class App : Application, IDisposable
 {
     private Notifications? _notifications;
     private Tray? _tray;
+    private Updater? _updater;
     private MainWindow? _window;
+    private AboutWindow? _about;
 
     public App()
     {
@@ -21,8 +23,9 @@ public sealed partial class App : Application, IDisposable
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _notifications = new Notifications(Open);
-        _tray = new Tray(Open, Quit);
+        _notifications = new Notifications(Open, RestartToUpdate);
+        _updater = new Updater(Program.Home, Notifications.ShowUpdateReady, Notifications.ShowUpdated);
+        _tray = new Tray(Open, About, Quit);
         if (!_notifications.HandleLaunch())
         {
             _tray.ShowFlyout();
@@ -42,18 +45,35 @@ public sealed partial class App : Application, IDisposable
             _window.Closed += (_, _) => _window = null;
         }
 
-        if (_window.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
+        Show(_window);
+    }
+
+    private void About()
+    {
+        if (_about is null)
+        {
+            _about = new AboutWindow(_updater!, RestartToUpdate);
+            _about.Closed += (_, _) => _about = null;
+        }
+
+        Show(_about);
+    }
+
+    private static void Show(Window window)
+    {
+        if (window.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
         {
             presenter.Restore();
         }
 
-        _window.Activate();
+        window.Activate();
         // Bring app to the front if it was already open behind other windows
-        _window.SetForegroundWindow();
+        window.SetForegroundWindow();
     }
 
     public void Dispose()
     {
+        _updater?.Dispose();
         _notifications?.Dispose();
         _tray?.Dispose();
     }
@@ -61,6 +81,18 @@ public sealed partial class App : Application, IDisposable
     private void Quit()
     {
         Dispose();
+        _updater?.UpdateOnExit();
         Exit();
+    }
+
+    private void RestartToUpdate()
+    {
+        if (_updater is not { UpdateReady: true })
+        {
+            return;
+        }
+
+        Dispose();
+        _updater.RestartToUpdate();
     }
 }

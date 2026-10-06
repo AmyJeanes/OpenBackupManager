@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - renovate/*
+    tags:
+      - v*
   pull_request:
     branches: [main]
   workflow_dispatch: {}
@@ -84,6 +86,90 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::error::Some files aren't formatted: the run summary shows the changes and how to fix them"
           exit 1
+
+  # Each architecture is its own Velopack channel, so an install only updates to its own build. Both go into one
+  # draft release, which is published by hand once its notes are written
+  release:
+    name: Release (${{ matrix.runtime }})
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, format]
+    runs-on: windows-latest
+    permissions:
+      contents: write # Creates the draft release
+    strategy:
+      max-parallel: 1 # One at a time, so the second adds to the draft the first created
+      matrix:
+        runtime: [win-x64, win-arm64]
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+      RUNTIME: ${{ matrix.runtime }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Work out the version
+        run: |
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+          # A version with a '-', such as 0.1.0-alpha.1, is a prerelease
+          if [[ $TAG == *-* ]]; then echo "PRERELEASE=--pre" >> "$GITHUB_ENV"; fi
+
+      - name: Publish
+        run: >
+          dotnet publish src/OpenBackupManager.App.Windows
+          --configuration Release
+          --runtime $RUNTIME
+          --self-contained
+          -p:Version=$VERSION
+          --output publish
+
+      # So the update from it to this one can be a small delta
+      - name: Download the previous release
+        run: >
+          dotnet vpk download github
+          --repoUrl $REPO_URL
+          --token $GH_TOKEN
+          --channel $RUNTIME
+          $PRERELEASE
+          --outputDir releases
+
+      - name: Pack
+        run: >
+          dotnet vpk pack
+          --packId OpenBackupManager.App
+          --packVersion $VERSION
+          --packTitle OpenBackupManager
+          --packAuthors "Amy Jeanes"
+          --packDir publish
+          --mainExe OpenBackupManager.App.Windows.exe
+          --icon src/OpenBackupManager.App.Windows/Assets/AppIcon.ico
+          --shortcuts StartMenuRoot
+          --runtime $RUNTIME
+          --channel $RUNTIME
+          --outputDir releases
+
+      - name: Upload to the draft release
+        run: >
+          dotnet vpk upload github
+          --repoUrl $REPO_URL
+          --token $GH_TOKEN
+          --channel $RUNTIME
+          $PRERELEASE
+          --tag $TAG
+          --releaseName "Release $TAG"
+          --merge
+          --outputDir releases
 
   all-checks:
     name: All checks

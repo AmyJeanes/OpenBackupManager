@@ -7,6 +7,8 @@
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Without it, publishing leaves out the app's compiled XAML resources, and the published app can't start -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <!-- Default to this machine's runtime, which the self-contained Windows App SDK needs -->
@@ -27,6 +29,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" />
     <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
     <PackageReference Include="Microsoft.Windows.CsWin32" />
+    <PackageReference Include="Velopack" />
     <PackageReference Include="WinUIEx" />
   </ItemGroup>
 

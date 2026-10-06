@@ -14,13 +14,15 @@ public sealed partial class Tray : IDisposable
     private readonly UISettings _uiSettings = new();
     private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
     private readonly Action _open;
+    private readonly Action _about;
     private readonly Action _quit;
     private readonly StatusFlyout _flyout;
     private bool _skipClick;
 
-    public Tray(Action open, Action quit)
+    public Tray(Action open, Action about, Action quit)
     {
         _open = open;
+        _about = about;
         _quit = quit;
         _flyout = new StatusFlyout(open, IconId);
         _flyout.Update(Status(State), TaskbarIsLight());
@@ -99,6 +101,7 @@ public sealed partial class Tray : IDisposable
         menu.Items.Add(states);
 #endif
         menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(Item("About", _about));
         menu.Items.Add(Item("Quit", _quit));
         return menu;
     }
@@ -119,7 +122,7 @@ public sealed partial class Tray : IDisposable
     private static bool TaskbarIsLight() =>
         Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme", 0) is 1;
 
-    private static string Tooltip(TrayState state) => "OpenBackupManager\n" + Status(state);
+    private static string Tooltip(TrayState state) => Program.AppName + "\n" + Status(state);
 
     private static string Status(TrayState state) => state switch
     {

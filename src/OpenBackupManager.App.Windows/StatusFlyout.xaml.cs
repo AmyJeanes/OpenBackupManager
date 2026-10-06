@@ -32,6 +32,7 @@ public sealed partial class StatusFlyout : Window
     public StatusFlyout(Action open, uint trayIconId)
     {
         InitializeComponent();
+        Caption.Text = Program.AppName;
         _open = open;
         _trayIconId = trayIconId;
         SystemBackdrop = new BlurBehind();

@@ -18,9 +18,9 @@
     </Grid.RowDefinitions>
 
     <TextBlock
+      x:Name="Caption"
       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-      Style="{StaticResource CaptionTextBlockStyle}"
-      Text="OpenBackupManager" />
+      Style="{StaticResource CaptionTextBlockStyle}" />
 
     <TextBlock
       x:Name="StatusText"

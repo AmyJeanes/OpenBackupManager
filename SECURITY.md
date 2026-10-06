@@ -1,5 +1,9 @@
 # Security
 
+## Supported versions
+
+Only the latest release gets fixes. The app updates itself, so staying on it needs nothing from you.
+
 ## Reporting a vulnerability
 
 Report vulnerabilities privately through GitHub: [report a vulnerability](https://github.com/AmyJeanes/OpenBackupManager/security/advisories/new). Please don't open a public issue. If you can't use GitHub, email openbackupmanager@amyjeanes.com.

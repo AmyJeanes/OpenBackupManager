@@ -23,6 +23,11 @@
       "matchPackageNames": ["NUnit", "NUnit.*", "NUnit3TestAdapter"]
     },
     {
+      // vpk warns when it packs an app built with a different Velopack version
+      "groupName": "Velopack",
+      "matchPackageNames": ["Velopack", "vpk"]
+    },
+    {
       "groupName": "Windows App SDK",
       "matchPackageNames": ["Microsoft.WindowsAppSDK.*"]
     },
