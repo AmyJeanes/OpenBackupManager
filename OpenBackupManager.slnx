@@ -5,6 +5,7 @@
     <Project Path="src/OpenBackupManager.Rclone/OpenBackupManager.Rclone.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/OpenBackupManager.App.Windows.Tests/OpenBackupManager.App.Windows.Tests.csproj" />
     <Project Path="tests/OpenBackupManager.Core.Tests/OpenBackupManager.Core.Tests.csproj" />
     <Project Path="tests/OpenBackupManager.Rclone.Tests/OpenBackupManager.Rclone.Tests.csproj" />
   </Folder>

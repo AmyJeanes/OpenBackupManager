@@ -1,2 +1,8 @@
 DwmFlush
 DwmSetWindowAttribute
+EnumThreadWindows
+FindWindow
+GetCurrentThreadId
+GetDpiForMonitor
+SetWindowPos
+Shell_NotifyIconGetRect

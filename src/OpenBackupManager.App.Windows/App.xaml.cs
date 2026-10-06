@@ -19,7 +19,7 @@ public sealed partial class App : Application, IDisposable
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         _tray = new Tray(Open, Quit);
-        Open();
+        _tray.ShowFlyout();
     }
 
     // Windows are created when opened and destroyed when closed, so the app stays small while it sits in the tray

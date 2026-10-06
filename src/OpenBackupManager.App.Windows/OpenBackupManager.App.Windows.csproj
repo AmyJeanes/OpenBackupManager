@@ -32,4 +32,8 @@
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenBackupManager.App.Windows.Tests" />
+  </ItemGroup>
+
 </Project>
