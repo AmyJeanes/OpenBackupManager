@@ -12,6 +12,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 - The tray icon is single-colour and shows one of five states: idle, syncing, paused, needs attention and error. Each state has an SVG for a light taskbar and one for a dark taskbar in `Assets/Tray/`, and the icon switches when the Windows mode changes.
 - Launching the app opens the status flyout rather than the main window, which is the full view and opens from Open. Closing the window destroys it, and the tray keeps the app running. Quit removes the tray icon and exits.
 - Only one copy runs. Launching the app again hands over to the running copy, which opens its flyout, and the new copy exits.
+- `Notifications` shows Windows notifications through the Windows App SDK's `AppNotificationManager`. Clicking one or its buttons comes back to the running app, or starts it if it isn't running. Started that way, it does what the click asked for, such as opening the main window, and doesn't open the flyout. For now the tray menu has Show test notification, a placeholder sync failure whose View details button opens the main window, as does clicking the notification itself.
 
 ## Why
 
@@ -20,6 +21,8 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 - **CsWin32 for the Windows APIs that WinUI and WinUIEx don't cover.** It generates the declarations, structs and constants from Windows' own metadata for the names in `NativeMethods.txt`, which is Microsoft's recommended way to call them, so `NativeMethods.cs` only holds our helpers.
 - **A double-click doesn't wait to rule out a single click.** Waiting for the double-click time (500 ms by default) would slow every flyout open, which otherwise takes about 20 ms. The first click opens the flyout, and the double-click opens the main window, which takes focus and closes it.
 - **One copy through the Windows App SDK's `AppInstance`, not a named mutex.** A mutex only tells the new copy that another is running, while `AppInstance` also hands the launch over so the running copy can open its flyout. `Program.cs` replaces WinUI's generated `Main` so the check happens before anything is created. The new copy has to pass its right to take focus to the running copy, since Windows only gives it to the app the user just launched.
+- **Notifications are registered with the app's name and icon.** Without them, Windows labels them with the exe's name, OpenBackupManager.App.Windows. The click handler is attached before registering, or Windows starts another copy of the app for each click.
+- **Notifications are made with the Windows App SDK's builder, and have no Dismiss button.** The builder escapes text such as folder names, and every notification already has a close button. A Dismiss button needs hand-written toast XML to stop it starting the app.
 - **Windows are destroyed when closed, not hidden,** so the app stays small while it sits in the tray.
 - **The tray icon and flyout follow the taskbar's theme, not the app's.** Windows lets the taskbar (Windows mode) and apps (app mode) differ, and both belong to the taskbar. Windows' own tray flyouts and EarTrumpet's do the same.
 - **The flyout uses Windows' blur with one colour over it, not WinUI's acrylic.** WinUI's acrylic adds a luminosity layer that turns dark backgrounds solid black or makes light ones too pale. The colours (`#232323` at 77% for dark, `#E3E3E3` at 86% for light) were measured from EarTrumpet's flyout over black and white, which reads well on any background.
@@ -34,6 +37,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 - **On Windows 10, Mica falls back to a plain background.** Mica is Windows 11 only.
 - **The first time the flyout opens after launch, its slide can stutter.** Warming it up fully would mean activating it at startup, which would take focus from whatever the user is doing.
 - **The main window opens without Windows' zoom animation.** Windows plays it when a window is shown, while the window is still blank, and uncloaking doesn't animate.
+- **The build takes one DLL from the Windows App SDK runtime's MSIX.** Registering for notifications loads `Microsoft.WindowsAppRuntime.Insights.Resource.dll`, which is only shipped inside that MSIX, so a self-contained app fails without it ([microsoft/WindowsAppSDK#6774](https://github.com/microsoft/WindowsAppSDK/issues/6774)). The project unzips it from the `Microsoft.WindowsAppSDK.Runtime` package until a fixed release is out.
 - **From the hidden icons popup, the flyout opens behind the popup.** The flyout sits just below the taskbar in the stacking order so it slides out from behind it, and the popup sits above the taskbar. OneDrive's flyout does the same.
 
 ## Checking by hand
@@ -46,3 +50,4 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 - The tray icon on the taskbar, in the hidden icons popup, and near each end of the taskbar.
 - Clicking the icon while the flyout is open, Esc, double-click, and opening the main window from the flyout.
 - Launching the app again from the Start menu while it's running, with the main window open and closed: the flyout should open and take focus.
+- The test notification's name and icon, View details, and View details from the notification centre after Quit, which should start the app with the main window and no flyout.

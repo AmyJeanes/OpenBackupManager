@@ -8,6 +8,7 @@ namespace OpenBackupManager.App.Windows;
 
 public sealed partial class App : Application, IDisposable
 {
+    private Notifications? _notifications;
     private Tray? _tray;
     private MainWindow? _window;
 
@@ -20,8 +21,13 @@ public sealed partial class App : Application, IDisposable
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        _notifications = new Notifications(Open);
         _tray = new Tray(Open, Quit);
-        _tray.ShowFlyout();
+        if (!_notifications.HandleLaunch())
+        {
+            _tray.ShowFlyout();
+        }
+
         // Raised off the UI thread when the app is launched again
         var dispatcher = DispatcherQueue.GetForCurrentThread();
         AppInstance.GetCurrent().Activated += (_, _) => dispatcher.TryEnqueue(_tray.ShowFlyout);
@@ -46,7 +52,11 @@ public sealed partial class App : Application, IDisposable
         _window.SetForegroundWindow();
     }
 
-    public void Dispose() => _tray?.Dispose();
+    public void Dispose()
+    {
+        _notifications?.Dispose();
+        _tray?.Dispose();
+    }
 
     private void Quit()
     {

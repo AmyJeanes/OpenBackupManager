@@ -34,6 +34,24 @@
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Registering for notifications needs a DLL that only ships inside the runtime's MSIX, so it's taken from there.
+       Remove once the fix for https://github.com/microsoft/WindowsAppSDK/issues/6774 is released -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" ExcludeAssets="all" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <Target Name="AddInsightsResource" BeforeTargets="AssignTargetPaths">
+    <PropertyGroup>
+      <InsightsResource>Microsoft.WindowsAppRuntime.Insights.Resource.dll</InsightsResource>
+    </PropertyGroup>
+    <Unzip SourceFiles="$(PkgMicrosoft_WindowsAppSDK_Runtime)\tools\MSIX\$(RuntimeIdentifier.Replace('win-', 'win10-'))\Microsoft.WindowsAppRuntime.2.msix"
+           DestinationFolder="$(IntermediateOutputPath)" Include="$(InsightsResource)" SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <None Include="$(IntermediateOutputPath)$(InsightsResource)" Link="$(InsightsResource)"
+            CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <InternalsVisibleTo Include="OpenBackupManager.App.Windows.Tests" />
   </ItemGroup>
