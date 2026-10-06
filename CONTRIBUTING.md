@@ -34,6 +34,7 @@ dotnet format analyzers OpenBackupManager.slnx
 - Fix warnings rather than suppress them. When suppressing is right, add a comment saying why: a `#pragma` for a one-off case, or `.editorconfig` for a rule that doesn't fit the project.
 - Log messages, error messages and code comments don't end with a full stop. A longer one can have full stops between its sentences, just not after the last.
 - Package versions live in `Directory.Packages.props`.
+- The Windows UI tests start the app and press keys, so leave the mouse and keyboard alone while they run. The elements they look for need an `x:Name`, which UI Automation reports as the element's ID; `AutomationProperties.AutomationId` is only for elements without one.
 
 ## Commits
 
