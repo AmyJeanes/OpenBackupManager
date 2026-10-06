@@ -34,6 +34,17 @@ public sealed partial class App : Application, IDisposable
         // Raised off the UI thread when the app is launched again
         var dispatcher = DispatcherQueue.GetForCurrentThread();
         AppInstance.GetCurrent().Activated += (_, _) => dispatcher.TryEnqueue(_tray.ShowFlyout);
+
+        // A window app gets no Ctrl+C from the terminal that started it, and dotnet run waits for it to exit. Only for
+        // dev builds, since closing the terminal also closes an attached app
+        if (!Program.Installed && NativeMethods.AttachToParentConsole())
+        {
+            Console.CancelKeyPress += (_, e) =>
+            {
+                e.Cancel = true;
+                dispatcher.TryEnqueue(Quit);
+            };
+        }
     }
 
     // Windows are created when opened and destroyed when closed, so the app stays small while it sits in the tray

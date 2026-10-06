@@ -29,6 +29,9 @@ internal static class NativeMethods
         return dpi / 96.0;
     }
 
+    // False when the app wasn't started from a terminal
+    public static bool AttachToParentConsole() => PInvoke.AttachConsole(PInvoke.ATTACH_PARENT_PROCESS);
+
     // Waits until Windows has next updated the screen
     public static void DwmFlush() => _ = PInvoke.DwmFlush();
 

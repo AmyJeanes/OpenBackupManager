@@ -16,6 +16,8 @@ public static class Program
 
     internal static string Home { get; private set; } = "";
 
+    internal static bool Installed { get; private set; }
+
     [STAThread]
     private static void Main(string[] args)
     {
@@ -24,8 +26,8 @@ public static class Program
             .OnBeforeUninstallFastCallback(_ => AppNotificationManager.Default.UnregisterAll())
             .Run();
         WinRT.ComWrappersSupport.InitializeComWrappers();
-        var installed = VelopackLocator.Current.CurrentlyInstalledVersion is not null;
-        if (!installed)
+        Installed = VelopackLocator.Current.CurrentlyInstalledVersion is not null;
+        if (!Installed)
         {
             AppName += " (dev)";
         }
@@ -33,7 +35,7 @@ public static class Program
         Home = AppHome.Resolve(
             args,
             Environment.GetEnvironmentVariable("OBM_HOME"),
-            installed,
+            Installed,
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
         // Off the UI thread, as Microsoft's single-instance guidance does, so the UI thread never blocks on the handover
         if (Task.Run(() => HandOverToRunningCopy(AppHome.InstanceKey(Home))).Result)

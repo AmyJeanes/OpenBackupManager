@@ -1,4 +1,6 @@
 AllowSetForegroundWindow
+AttachConsole
+ATTACH_PARENT_PROCESS
 DwmFlush
 DwmSetWindowAttribute
 EnumThreadWindows
