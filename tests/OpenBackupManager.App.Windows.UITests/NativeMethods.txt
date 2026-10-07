@@ -1,4 +1,8 @@
 DwmGetWindowAttribute
+EnumWindows
+GetAncestor
+GetDoubleClickTime
 GetForegroundWindow
 GetWindowThreadProcessId
 SetForegroundWindow
+Shell_NotifyIconGetRect

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Input;
@@ -6,6 +7,8 @@ using FlaUI.Core.WindowsAPI;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
+using Windows.Win32.UI.Shell;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
@@ -35,12 +38,38 @@ internal static class NativeMethods
         }
     }
 
+    public static nint TopLevelWindow(AutomationElement element) => PInvoke.GetAncestor(Handle(element), GET_ANCESTOR_FLAGS.GA_ROOT);
+
+    public static int ProcessId(nint hwnd)
+    {
+        _ = PInvoke.GetWindowThreadProcessId((HWND)hwnd, out var id);
+        return (int)id;
+    }
+
+    // Windows identifies a tray icon by the window that owns it and its ID, so this asks with each of the process's
+    // windows until one owns it. Unlike the icon's name, that can't match an icon left behind by a copy that was ended
+    public static Rectangle? TrayIconBounds(int processId, uint id)
+    {
+        Rectangle? bounds = null;
+        _ = PInvoke.EnumWindows((hwnd, _) =>
+        {
+            var icon = new NOTIFYICONIDENTIFIER { cbSize = (uint)Marshal.SizeOf<NOTIFYICONIDENTIFIER>(), hWnd = hwnd, uID = id };
+            if (ProcessId(hwnd) != processId || PInvoke.Shell_NotifyIconGetRect(in icon, out var rect).Failed)
+            {
+                return true;
+            }
+
+            bounds = new Rectangle(rect.left, rect.top, rect.Width, rect.Height);
+            return false;
+        }, default);
+        return bounds;
+    }
+
     private static string ProcessName(HWND hwnd)
     {
-        _ = PInvoke.GetWindowThreadProcessId(hwnd, out var id);
         try
         {
-            return Process.GetProcessById((int)id).ProcessName;
+            return Process.GetProcessById(ProcessId(hwnd)).ProcessName;
         }
         catch (ArgumentException)
         {
@@ -48,5 +77,5 @@ internal static class NativeMethods
         }
     }
 
-    private static HWND Handle(Window window) => (HWND)window.Properties.NativeWindowHandle.Value;
+    private static HWND Handle(AutomationElement element) => (HWND)element.Properties.NativeWindowHandle.Value;
 }
