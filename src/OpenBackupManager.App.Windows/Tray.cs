@@ -54,7 +54,12 @@ public sealed partial class Tray : IDisposable
             return;
         }
 
-        ShowFlyout();
+        // Clicking the icon while the flyout is open should only close it. Pressing the icon gives the taskbar focus,
+        // which hides the flyout, and the click then arrives on release, so a click just after it hides is that one
+        if (!_flyout.JustHidden)
+        {
+            ShowFlyout();
+        }
     }
 
     // The first click has already opened the flyout, which closes when the window takes focus.

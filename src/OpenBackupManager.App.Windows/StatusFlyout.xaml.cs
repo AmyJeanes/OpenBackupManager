@@ -73,15 +73,10 @@ public sealed partial class StatusFlyout : Window
         UpdateBackground();
     }
 
+    public bool JustHidden => Environment.TickCount64 - _hiddenAt < 300;
+
     public void Show()
     {
-        // Clicking the tray icon while the flyout is open should only close it. Pressing the icon gives the taskbar focus,
-        // which hides the flyout, and the click then arrives on release, so a click just after hiding is that one
-        if (Environment.TickCount64 - _hiddenAt < 300)
-        {
-            return;
-        }
-
         if (!_drawn)
         {
             _showWhenDrawn = true;
