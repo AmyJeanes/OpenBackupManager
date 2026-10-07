@@ -9,7 +9,12 @@ on:
       - v*
   pull_request:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      windows-only:
+        description: Only test on Windows
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -25,13 +30,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - windows-latest
-          - windows-11-arm
-          - ubuntu-latest
-          - ubuntu-24.04-arm
-          - macos-latest
-          - macos-26-intel
+        os: >-
+          ${{ fromJSON(inputs.windows-only
+            && '["windows-latest", "windows-11-arm"]'
+            || '["windows-latest", "windows-11-arm", "ubuntu-latest", "ubuntu-24.04-arm", "macos-latest", "macos-26-intel"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -49,7 +51,15 @@ jobs:
         run: ./.github/scripts/Clear-Desktop.ps1
 
       - name: Test
-        run: dotnet test OpenBackupManager.slnx --no-build
+        run: dotnet test OpenBackupManager.slnx --no-build --results-directory TestResults --logger trx
+
+      # With the UI tests' screenshots of the screen when they failed
+      - name: Upload the test results
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-${{ matrix.os }}
+          path: TestResults
 
   format:
     name: Format
