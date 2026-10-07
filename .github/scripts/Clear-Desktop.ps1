@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
-Closes the windows GitHub's Windows runners leave holding the foreground, so the UI tests' app can take it.
-Remove once https://github.com/actions/runner-images/issues/14069 is fixed.
+Closes the windows GitHub's Windows runners leave holding the foreground, and stops WSL's update prompt opening
+later, so the UI tests' app can take it. Remove once https://github.com/actions/runner-images/issues/14069 and
+https://github.com/actions/runner-images/issues/14264 are fixed.
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -16,6 +17,16 @@ public static class Desktop
     [DllImport("user32.dll")] public static extern void keybd_event(byte key, byte scan, uint flags, IntPtr extra);
 }
 '@
+
+# The runner's agent runs wsl.exe every 30 seconds, and where WSL can't run, as on the ARM64 image, that sometimes
+# opens WSL's update prompt, which takes the foreground mid-test. This has Windows start a stub that does nothing in
+# its place, set in both registry views since a 32-bit process reads its own.
+# https://github.com/actions/runner-images/issues/14264
+foreach ($software in 'SOFTWARE', 'SOFTWARE\WOW6432Node') {
+    $wslOptions = "HKLM:\$software\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\wsl.exe"
+    New-Item $wslOptions -Force | Out-Null
+    Set-ItemProperty $wslOptions Debugger "$env:SystemRoot\System32\systray.exe"
+}
 
 function Get-ForegroundProcess {
     $id = 0
