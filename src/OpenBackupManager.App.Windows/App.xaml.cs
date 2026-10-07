@@ -26,7 +26,7 @@ public sealed partial class App : Application, IDisposable
         _notifications = new Notifications(Open, RestartToUpdate);
         _updater = new Updater(Program.Home, Notifications.ShowUpdateReady, Notifications.ShowUpdated);
         _tray = new Tray(Open, About, Quit);
-        if (!_notifications.HandleLaunch())
+        if (!Notifications.StartedByClick)
         {
             _tray.ShowFlyout();
         }

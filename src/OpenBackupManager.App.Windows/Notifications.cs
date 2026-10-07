@@ -1,8 +1,9 @@
-using System.Security;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.UI.Dispatching;
-using Microsoft.Windows.AppLifecycle;
-using Microsoft.Windows.AppNotifications;
-using Microsoft.Windows.AppNotifications.Builder;
+using Microsoft.Win32;
+using Windows.Data.Xml.Dom;
+using Windows.UI.Notifications;
 
 namespace OpenBackupManager.App.Windows;
 
@@ -12,64 +13,81 @@ public sealed class Notifications : IDisposable
     private const string ViewDetails = "viewDetails";
     private const string Restart = "restart";
 
+    // Windows groups notifications by the app's ID. Velopack gives the installed app its Start menu shortcut's ID,
+    // and a copy that wasn't installed gets one from its path, so copies in different folders keep their own
+    private static readonly string AppId = NativeMethods.ExplicitAppId()
+        ?? "OpenBackupManager.Dev." + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Environment.ProcessPath!.ToUpperInvariant())))[..16];
+
+    // The activator's COM class, made from the app's ID so each copy keeps the same one
+    private static readonly Guid ActivatorId = new(SHA256.HashData(Encoding.UTF8.GetBytes(AppId))[..16]);
+
     private readonly Action _open;
     private readonly Action _restartToUpdate;
     private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
+    private readonly uint _activator;
 
     public Notifications(Action open, Action restartToUpdate)
     {
         _open = open;
         _restartToUpdate = restartToUpdate;
-        // Subscribed before registering, or Windows starts another copy to handle each click
-        AppNotificationManager.Default.NotificationInvoked += OnInvoked;
-        // Named here, or Windows shows the exe's name
-        AppNotificationManager.Default.Register(Program.AppName, new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico")));
+        Register();
+        _activator = NotificationActivator.Register(ActivatorId, OnActivated);
     }
 
-    public static void ShowTest() => AppNotificationManager.Default.Show(new AppNotificationBuilder()
-        .AddArgument("action", ViewDetails)
-        .AddText("Sync failed")
-        .AddText("Test folder couldn't sync (test notification)")
-        .AddButton(Button("View details").AddArgument("action", ViewDetails))
-        .BuildNotification());
+    // Windows starts the app this way to deliver a click when it isn't running, and the click then reaches the activator
+    public static bool StartedByClick => Environment.GetCommandLineArgs().Contains("-Embedding");
 
-    public static void ShowUpdateReady(string version) => AppNotificationManager.Default.Show(new AppNotificationBuilder()
-        .AddText("Update available")
-        .AddText($"Version {version} is ready to install")
-        .AddButton(Button("Restart now").AddArgument("action", Restart))
-        .BuildNotification()
-        .WithDismissButton("Not now"));
+    public static void ShowTest() => Show(new Toast(ViewDetails)
+        .Text("Sync failed")
+        .Text("Test folder couldn't sync (test notification)")
+        .Button("View details", ViewDetails));
 
-    public static void ShowUpdated(string version) => AppNotificationManager.Default.Show(new AppNotificationBuilder()
-        .AddText("Update installed")
-        .AddText($"Version {version} is now installed")
-        .AddButton(Button("What's new").SetInvokeUri(new Uri($"{Updater.RepositoryUrl}/releases/tag/v{version}")))
-        .BuildNotification());
+    public static void ShowUpdateReady(string version) => Show(new Toast()
+        .Text("Update available")
+        .Text($"Version {version} is ready to install")
+        .Button("Restart now", Restart)
+        .DismissButton("Not now"));
 
-    // The builder writes a button's label into the XML without escaping it, so an apostrophe or & would break the
-    // notification. Its text lines are escaped. Remove once https://github.com/microsoft/WindowsAppSDK/issues/4996 is fixed
-    private static AppNotificationButton Button(string label) => new(SecurityElement.Escape(label));
+    public static void ShowUpdated(string version) => Show(new Toast()
+        .Text("Update installed")
+        .Text($"Version {version} is now installed")
+        .Link("What's new", new Uri($"{Updater.RepositoryUrl}/releases/tag/v{version}")));
 
-    // A click that started the app arrives with the launch rather than as an event. True if there was one
-    public bool HandleLaunch()
+    // When uninstalling, so nothing is left behind
+    public static void Unregister()
     {
-        var launch = AppInstance.GetCurrent().GetActivatedEventArgs();
-        if (launch.Kind != ExtendedActivationKind.AppNotification)
+        ToastNotificationManager.History.Clear(AppId);
+        Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\AppUserModelId\{AppId}", throwOnMissingSubKey: false);
+        Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\CLSID\{ActivatorId:B}", throwOnMissingSubKey: false);
+    }
+
+    // Clicks after this start the app again
+    public void Dispose() => NotificationActivator.Revoke(_activator);
+
+    private static void Show(Toast toast)
+    {
+        var xml = new XmlDocument();
+        xml.LoadXml(toast.ToString());
+        ToastNotificationManager.CreateToastNotifier(AppId).Show(new ToastNotification(xml));
+    }
+
+    // Written each time the app starts, so it follows the app when it moves, and a click starts it with this home
+    private static void Register()
+    {
+        using (var app = Registry.CurrentUser.CreateSubKey($@"Software\Classes\AppUserModelId\{AppId}"))
         {
-            return false;
+            app.SetValue("DisplayName", Program.AppName);
+            app.SetValue("IconUri", Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+            app.SetValue("CustomActivator", ActivatorId.ToString("B"));
         }
 
-        OnInvoked(AppNotificationManager.Default, (AppNotificationActivatedEventArgs)launch.Data);
-        return true;
+        using var server = Registry.CurrentUser.CreateSubKey($@"Software\Classes\CLSID\{ActivatorId:B}\LocalServer32");
+        server.SetValue("", $"\"{Environment.ProcessPath}\" --home \"{Program.Home}\"");
     }
 
-    public void Dispose() => AppNotificationManager.Default.Unregister();
-
-    // Raised off the UI thread
-    private void OnInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
+    private void OnActivated(string arguments)
     {
-        args.Arguments.TryGetValue("action", out var action);
-        switch (action)
+        switch (arguments)
         {
             case ViewDetails:
                 _dispatcher.TryEnqueue(() => _open());

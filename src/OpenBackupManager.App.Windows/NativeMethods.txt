@@ -1,10 +1,12 @@
 AllowSetForegroundWindow
 AttachConsole
 ATTACH_PARENT_PROCESS
+CoTaskMemFree
 DwmFlush
 DwmSetWindowAttribute
 EnumThreadWindows
 FindWindow
+GetCurrentProcessExplicitAppUserModelID
 GetCurrentThreadId
 GetDpiForMonitor
 SetWindowPos

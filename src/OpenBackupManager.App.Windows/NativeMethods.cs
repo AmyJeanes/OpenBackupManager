@@ -29,6 +29,24 @@ internal static class NativeMethods
         return dpi / 96.0;
     }
 
+    // The ID Windows knows the app by, if it was given one, as Velopack does for the installed app
+    public static unsafe string? ExplicitAppId()
+    {
+        if (PInvoke.GetCurrentProcessExplicitAppUserModelID(out var id).Failed)
+        {
+            return null;
+        }
+
+        try
+        {
+            return id.ToString();
+        }
+        finally
+        {
+            PInvoke.CoTaskMemFree(id);
+        }
+    }
+
     // False when the app wasn't started from a terminal
     public static bool AttachToParentConsole() => PInvoke.AttachConsole(PInvoke.ATTACH_PARENT_PROCESS);
 

@@ -1,7 +1,6 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
-using Microsoft.Windows.AppNotifications;
 using Velopack;
 using Velopack.Locators;
 using Windows.Win32;
@@ -23,7 +22,7 @@ public static class Program
     {
         // Velopack's installer runs the app with hook arguments, which are handled here and then exit
         VelopackApp.Build()
-            .OnBeforeUninstallFastCallback(_ => AppNotificationManager.Default.UnregisterAll())
+            .OnBeforeUninstallFastCallback(_ => Notifications.Unregister())
             .Run();
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Installed = VelopackLocator.Current.CurrentlyInstalledVersion is not null;
