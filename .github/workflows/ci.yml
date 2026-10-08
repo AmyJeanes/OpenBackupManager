@@ -89,7 +89,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item test-releases -ItemType Directory | Out-Null
-          foreach ($version in '0.0.1', '0.0.2', '0.0.3') {
+          foreach ($version in '0.0.1', '0.0.2', '0.0.3', '0.0.4') {
               ./tools/Publish-TestUpdate.ps1 -Version $version -Runtime ${{ matrix.runtime }} -Feed releases
               Copy-Item releases "test-releases/$version" -Recurse
           }

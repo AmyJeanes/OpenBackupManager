@@ -64,6 +64,11 @@ public sealed class InstallTests : AppTests
         // Checks wait for each other, so once this one finishes, the check the app made as it started has too, and
         // only About's next check can find 0.0.2
         CheckForUpdates(about, "You're up to date");
+        // As when offline
+        var away = _feed + "-away";
+        Directory.Move(_feed, away);
+        CheckForUpdates(about, "Couldn't check for updates");
+        Directory.Move(away, _feed);
         AddToFeed("0.0.2");
         CheckForUpdates(about, "Version 0.0.2 is ready to install");
         var restarted = DateTime.Now;
@@ -77,10 +82,7 @@ public sealed class InstallTests : AppTests
             // UI Automation reports a failure when the app quits before the invoke returns, as this one does
         }
 
-        // The updater runs the app for a moment for each of its hooks before it restarts it
-        Assert.That(WaitForExit() && Retry.WhileTrue(IsUpdaterRunning, Timeout).Result, Is.True, "The update should install");
-        WaitForCopyStartedSince(restarted);
-        _ = WaitForFlyout();
+        WaitForRestartAfterUpdate(restarted);
 
         FindNotification("Update installed", "Version 0.0.2 is now installed");
         ClearNotifications();
@@ -95,6 +97,18 @@ public sealed class InstallTests : AppTests
 
         LaunchAgain();
         FindNotification("Update installed", "Version 0.0.3 is now installed");
+        ClearNotifications();
+        Quit();
+
+        AddToFeed("0.0.4");
+        LaunchAgain();
+        FindNotification("Update available", "Version 0.0.4 is ready to install");
+        ClearNotifications();
+        EndApp();
+        var started = DateTime.Now;
+        StartAgain();
+        WaitForRestartAfterUpdate(started);
+        FindNotification("Update installed", "Version 0.0.4 is now installed");
         CloseNotificationCentre();
         Quit();
 
@@ -122,6 +136,14 @@ public sealed class InstallTests : AppTests
         {
             File.Copy(file, Path.Combine(_feed, Path.GetFileName(file)), overwrite: true);
         }
+    }
+
+    // The updater runs the app for a moment for each of its hooks, then starts it again
+    private void WaitForRestartAfterUpdate(DateTime since)
+    {
+        Assert.That(WaitForExit() && Retry.WhileTrue(IsUpdaterRunning, Timeout).Result, Is.True, "The update should install");
+        WaitForCopyStartedSince(since);
+        _ = WaitForFlyout();
     }
 
     private static void CheckForUpdates(Window about, string result)

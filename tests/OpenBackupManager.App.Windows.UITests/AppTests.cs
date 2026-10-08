@@ -88,16 +88,29 @@ public abstract class AppTests
     // After Quit, as the copy the test goes on with
     protected void LaunchAgain()
     {
+        StartAgain();
+        LaunchFlyout = WaitForFlyout();
+    }
+
+    // As LaunchAgain, for a copy that may hand over to another before it opens anything
+    protected void StartAgain()
+    {
         _process.Dispose();
         _process = LaunchApp();
-        LaunchFlyout = WaitForFlyout();
+    }
+
+    // As a crash or shutting down would, which leaves its icon behind on the taskbar
+    protected void EndApp()
+    {
+        _process.Kill();
+        _process.WaitForExit();
     }
 
     // A copy Windows starts, such as for a notification clicked after Quit, is the one the test goes on with
     protected void WaitForCopyStartedSince(DateTime time)
     {
         var started = Retry.WhileNull(
-                () => Process.GetProcessesByName(Path.GetFileNameWithoutExtension(AppPath)).FirstOrDefault(p => p.StartTime > time),
+                () => Process.GetProcessesByName(Path.GetFileNameWithoutExtension(AppPath)).FirstOrDefault(p => p.Id != _process.Id && p.StartTime > time),
                 Timeout,
                 throwOnTimeout: true)
             .Result!;
