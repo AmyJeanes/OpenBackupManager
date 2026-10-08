@@ -61,6 +61,58 @@ jobs:
           name: test-results-${{ matrix.os }}
           path: TestResults
 
+  # Replaces the installed app, so it only runs here
+  install:
+    name: Install and update (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            runtime: win-x64
+          - os: windows-11-arm
+            runtime: win-arm64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # A feed for each version, holding it and those before it, so the test can add them one at a time
+      - name: Pack test versions
+        shell: pwsh
+        run: |
+          New-Item test-releases -ItemType Directory | Out-Null
+          foreach ($version in '0.0.1', '0.0.2', '0.0.3') {
+              ./tools/Publish-TestUpdate.ps1 -Version $version -Runtime ${{ matrix.runtime }} -Feed releases
+              Copy-Item releases "test-releases/$version" -Recurse
+          }
+
+      - name: Build
+        run: dotnet build tests/OpenBackupManager.App.Windows.UITests
+
+      - name: Clear the desktop
+        shell: pwsh
+        run: ./.github/scripts/Clear-Desktop.ps1
+
+      - name: Test
+        run: dotnet test tests/OpenBackupManager.App.Windows.UITests --no-build --filter Category=Install --results-directory TestResults --logger trx
+        env:
+          OBM_TEST_RELEASES: ${{ github.workspace }}/test-releases
+
+      - name: Upload the test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: install-test-results-${{ matrix.os }}
+          path: TestResults
+
   format:
     name: Format
     runs-on: windows-latest # Formatting the Windows-only projects needs them to load
@@ -107,7 +159,7 @@ jobs:
   release:
     name: Release (${{ matrix.runtime }})
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, format]
+    needs: [test, install, format]
     runs-on: windows-latest
     permissions:
       contents: write # Creates the draft release
@@ -190,7 +242,7 @@ jobs:
   all-checks:
     name: All checks
     if: always()
-    needs: [test, format]
+    needs: [test, install, format]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions: {} # Only reads needs.*.result

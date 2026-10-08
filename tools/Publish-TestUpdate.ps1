@@ -16,6 +16,9 @@ param(
 
     [string]$Runtime = 'win-x64',
 
+    # The folder the versions are packed into
+    [string]$Feed = (Join-Path ([IO.Path]::GetTempPath()) 'obm-update-test/releases'),
+
     # Deletes the feed first
     [switch]$Reset,
 
@@ -25,12 +28,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
-$work = Join-Path ([IO.Path]::GetTempPath()) 'obm-update-test'
-$feed = Join-Path $work 'releases'
-$publish = Join-Path $work "publish-$Version"
+$Feed = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Feed)
+$publish = Join-Path ([IO.Path]::GetTempPath()) "obm-update-test/publish-$Version"
 
-if ($Reset -and (Test-Path $work)) {
-    Remove-Item $work -Recurse -Force
+if ($Reset -and (Test-Path $Feed)) {
+    Remove-Item $Feed -Recurse -Force
 }
 
 $publishArgs = @(
@@ -58,19 +60,19 @@ $packArgs = @(
     '--noPortable'
     '--runtime', $Runtime
     '--channel', $Runtime
-    '--outputDir', $feed
+    '--outputDir', $Feed
 )
 dotnet @packArgs
 if ($LASTEXITCODE) { throw 'Packing failed' }
 
 if ($Install) {
-    $setup = Join-Path $feed "OpenBackupManager.App-$Runtime-Setup.exe"
+    $setup = Join-Path $Feed "OpenBackupManager.App-$Runtime-Setup.exe"
     Start-Process $setup -ArgumentList '--silent' -Wait
 
     # Kept through updates, removed on uninstall
     $installed = Join-Path $env:LOCALAPPDATA 'OpenBackupManager.App'
-    Set-Content (Join-Path $installed 'update-source') $feed
+    Set-Content (Join-Path $installed 'update-source') $Feed
 
     Start-Process (Join-Path $installed 'current/OpenBackupManager.App.Windows.exe')
-    Write-Host "Installed $Version, checking $feed for updates"
+    Write-Host "Installed $Version, checking $Feed for updates"
 }

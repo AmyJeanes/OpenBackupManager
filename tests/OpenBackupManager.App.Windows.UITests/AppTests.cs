@@ -16,13 +16,12 @@ namespace OpenBackupManager.App.Windows.UITests;
 // Each test starts the app with a home of its own, so it runs alongside an installed copy that's already open
 public abstract class AppTests
 {
-    protected const string AppName = "OpenBackupManager (dev)";
     protected static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
     // The app's Tray.IconId
     private const uint TrayIconId = 1;
 
-    private static readonly string AppPath =
+    private static readonly string BuiltAppPath =
         typeof(AppTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Single(a => a.Key == "AppPath").Value!;
 
     private string _home = "";
@@ -32,6 +31,10 @@ public abstract class AppTests
     // The flyout the app opens as it starts. Tests wait for it before using the tray, since it takes focus as it opens,
     // which closes the tray menu
     protected Window LaunchFlyout { get; private set; } = null!;
+
+    protected virtual string AppPath => BuiltAppPath;
+
+    protected virtual string AppName => "OpenBackupManager (dev)";
 
     [SetUp]
     public void Launch()
@@ -80,9 +83,15 @@ public abstract class AppTests
         }
     }
 
-    protected AutomationElement Desktop => _automation.GetDesktop();
-
     protected Process LaunchApp() => Process.Start(new ProcessStartInfo(AppPath, ["--home", _home]))!;
+
+    // After Quit, as the copy the test goes on with
+    protected void LaunchAgain()
+    {
+        _process.Dispose();
+        _process = LaunchApp();
+        LaunchFlyout = WaitForFlyout();
+    }
 
     // A copy Windows starts, such as for a notification clicked after Quit, is the one the test goes on with
     protected void WaitForCopyStartedSince(DateTime time)
@@ -138,6 +147,45 @@ public abstract class AppTests
             .Result!.AsMenuItem().Invoke();
     }
 
+    // Notifications are found in the notification centre rather than as they pop up, as CI has Do Not Disturb enabled
+    protected AutomationElement FindNotification(string title, string? text = null)
+    {
+        var centre = OpenNotificationCentre();
+        return Retry.WhileNull(
+                () => centre.FindAllDescendants(c => c.ByControlType(ControlType.ListItem))
+                    .FirstOrDefault(n => n.FindFirstChild(c => c.ByAutomationId("Title"))?.Name == title
+                        && (text is null || n.FindFirstDescendant(c => c.ByName(text)) is not null)),
+                Timeout,
+                throwOnTimeout: true,
+                ignoreException: true)
+            .Result!;
+    }
+
+    // Windows stacks an app's notifications once there are a few, and a stacked one isn't listed on its own
+    protected void ClearNotifications()
+    {
+        OpenNotificationCentre().FindFirstDescendant(c => c.ByName($"Clear all notifications for {AppName}"))?.AsButton().Invoke();
+        CloseNotificationCentre();
+    }
+
+    protected AutomationElement OpenNotificationCentre()
+    {
+        if (NotificationCentre() is null)
+        {
+            Keyboard.TypeSimultaneously(VirtualKeyShort.LWIN, VirtualKeyShort.KEY_N);
+        }
+
+        return Retry.WhileNull(NotificationCentre, Timeout, throwOnTimeout: true, ignoreException: true).Result!;
+    }
+
+    protected void CloseNotificationCentre()
+    {
+        Keyboard.Type(VirtualKeyShort.ESCAPE);
+        Assert.That(Retry.WhileFalse(() => NotificationCentre() is null, Timeout, ignoreException: true).Result, Is.True);
+    }
+
+    protected bool WaitForExit() => _process.WaitForExit(Timeout);
+
     protected void Quit()
     {
         // Counted once its icon is on the taskbar
@@ -146,7 +194,7 @@ public abstract class AppTests
         ChooseFromTrayMenu("Quit");
         Assert.Multiple(() =>
         {
-            Assert.That(_process.WaitForExit(Timeout), Is.True);
+            Assert.That(WaitForExit(), Is.True);
             Assert.That(Retry.WhileFalse(() => TrayIconCount() < icons, Timeout).Result, Is.True);
         });
     }
@@ -176,6 +224,11 @@ public abstract class AppTests
             .Where(hwnd => NativeMethods.ProcessId(hwnd) == _process.Id)
             .Select(hwnd => _automation.FromHandle(hwnd).AsWindow());
 
+    private AutomationElement? NotificationCentre() =>
+        _automation.GetDesktop().FindAllChildren(c => c.ByClassName("Windows.UI.Core.CoreWindow"))
+            .Select(w => w.FindFirstChild(c => c.ByAutomationId("NotificationCenterGrid")))
+            .FirstOrDefault(c => c is not null);
+
     private AutomationElement Taskbar() => _automation.GetDesktop().FindFirstChild(c => c.ByClassName("Shell_TrayWnd"))!;
 
     // Including any left behind by copies that were ended, which stay until the mouse passes over them
@@ -184,14 +237,14 @@ public abstract class AppTests
 
     // Windows puts a new app's tray icon in the hidden icons, so this moves it onto the taskbar as Settings would.
     // Windows adds the setting for each app's icon when it first sees the icon
-    private static void ShowIconOnTaskbar()
+    private void ShowIconOnTaskbar()
     {
         var name = Retry.WhileNull(FindIconSettings, Timeout, throwOnTimeout: true).Result!;
         using var settings = Registry.CurrentUser.OpenSubKey($@"Control Panel\NotifyIconSettings\{name}", writable: true)!;
         settings.SetValue("IsPromoted", 1, RegistryValueKind.DWord);
     }
 
-    private static string? FindIconSettings()
+    private string? FindIconSettings()
     {
         using var all = Registry.CurrentUser.OpenSubKey(@"Control Panel\NotifyIconSettings");
         return all?.GetSubKeyNames().FirstOrDefault(name =>
