@@ -19,6 +19,7 @@ public sealed class Updater : IDisposable
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
 
     private readonly UpdateManager _manager;
+    private readonly string _home;
     private readonly Action<string> _ready;
     private readonly CancellationTokenSource _stop = new();
     private readonly SemaphoreSlim _checking = new(1, 1);
@@ -28,6 +29,7 @@ public sealed class Updater : IDisposable
     public Updater(string home, Action<string> ready, Action<string> updated)
     {
         _ready = ready;
+        _home = home;
         // Follows prereleases while running one
         var prerelease = VelopackLocator.Current.CurrentlyInstalledVersion?.IsPrerelease ?? false;
         var source = TestSource();
@@ -56,8 +58,8 @@ public sealed class Updater : IDisposable
     // Reports the download's progress as a percentage. About shows the result, so this doesn't notify
     public Task<CheckResult> CheckNow(Action<int> downloading) => Check(notify: false, downloading);
 
-    // Exits the app
-    public void RestartToUpdate() => _manager.ApplyUpdatesAndRestart(_manager.UpdatePendingRestart);
+    // Exits the app. Velopack restarts it without its arguments, so the home is passed on
+    public void RestartToUpdate() => _manager.ApplyUpdatesAndRestart(_manager.UpdatePendingRestart, ["--home", _home]);
 
     public void UpdateOnExit()
     {
