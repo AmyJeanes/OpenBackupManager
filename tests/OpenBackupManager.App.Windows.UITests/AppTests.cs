@@ -47,7 +47,8 @@ public abstract class AppTests
     {
         try
         {
-            if (TestContext.CurrentContext.Result.Outcome.Status == TestStatus.Failed)
+            var failed = TestContext.CurrentContext.Result.Outcome.Status == TestStatus.Failed;
+            if (failed)
             {
                 AttachScreenshot();
             }
@@ -55,7 +56,15 @@ public abstract class AppTests
             // Quitting, rather than ending the process, takes its icon off the taskbar before the next test
             if (!_process.HasExited)
             {
-                Quit();
+                try
+                {
+                    Quit();
+                }
+                catch when (!failed)
+                {
+                    AttachScreenshot();
+                    throw;
+                }
             }
         }
         finally
@@ -71,7 +80,21 @@ public abstract class AppTests
         }
     }
 
+    protected AutomationElement Desktop => _automation.GetDesktop();
+
     protected Process LaunchApp() => Process.Start(new ProcessStartInfo(AppPath, ["--home", _home]))!;
+
+    // A copy Windows starts, such as for a notification clicked after Quit, is the one the test goes on with
+    protected void WaitForCopyStartedSince(DateTime time)
+    {
+        var started = Retry.WhileNull(
+                () => Process.GetProcessesByName(Path.GetFileNameWithoutExtension(AppPath)).FirstOrDefault(p => p.StartTime > time),
+                Timeout,
+                throwOnTimeout: true)
+            .Result!;
+        _process.Dispose();
+        _process = started;
+    }
 
     protected Window WaitForFlyout() => WaitForWindow(IsFlyout);
 
@@ -110,7 +133,8 @@ public abstract class AppTests
         Retry.WhileNull(
                 () => Windows().Select(w => w.FindFirstDescendant(c => c.ByControlType(ControlType.MenuItem).And(c.ByName(item)))).FirstOrDefault(i => i is not null),
                 Timeout,
-                throwOnTimeout: true)
+                throwOnTimeout: true,
+                ignoreException: true)
             .Result!.AsMenuItem().Invoke();
     }
 
@@ -137,13 +161,14 @@ public abstract class AppTests
 
     // Windows are cloaked until they're drawn, and the flyout stays open but cloaked while it's hidden
     private Window WaitForWindow(Func<Window, bool> match) =>
-        Retry.WhileNull(() => Windows().FirstOrDefault(w => match(w) && !NativeMethods.IsCloaked(w)), Timeout, throwOnTimeout: true).Result!;
+        Retry.WhileNull(() => Windows().FirstOrDefault(w => match(w) && !NativeMethods.IsCloaked(w)), Timeout, throwOnTimeout: true, ignoreException: true).Result!;
 
     private static bool IsFlyout(Window window) => window.FindFirstDescendant(c => c.ByAutomationId("Caption")) is not null;
 
     // UI Automation can list part of a window, such as where its content takes input, as a window of its own, so each
     // is taken to its window. It can also report every window's process as 0, as it does in Windows Sandbox, so Windows
-    // is asked instead
+    // is asked instead. A window can close while they're listed, such as the notification centre after a click, so
+    // callers that wait try again
     private IEnumerable<Window> Windows() =>
         _automation.GetDesktop().FindAllChildren()
             .Select(NativeMethods.TopLevelWindow)
