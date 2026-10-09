@@ -26,6 +26,7 @@
 
   <!-- WinUI alone, not Microsoft.WindowsAppSDK, which adds about 60 MB of AI, ML and search parts -->
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" />
     <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
     <PackageReference Include="Microsoft.Windows.CsWin32" />

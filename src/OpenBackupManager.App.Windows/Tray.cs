@@ -13,18 +13,16 @@ public sealed partial class Tray : IDisposable
     private readonly TrayIcon _icon;
     private readonly UISettings _uiSettings = new();
     private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
-    private readonly Action _open;
-    private readonly Action _about;
-    private readonly Action _quit;
+    private readonly AppActions _actions;
+    private readonly Notifications _notifications;
     private readonly StatusFlyout _flyout;
     private bool _skipClick;
 
-    public Tray(Action open, Action about, Action quit)
+    public Tray(AppActions actions, Notifications notifications)
     {
-        _open = open;
-        _about = about;
-        _quit = quit;
-        _flyout = new StatusFlyout(open, IconId);
+        _actions = actions;
+        _notifications = notifications;
+        _flyout = new StatusFlyout(actions.Open, IconId);
         _flyout.Update(Status(State), TaskbarIsLight());
         _icon = new TrayIcon(IconId, IconPath(State), Tooltip(State));
         _icon.Selected += (_, _) => OnClick();
@@ -67,7 +65,7 @@ public sealed partial class Tray : IDisposable
     private void OnDoubleClick()
     {
         _skipClick = true;
-        _open();
+        _actions.Open();
     }
 
     public void Dispose()
@@ -94,8 +92,8 @@ public sealed partial class Tray : IDisposable
         var menu = new MenuFlyout();
         menu.Items.Add(new MenuFlyoutItem { Text = "Sync all now", IsEnabled = false });
         menu.Items.Add(new MenuFlyoutItem { Text = "Pause", IsEnabled = false });
-        menu.Items.Add(Item("Open", _open));
-        menu.Items.Add(Item("Show test notification", Notifications.ShowTest));
+        menu.Items.Add(Item("Open", _actions.Open));
+        menu.Items.Add(Item("Show test notification", _notifications.ShowTest));
 #if DEBUG
         var states = new MenuFlyoutSubItem { Text = "Icon state" };
         foreach (var state in Enum.GetValues<TrayState>())
@@ -106,8 +104,8 @@ public sealed partial class Tray : IDisposable
         menu.Items.Add(states);
 #endif
         menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(Item("About", _about));
-        menu.Items.Add(Item("Quit", _quit));
+        menu.Items.Add(Item("About", _actions.About));
+        menu.Items.Add(Item("Quit", _actions.Quit));
         return menu;
     }
 

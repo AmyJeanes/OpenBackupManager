@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
@@ -42,11 +44,26 @@ public static class Program
             return;
         }
 
+        // Quit disposes it
+        var host = BuildHost();
         Application.Start(p =>
         {
             SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
-            _ = new App();
+            _ = new App(host.Services);
         });
+    }
+
+    internal static IHost BuildHost()
+    {
+        var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
+        // So a service that can't be created fails at startup, rather than when it's first used
+        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
+        builder.Services
+            .AddSingleton<AppActions>()
+            .AddSingleton<Notifications>()
+            .AddSingleton<Updater>()
+            .AddSingleton<Tray>();
+        return builder.Build();
     }
 
     private static bool HandOverToRunningCopy(string instanceKey)

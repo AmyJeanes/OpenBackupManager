@@ -21,34 +21,34 @@ public sealed class Notifications : IDisposable
     // The activator's COM class, made from the app's ID so each copy keeps the same one
     private static readonly Guid ActivatorId = new(SHA256.HashData(Encoding.UTF8.GetBytes(AppId))[..16]);
 
-    private readonly Action _open;
-    private readonly Action _restartToUpdate;
+    private readonly AppActions _actions;
     private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
     private readonly uint _activator;
+    private readonly ToastNotifier _notifier;
 
-    public Notifications(Action open, Action restartToUpdate)
+    public Notifications(AppActions actions)
     {
-        _open = open;
-        _restartToUpdate = restartToUpdate;
+        _actions = actions;
         Register();
+        _notifier = ToastNotificationManager.CreateToastNotifier(AppId);
         _activator = NotificationActivator.Register(ActivatorId, OnActivated);
     }
 
     // Windows starts the app this way to deliver a click when it isn't running, and the click then reaches the activator
     public static bool StartedByClick => Environment.GetCommandLineArgs().Contains("-Embedding");
 
-    public static void ShowTest() => Show(new Toast(ViewDetails)
+    public void ShowTest() => Show(new Toast(ViewDetails)
         .Text("Sync failed")
         .Text("Test folder couldn't sync (test notification)")
         .Button("View details", ViewDetails));
 
-    public static void ShowUpdateReady(string version) => Show(new Toast()
+    public void ShowUpdateReady(string version) => Show(new Toast()
         .Text("Update available")
         .Text($"Version {version} is ready to install")
         .Button("Restart now", Restart)
         .DismissButton("Not now"));
 
-    public static void ShowUpdated(string version) => Show(new Toast()
+    public void ShowUpdated(string version) => Show(new Toast()
         .Text("Update installed")
         .Text($"Version {version} is now installed")
         .Link("What's new", new Uri($"{Updater.RepositoryUrl}/releases/tag/v{version}")));
@@ -64,11 +64,11 @@ public sealed class Notifications : IDisposable
     // Clicks after this start the app again
     public void Dispose() => NotificationActivator.Revoke(_activator);
 
-    private static void Show(Toast toast)
+    private void Show(Toast toast)
     {
         var xml = new XmlDocument();
         xml.LoadXml(toast.ToString());
-        ToastNotificationManager.CreateToastNotifier(AppId).Show(new ToastNotification(xml));
+        _notifier.Show(new ToastNotification(xml));
     }
 
     // Written each time the app starts, so it follows the app when it moves, and a click starts it with this home
@@ -90,10 +90,10 @@ public sealed class Notifications : IDisposable
         switch (arguments)
         {
             case ViewDetails:
-                _dispatcher.TryEnqueue(() => _open());
+                _dispatcher.TryEnqueue(_actions.Open);
                 break;
             case Restart:
-                _dispatcher.TryEnqueue(() => _restartToUpdate());
+                _dispatcher.TryEnqueue(_actions.RestartToUpdate);
                 break;
         }
     }

@@ -13,13 +13,13 @@ public sealed partial class AboutWindow : Window
     private static readonly TimeSpan MinimumCheckTime = TimeSpan.FromMilliseconds(500);
 
     private readonly Updater _updater;
-    private readonly Action _restartToUpdate;
+    private readonly AppActions _actions;
 
-    public AboutWindow(Updater updater, Action restartToUpdate)
+    public AboutWindow(Updater updater, AppActions actions)
     {
         InitializeComponent();
         _updater = updater;
-        _restartToUpdate = restartToUpdate;
+        _actions = actions;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
         // Use a PNG for the Image control, as the .ico's first size that the Image control would display is too small
         Logo.Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.png")));
@@ -92,7 +92,7 @@ public sealed partial class AboutWindow : Window
     {
         if (_updater.UpdateReady)
         {
-            _restartToUpdate();
+            _actions.RestartToUpdate();
             return;
         }
 
