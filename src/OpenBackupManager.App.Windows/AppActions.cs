@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using WinUIEx;
@@ -7,9 +8,10 @@ using WinUIEx;
 namespace OpenBackupManager.App.Windows;
 
 // What the tray, notifications and windows ask the app to do
-public sealed class AppActions(IHost host)
+public sealed partial class AppActions(IHost host, ILogger<AppActions> logger)
 {
     private readonly IHost _host = host;
+    private readonly ILogger _logger = logger;
     private MainWindow? _window;
     private AboutWindow? _about;
 
@@ -38,9 +40,10 @@ public sealed class AppActions(IHost host)
 
     public void Quit()
     {
-        var updater = _host.Services.GetRequiredService<Updater>();
+        LogQuitting();
+        // While the services are still logging
+        _host.Services.GetRequiredService<Updater>().UpdateOnExit();
         _host.Dispose();
-        updater.UpdateOnExit();
         Application.Current.Exit();
     }
 
@@ -52,9 +55,16 @@ public sealed class AppActions(IHost host)
             return;
         }
 
+        LogRestartingToUpdate(updater.ReadyVersion);
         _host.Dispose();
         updater.RestartToUpdate();
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Quitting")]
+    private partial void LogQuitting();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Restarting to install version {Version}")]
+    private partial void LogRestartingToUpdate(string? version);
 
     private static void Show(Window window)
     {

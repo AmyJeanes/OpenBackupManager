@@ -1,8 +1,11 @@
+using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
+using Serilog;
+using Serilog.Events;
 using Velopack;
 using Velopack.Locators;
 using Windows.Win32;
@@ -45,7 +48,7 @@ public static class Program
         }
 
         // Quit disposes it
-        var host = BuildHost();
+        var host = BuildHost(Home);
         Application.Start(p =>
         {
             SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
@@ -53,7 +56,7 @@ public static class Program
         });
     }
 
-    internal static IHost BuildHost()
+    internal static IHost BuildHost(string home)
     {
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
         // So a service that can't be created fails at startup, rather than when it's first used
@@ -62,7 +65,19 @@ public static class Program
             .AddSingleton<AppActions>()
             .AddSingleton<Notifications>()
             .AddSingleton<Updater>()
-            .AddSingleton<Tray>();
+            .AddSingleton<Tray>()
+            // One file a day, and another once one reaches 10 MB. Keeping the newest 7 is usually a week
+            .AddSerilog(log => log
+                .MinimumLevel.Information()
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .WriteTo.File(
+                    Path.Combine(home, "logs", "app-.log"),
+                    formatProvider: CultureInfo.InvariantCulture,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}",
+                    rollingInterval: RollingInterval.Day,
+                    fileSizeLimitBytes: 10 * 1024 * 1024,
+                    rollOnFileSizeLimit: true,
+                    retainedFileCountLimit: 7));
         return builder.Build();
     }
 

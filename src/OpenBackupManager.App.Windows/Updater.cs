@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Velopack;
 using Velopack.Locators;
 using Velopack.Sources;
@@ -5,7 +6,7 @@ using Velopack.Sources;
 namespace OpenBackupManager.App.Windows;
 
 // Auto updates the application from GitHub Releases
-public sealed class Updater : IDisposable
+public sealed partial class Updater : IDisposable
 {
     public const string RepositoryUrl = "https://github.com/AmyJeanes/OpenBackupManager";
 
@@ -21,13 +22,15 @@ public sealed class Updater : IDisposable
     private readonly UpdateManager _manager;
     private readonly string _home;
     private readonly Notifications _notifications;
+    private readonly ILogger _logger;
     private readonly CancellationTokenSource _stop = new();
     private readonly SemaphoreSlim _checking = new(1, 1);
     private string? _seenVersion;
 
-    public Updater(Notifications notifications)
+    public Updater(Notifications notifications, ILogger<Updater> logger)
     {
         _notifications = notifications;
+        _logger = logger;
         _home = Program.Home;
         // Follows prereleases while running one
         var prerelease = VelopackLocator.Current.CurrentlyInstalledVersion?.IsPrerelease ?? false;
@@ -64,6 +67,7 @@ public sealed class Updater : IDisposable
     {
         if (_manager.UpdatePendingRestart is { } update)
         {
+            LogInstallingOnExit(update.Version);
             _manager.WaitExitThenApplyUpdates(update, silent: true, restart: false);
         }
     }
@@ -97,6 +101,7 @@ public sealed class Updater : IDisposable
         File.WriteAllText(file, current.ToString());
         if (last is not null && current.CompareTo(last) > 0)
         {
+            LogUpdated(last, current);
             _notifications.ShowUpdated(current.ToString());
         }
     }
@@ -127,11 +132,13 @@ public sealed class Updater : IDisposable
             LastChecked = DateTime.Now;
             if (update is null)
             {
+                LogUpToDate();
                 return CheckResult.UpToDate;
             }
 
             await _manager.DownloadUpdatesAsync(update, downloading, _stop.Token);
             var version = update.TargetFullRelease.Version.ToString();
+            LogDownloaded(version);
             // A version found from About counts as seen, so a later regular check doesn't notify about it
             if (version != _seenVersion)
             {
@@ -146,6 +153,7 @@ public sealed class Updater : IDisposable
         }
         catch (Exception e) when (e is HttpRequestException or IOException)
         {
+            LogCheckFailed(e);
             // Offline or GitHub is down. The next check tries again
             return CheckResult.Failed;
         }
@@ -154,4 +162,19 @@ public sealed class Updater : IDisposable
             _checking.Release();
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Updated from version {Last} to {Current}")]
+    private partial void LogUpdated(SemanticVersion last, SemanticVersion current);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Up to date")]
+    private partial void LogUpToDate();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Downloaded version {Version}")]
+    private partial void LogDownloaded(string version);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't check for updates")]
+    private partial void LogCheckFailed(Exception e);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Installing version {Version} once the app exits")]
+    private partial void LogInstallingOnExit(SemanticVersion version);
 }
