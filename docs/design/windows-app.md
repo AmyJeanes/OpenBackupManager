@@ -59,7 +59,6 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 - Animations off, and transparency effects off (Settings > Accessibility > Visual effects).
 - 150% scaling on the display with the taskbar, both switched while the app is running and at launch, with another display at a different scaling.
 - The tray icon on the taskbar, in the hidden icons popup, and near each end of the taskbar.
-- Clicking the icon while the flyout is open, Esc, double-click, and opening the main window from the flyout.
 - Launching the app again from the Start menu while it's running, with the main window open and closed: the flyout should open and take focus.
 - The test notification's name and icon, as it pops up and in the notification centre.
 - For changes to installing or updating, a build packed as in CI's release job: a dev build running alongside the installed copy, installing it again over a running copy with `--silent`, and uninstalling it from Settings > Apps.

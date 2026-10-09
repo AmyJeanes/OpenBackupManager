@@ -31,6 +31,14 @@ public sealed class TrayTests : AppTests
     }
 
     [Test]
+    public void Open_OpensTheMainWindow()
+    {
+        ChooseFromTrayMenu("Open");
+
+        WaitForWindow(AppName);
+    }
+
+    [Test]
     public void About_OpensAbout()
     {
         ChooseFromTrayMenu("About");

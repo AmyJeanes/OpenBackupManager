@@ -1,3 +1,7 @@
+using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Input;
+using FlaUI.Core.Tools;
+
 namespace OpenBackupManager.App.Windows.UITests;
 
 public sealed class FlyoutTests : AppTests
@@ -28,4 +32,31 @@ public sealed class FlyoutTests : AppTests
         });
         WaitForFlyout();
     }
+
+    [Test]
+    public void Open_OpensTheMainWindow()
+    {
+        OpenButton(LaunchFlyout).Invoke();
+
+        WaitForWindow(AppName);
+        WaitUntilHidden(LaunchFlyout);
+    }
+
+    [Test]
+    public void ClickingElsewhere_ClosesIt()
+    {
+        OpenButton(LaunchFlyout).Invoke();
+        var window = WaitForWindow(AppName);
+        WaitUntilHidden(LaunchFlyout);
+        using (LaunchApp())
+        {
+            WaitForFlyout();
+        }
+
+        Mouse.Click(window.BoundingRectangle.Center());
+
+        WaitUntilHidden(LaunchFlyout);
+    }
+
+    private static Button OpenButton(Window flyout) => flyout.FindFirstDescendant(c => c.ByAutomationId("OpenButton"))!.AsButton();
 }
