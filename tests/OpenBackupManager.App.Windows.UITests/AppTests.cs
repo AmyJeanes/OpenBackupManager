@@ -164,7 +164,7 @@ public abstract class AppTests
     protected AutomationElement FindNotification(string title, string? text = null)
     {
         var centre = OpenNotificationCentre();
-        return Retry.WhileNull(
+        var notification = Retry.WhileNull(
                 () => centre.FindAllDescendants(c => c.ByControlType(ControlType.ListItem))
                     .FirstOrDefault(n => n.FindFirstChild(c => c.ByAutomationId("Title"))?.Name == title
                         && (text is null || n.FindFirstDescendant(c => c.ByName(text)) is not null)),
@@ -172,6 +172,23 @@ public abstract class AppTests
                 throwOnTimeout: true,
                 ignoreException: true)
             .Result!;
+
+        // The notification centre slides in as it opens, and a click before it's in place is lost
+        Rectangle? last = null;
+        Assert.That(
+            Retry.WhileFalse(
+                    () =>
+                    {
+                        var now = notification.BoundingRectangle;
+                        var still = now == last;
+                        last = now;
+                        return still;
+                    },
+                    Timeout,
+                    ignoreException: true)
+                .Result,
+            Is.True);
+        return notification;
     }
 
     // Windows stacks an app's notifications once there are a few, and a stacked one isn't listed on its own
@@ -194,8 +211,13 @@ public abstract class AppTests
     protected void CloseNotificationCentre()
     {
         Keyboard.Type(VirtualKeyShort.ESCAPE);
-        Assert.That(Retry.WhileFalse(() => NotificationCentre() is null, Timeout, ignoreException: true).Result, Is.True);
+        WaitForNotificationCentreToClose();
     }
+
+    // It also closes by itself once a notification or one of its buttons is clicked. Until it has, opening it again
+    // would find it still there
+    protected void WaitForNotificationCentreToClose() =>
+        Assert.That(Retry.WhileFalse(() => NotificationCentre() is null, Timeout, ignoreException: true).Result, Is.True);
 
     protected bool WaitForExit() => _process.WaitForExit(Timeout);
 

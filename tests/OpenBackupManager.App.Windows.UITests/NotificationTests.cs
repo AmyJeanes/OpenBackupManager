@@ -21,6 +21,7 @@ public sealed class NotificationTests : AppTests
         notification.FindFirstChild(c => c.ByAutomationId("ExpandButton"))!.AsButton().Invoke();
         Retry.WhileNull(() => notification.FindFirstChild(c => c.ByControlType(ControlType.Button).And(c.ByName("View details"))), Timeout, throwOnTimeout: true)
             .Result!.AsButton().Invoke();
+        WaitForNotificationCentreToClose();
 
         WaitForWindow(AppName);
     }
