@@ -16,12 +16,12 @@ public sealed partial class HostTests
 
     // Building checks each service's dependencies without creating any, since they need the UI thread
     [Test]
-    public void Build_FindsEveryServicesDependencies() => Assert.DoesNotThrow(() => Program.BuildHost(_home).Dispose());
+    public void Build_FindsEveryServicesDependencies() => Assert.DoesNotThrow(() => Program.BuildHost(AppPaths.InHome(_home)).Dispose());
 
     [Test]
     public void Logs_AreWrittenToTheHomesLogsFolder()
     {
-        using (var host = Program.BuildHost(_home))
+        using (var host = Program.BuildHost(AppPaths.InHome(_home)))
         {
             var logger = host.Services.GetRequiredService<ILogger<HostTests>>();
             LogTest(logger);
@@ -33,7 +33,7 @@ public sealed partial class HostTests
     [Test]
     public void Logs_HideSecrets()
     {
-        using (var host = Program.BuildHost(_home))
+        using (var host = Program.BuildHost(AppPaths.InHome(_home)))
         {
             var logger = host.Services.GetRequiredService<ILogger<HostTests>>();
             var secret = new Secret("token-value");

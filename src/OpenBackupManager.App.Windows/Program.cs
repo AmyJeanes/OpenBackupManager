@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
+using OpenBackupManager.Core;
 using OpenBackupManager.ViewModels;
 using Serilog;
 using Serilog.Events;
@@ -54,7 +55,7 @@ public static class Program
             return;
         }
 
-        var host = BuildHost(Home);
+        var host = BuildHost(AppPaths.InHome(Home));
         Application.Start(p =>
         {
             SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
@@ -62,13 +63,14 @@ public static class Program
         });
     }
 
-    internal static IHost BuildHost(string home)
+    internal static IHost BuildHost(AppPaths paths)
     {
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         builder.Services
             .AddSingleton(AppInfo.FromAssembly(AppName, typeof(Program).Assembly))
             .AddSingleton(TimeProvider.System)
+            .AddSingleton(paths)
             .AddSingleton<IAppActions, AppActions>()
             .AddSingleton<Notifications>()
             // AppActions installs updates through Updater itself. IUpdater leaves that out, so view models go through
@@ -83,7 +85,7 @@ public static class Program
                 .MinimumLevel.Information()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                 .WriteTo.File(
-                    Path.Combine(home, "logs", "app-.log"),
+                    Path.Combine(paths.Logs, "app-.log"),
                     formatProvider: CultureInfo.InvariantCulture,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}",
                     rollingInterval: RollingInterval.Day,

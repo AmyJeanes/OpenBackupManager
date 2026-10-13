@@ -1,3 +1,6 @@
+using System.Runtime.InteropServices;
+using OpenBackupManager.Core;
+
 namespace OpenBackupManager.App.Windows.Tests;
 
 public class AppHomeTests
@@ -7,6 +10,13 @@ public class AppHomeTests
     [Test]
     public void Installed_UsesTheAppFolder() =>
         Assert.That(AppHome.Resolve([], null, installed: true, LocalAppData), Is.EqualTo(@"C:\Users\Test\AppData\Local\OpenBackupManager"));
+
+    // The app keeps everything in its home, which for an installed copy is Windows' own layout
+    [Test]
+    public void Installed_MatchesTheWindowsLayout() =>
+        Assert.That(
+            AppPaths.InHome(AppHome.Resolve([], null, installed: true, LocalAppData)),
+            Is.EqualTo(AppPaths.ForOS(OSPlatform.Windows, name => name == "LOCALAPPDATA" ? LocalAppData : null)));
 
     [Test]
     public void NotInstalled_UsesAFolderOfItsOwn() =>

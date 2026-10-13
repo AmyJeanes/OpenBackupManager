@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using OpenBackupManager.Core;
 using OpenBackupManager.ViewModels;
 using Velopack;
 using Velopack.Locators;
@@ -14,7 +15,7 @@ public sealed partial class Updater : IUpdater, IDisposable
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
 
     private readonly UpdateManager _manager;
-    private readonly string _home;
+    private readonly AppPaths _paths;
     private readonly Notifications _notifications;
     private readonly ILogger _logger;
     private readonly CancellationTokenSource _stop = new();
@@ -22,11 +23,11 @@ public sealed partial class Updater : IUpdater, IDisposable
     private string? _seenVersion;
     private bool _disposed;
 
-    public Updater(Notifications notifications, ILogger<Updater> logger)
+    public Updater(AppPaths paths, Notifications notifications, ILogger<Updater> logger)
     {
+        _paths = paths;
         _notifications = notifications;
         _logger = logger;
-        _home = Program.Home;
         // Follows prereleases while running one
         var prerelease = VelopackLocator.Current.CurrentlyInstalledVersion?.IsPrerelease ?? false;
         var source = TestSource();
@@ -55,7 +56,7 @@ public sealed partial class Updater : IUpdater, IDisposable
     public Task<UpdateCheckResult> CheckNow(Action<int> downloading) => Check(notify: false, downloading);
 
     // Exits the app. Velopack restarts it without its arguments, so the home is passed on
-    public void RestartToUpdate() => _manager.ApplyUpdatesAndRestart(_manager.UpdatePendingRestart, ["--home", _home]);
+    public void RestartToUpdate() => _manager.ApplyUpdatesAndRestart(_manager.UpdatePendingRestart, ["--home", Program.Home]);
 
     public void UpdateOnExit()
     {
@@ -96,9 +97,9 @@ public sealed partial class Updater : IUpdater, IDisposable
     private void NoticeUpdate()
     {
         var current = _manager.CurrentVersion!;
-        var file = Path.Combine(_home, "last-version");
+        var file = Path.Combine(_paths.State, "last-version");
         var last = File.Exists(file) && SemanticVersion.TryParse(File.ReadAllText(file).Trim(), out var version) ? version : null;
-        Directory.CreateDirectory(_home);
+        Directory.CreateDirectory(_paths.State);
         File.WriteAllText(file, current.ToString());
         if (last is not null && current.CompareTo(last) > 0)
         {
