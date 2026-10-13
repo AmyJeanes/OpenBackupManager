@@ -167,7 +167,8 @@ public sealed class InstallTests : AppTests
         {
             try
             {
-                return p.MainModule!.FileName.StartsWith(InstallFolder, StringComparison.OrdinalIgnoreCase);
+                // An updater that exits while it's being read has no main module, or throws
+                return p.MainModule?.FileName.StartsWith(InstallFolder, StringComparison.OrdinalIgnoreCase) is true;
             }
             catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
             {
