@@ -205,25 +205,6 @@ public class AboutViewModelTests
         public void Finish(UpdateCheckResult result) => _check.SetResult(result);
     }
 
-    private sealed class FakeActions : IAppActions
-    {
-        public int Restarts { get; private set; }
-
-        public void Open()
-        {
-        }
-
-        public void About()
-        {
-        }
-
-        public void Quit()
-        {
-        }
-
-        public void RestartToUpdate() => Restarts++;
-    }
-
     private sealed class InlineSynchronizationContext : SynchronizationContext
     {
         public override void Post(SendOrPostCallback d, object? state) => d(state);

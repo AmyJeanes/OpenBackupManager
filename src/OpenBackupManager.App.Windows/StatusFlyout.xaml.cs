@@ -3,6 +3,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using OpenBackupManager.ViewModels;
 using Windows.Graphics;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -17,7 +18,6 @@ public sealed partial class StatusFlyout : Window
 {
     private static readonly TimeSpan SlideDuration = TimeSpan.FromMilliseconds(150);
 
-    private readonly Action _open;
     private readonly uint _trayIconId;
     private readonly UISettings _uiSettings = new();
     private bool _light;
@@ -29,11 +29,10 @@ public sealed partial class StatusFlyout : Window
     private bool _drawn;
     private bool _showWhenDrawn;
 
-    public StatusFlyout(Action open, uint trayIconId)
+    public StatusFlyout(StatusViewModel viewModel, uint trayIconId)
     {
+        ViewModel = viewModel;
         InitializeComponent();
-        Caption.Text = Program.AppName;
-        _open = open;
         _trayIconId = trayIconId;
         SystemBackdrop = new BlurBehind();
         var presenter = OverlappedPresenter.Create();
@@ -64,10 +63,11 @@ public sealed partial class StatusFlyout : Window
         });
     }
 
+    public StatusViewModel ViewModel { get; }
+
     // Follows the Windows mode, like the tray icon, since it opens from the taskbar
-    public void Update(string status, bool light)
+    public void Update(bool light)
     {
-        StatusText.Text = status;
         _light = light;
         Root.RequestedTheme = light ? ElementTheme.Light : ElementTheme.Dark;
         UpdateBackground();
@@ -158,8 +158,6 @@ public sealed partial class StatusFlyout : Window
         AppWindow.Hide();
         AppWindow.Show(false);
     }
-
-    private void OnOpen(object sender, RoutedEventArgs e) => _open();
 
     // One colour laid over the blur, measured to match EarTrumpet's flyout, which reads well on any background.
     // WinUI's acrylic adds a luminosity layer that turns dark backgrounds solid black or light ones too pale

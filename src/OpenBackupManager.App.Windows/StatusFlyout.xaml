@@ -20,12 +20,14 @@
     <TextBlock
       x:Name="Caption"
       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-      Style="{StaticResource CaptionTextBlockStyle}" />
+      Style="{StaticResource CaptionTextBlockStyle}"
+      Text="{x:Bind ViewModel.AppName}" />
 
     <TextBlock
       x:Name="StatusText"
       Grid.Row="1"
-      Style="{StaticResource SubtitleTextBlockStyle}" />
+      Style="{StaticResource SubtitleTextBlockStyle}"
+      Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
 
     <StackPanel
       Grid.Row="2"
@@ -36,7 +38,7 @@
       <Button Content="Sync now" IsEnabled="False" />
       <Button
         x:Name="OpenButton"
-        Click="OnOpen"
+        Command="{x:Bind ViewModel.OpenCommand}"
         Content="Open"
         Style="{StaticResource AccentButtonStyle}" />
     </StackPanel>

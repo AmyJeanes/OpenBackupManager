@@ -70,6 +70,7 @@ public static class Program
             .AddSingleton<Updater>()
             .AddSingleton<IUpdater>(services => services.GetRequiredService<Updater>())
             .AddSingleton<Tray>()
+            .AddSingleton<StatusViewModel>()
             .AddTransient<AboutViewModel>()
             // One file a day, and another once one reaches 10 MB. Keeping the newest 7 is usually a week
             .AddSerilog(log => log

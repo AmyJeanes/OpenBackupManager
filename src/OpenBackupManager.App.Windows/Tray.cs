@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Win32;
@@ -14,33 +15,26 @@ public sealed partial class Tray : IDisposable
     private readonly TrayIcon _icon;
     private readonly UISettings _uiSettings = new();
     private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
+    private readonly StatusViewModel _status;
     private readonly IAppActions _actions;
     private readonly Notifications _notifications;
     private readonly StatusFlyout _flyout;
     private bool _skipClick;
 
-    public Tray(IAppActions actions, Notifications notifications)
+    public Tray(StatusViewModel status, IAppActions actions, Notifications notifications)
     {
+        _status = status;
         _actions = actions;
         _notifications = notifications;
-        _flyout = new StatusFlyout(actions.Open, IconId);
-        _flyout.Update(Status(State), TaskbarIsLight());
-        _icon = new TrayIcon(IconId, IconPath(State), Tooltip(State));
+        _flyout = new StatusFlyout(status, IconId);
+        _flyout.Update(TaskbarIsLight());
+        _icon = new TrayIcon(IconId, IconPath(status.State), Tooltip());
         _icon.Selected += (_, _) => OnClick();
         _icon.LeftDoubleClick += (_, _) => OnDoubleClick();
         _icon.ContextMenu += (_, e) => e.Flyout = Menu();
         _uiSettings.ColorValuesChanged += OnColorValuesChanged;
+        _status.PropertyChanged += OnStatusChanged;
         _icon.IsVisible = true;
-    }
-
-    public TrayState State
-    {
-        get;
-        set
-        {
-            field = value;
-            Update();
-        }
     }
 
     public void ShowFlyout() => _flyout.Show();
@@ -72,20 +66,29 @@ public sealed partial class Tray : IDisposable
     public void Dispose()
     {
         _uiSettings.ColorValuesChanged -= OnColorValuesChanged;
+        _status.PropertyChanged -= OnStatusChanged;
         _icon.Dispose();
         _flyout.Close();
     }
 
     private void OnColorValuesChanged(UISettings sender, object args) => _dispatcher.TryEnqueue(Update);
 
+    private void OnStatusChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(StatusViewModel.State))
+        {
+            Update();
+        }
+    }
+
     private void Update()
     {
-        _flyout.Update(Status(State), TaskbarIsLight());
-        _icon.SetIcon(IconPath(State));
+        _flyout.Update(TaskbarIsLight());
+        _icon.SetIcon(IconPath(_status.State));
         // WinUIEx 2.9.3 hides the tooltip whenever the icon changes, and only sends a tooltip that's different.
         // Remove once the fix for https://github.com/dotMorten/WinUIEx/issues/279 is released
         _icon.Tooltip = string.Empty;
-        _icon.Tooltip = Tooltip(State);
+        _icon.Tooltip = Tooltip();
     }
 
     private MenuFlyout Menu()
@@ -97,9 +100,9 @@ public sealed partial class Tray : IDisposable
         menu.Items.Add(Item("Show test notification", _notifications.ShowTest));
 #if DEBUG
         var states = new MenuFlyoutSubItem { Text = "Icon state" };
-        foreach (var state in Enum.GetValues<TrayState>())
+        foreach (var state in Enum.GetValues<SyncState>())
         {
-            states.Items.Add(Item(state.ToString(), () => State = state));
+            states.Items.Add(Item(state.ToString(), () => _status.State = state));
         }
 
         menu.Items.Add(states);
@@ -117,24 +120,14 @@ public sealed partial class Tray : IDisposable
         return item;
     }
 
-    private static string IconPath(TrayState state) => IconPath(state, TaskbarIsLight());
+    private static string IconPath(SyncState state) => IconPath(state, TaskbarIsLight());
 
-    internal static string IconPath(TrayState state, bool light) =>
+    internal static string IconPath(SyncState state, bool light) =>
         Path.Combine(AppContext.BaseDirectory, "Assets", "Tray", light ? "Light" : "Dark", $"{state}.svg");
 
     // The taskbar follows the Windows mode, which can differ from the app mode
     private static bool TaskbarIsLight() =>
         Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme", 0) is 1;
 
-    private static string Tooltip(TrayState state) => Program.AppName + "\n" + Status(state);
-
-    private static string Status(TrayState state) => state switch
-    {
-        TrayState.Idle => "Up to date",
-        TrayState.Syncing => "Syncing",
-        TrayState.Paused => "Paused",
-        TrayState.NeedsAttention => "Needs attention",
-        TrayState.Error => "Error",
-        _ => throw new ArgumentOutOfRangeException(nameof(state)),
-    };
+    private string Tooltip() => _status.AppName + "\n" + _status.StatusText;
 }

@@ -1,6 +1,6 @@
-namespace OpenBackupManager.App.Windows;
+namespace OpenBackupManager.ViewModels;
 
-public enum TrayState
+public enum SyncState
 {
     Idle,
     Syncing,
