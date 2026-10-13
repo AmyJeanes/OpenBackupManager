@@ -20,4 +20,6 @@
     </EmbeddedResource>
   </ItemGroup>
 
+  <Import Project="PseudoLocale.targets" />
+
 </Project>

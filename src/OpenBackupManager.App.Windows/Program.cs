@@ -37,6 +37,12 @@ public static class Program
             AppName += " (dev)";
         }
 
+        // For checking the text, such as qps-ploc for the pseudo-locale
+        if (Environment.GetEnvironmentVariable("OBM_UI_CULTURE") is { Length: > 0 } uiCulture)
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo(uiCulture);
+        }
+
         Home = AppHome.Resolve(
             args,
             Environment.GetEnvironmentVariable("OBM_HOME"),

@@ -1,0 +1,53 @@
+<Project>
+
+  <!-- Debug builds get a qps-ploc copy of Strings with every letter accented and the text 40% longer, in brackets.
+       Running with OBM_UI_CULTURE=qps-ploc then shows any text that isn't from Strings, or that gets cut off -->
+  <UsingTask TaskName="WritePseudoLocale" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Source ParameterType="System.String" Required="true" />
+      <Destination ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="System.Xml.Linq" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        const string plain = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const string accented = "áƀçđéƒĝĥíĵķĺɱñóþǫŕšţúṽŵẋýžÁƁÇĐÉƑĜĤÍĴĶĹṀÑÓÞǪŔŠŢÚṼŴẊÝŽ";
+        var document = XDocument.Load(Source);
+        foreach (var value in document.Root.Elements("data").Elements("value"))
+        {
+            var text = new StringBuilder("[");
+            // Placeholders such as {0} stay as they are
+            foreach (var part in Regex.Split(value.Value, @"(\{[^}]*\})"))
+            {
+                foreach (var c in part)
+                {
+                    var i = part.StartsWith("{") ? -1 : plain.IndexOf(c);
+                    text.Append(i < 0 ? c : accented[i]);
+                }
+            }
+
+            text.Append(' ').Append('·', (int)Math.Ceiling(value.Value.Length * 0.4)).Append(']');
+            value.Value = text.ToString();
+        }
+
+        document.Save(Destination);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="WritePseudoLocale" BeforeTargets="AssignTargetPaths" Condition="'$(Configuration)' == 'Debug'"
+          Inputs="Strings.resx;$(MSBuildThisFileFullPath)" Outputs="$(IntermediateOutputPath)Strings.qps-ploc.resx">
+    <WritePseudoLocale Source="Strings.resx" Destination="$(IntermediateOutputPath)Strings.qps-ploc.resx" />
+  </Target>
+
+  <!-- A separate target, so the file is added to the build even when it's up to date and the one above is skipped -->
+  <Target Name="AddPseudoLocale" BeforeTargets="AssignTargetPaths" DependsOnTargets="WritePseudoLocale" Condition="'$(Configuration)' == 'Debug'">
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)Strings.qps-ploc.resx" Culture="qps-ploc" WithCulture="true"
+                        ManifestResourceName="OpenBackupManager.ViewModels.Strings.qps-ploc" />
+    </ItemGroup>
+  </Target>
+
+</Project>

@@ -65,6 +65,7 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 - The tray icon on the taskbar, in the hidden icons popup, and near each end of the taskbar.
 - Launching the app again from the Start menu while it's running, with the main window open and closed: the flyout should open and take focus.
 - The test notification's name and icon, as it pops up and in the notification centre.
+- For changes to text, a dev build run with the `OBM_UI_CULTURE` environment variable set to `qps-ploc`, with each window, the tray menu and the test notification opened. All text should be accented and in brackets: plain text isn't coming from `Strings`, and text that's cut short needs more room.
 - For changes to installing or updating, a build packed as in CI's release job: a dev build running alongside the installed copy, installing it again over a running copy with `--silent`, and uninstalling it from Settings > Apps.
 
 ### Trying updates locally
