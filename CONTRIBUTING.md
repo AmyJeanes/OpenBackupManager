@@ -16,6 +16,7 @@ OpenBackupManager is a cross-platform backup and two-way sync app. Our own sync 
 
 - Never point a development build at folders or accounts you care about. Use a test account or a throwaway folder.
 - Nothing private goes in the repo: no secrets, tokens, personal paths or real file names.
+- Keep tokens and passwords in Core's `Secret`, which prints and logs as `***`, and never log what its `Reveal` returns.
 
 ## Build and test
 
