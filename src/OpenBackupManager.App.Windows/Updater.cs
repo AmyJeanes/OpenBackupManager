@@ -20,16 +20,15 @@ public sealed class Updater : IDisposable
 
     private readonly UpdateManager _manager;
     private readonly string _home;
-    private readonly Action<string> _ready;
+    private readonly Notifications _notifications;
     private readonly CancellationTokenSource _stop = new();
     private readonly SemaphoreSlim _checking = new(1, 1);
     private string? _seenVersion;
 
-    // Calls ready when an update has downloaded, and updated when this is the first start of a newer version
-    public Updater(string home, Action<string> ready, Action<string> updated)
+    public Updater(Notifications notifications)
     {
-        _ready = ready;
-        _home = home;
+        _notifications = notifications;
+        _home = Program.Home;
         // Follows prereleases while running one
         var prerelease = VelopackLocator.Current.CurrentlyInstalledVersion?.IsPrerelease ?? false;
         var source = TestSource();
@@ -39,7 +38,7 @@ public sealed class Updater : IDisposable
             : new UpdateManager(source);
         if (_manager.IsInstalled)
         {
-            NoticeUpdate(home, updated);
+            NoticeUpdate();
             _ = CheckRegularly();
         }
     }
@@ -89,16 +88,16 @@ public sealed class Updater : IDisposable
         return file is not null && File.Exists(file) ? File.ReadAllText(file).Trim() : null;
     }
 
-    private void NoticeUpdate(string home, Action<string> updated)
+    private void NoticeUpdate()
     {
         var current = _manager.CurrentVersion!;
-        var file = Path.Combine(home, "last-version");
+        var file = Path.Combine(_home, "last-version");
         var last = File.Exists(file) && SemanticVersion.TryParse(File.ReadAllText(file).Trim(), out var version) ? version : null;
-        Directory.CreateDirectory(home);
+        Directory.CreateDirectory(_home);
         File.WriteAllText(file, current.ToString());
         if (last is not null && current.CompareTo(last) > 0)
         {
-            updated(current.ToString());
+            _notifications.ShowUpdated(current.ToString());
         }
     }
 
@@ -139,7 +138,7 @@ public sealed class Updater : IDisposable
                 _seenVersion = version;
                 if (notify)
                 {
-                    _ready(version);
+                    _notifications.ShowUpdateReady(version);
                 }
             }
 

@@ -5,6 +5,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 ## How it works
 
 - It's unpackaged (a plain folder with an exe, no MSIX) and carries its own copy of the Windows App SDK, so nothing else needs installing. It runs on Windows 10 1809 or later.
+- `Program` builds the app's services in one place, with Microsoft.Extensions.Hosting and dependency injection, after the single-instance check so a copy that hands over builds nothing. `Tray`, `Notifications` and `Updater` are created once the UI thread is running, since they need it, and windows are created from the services each time they open. `AppActions` is what the tray, notifications and windows ask the app to do: open a window, quit or restart to update. Quitting disposes the services, which takes the tray icon down.
 - The main window uses the Mica backdrop and extends its content into the title bar.
 - `Tray` puts the icon in the notification area through WinUIEx's `TrayIcon`. Left-click opens the status flyout, double-click opens the main window, and right-click opens a menu with Sync all now, Pause, Open, Show test notification, About and Quit. Debug builds also get an Icon state submenu for trying each status icon.
 - The status flyout, `StatusFlyout`, is a small borderless window with the status, Sync now and Open. It opens centred on the tray icon, just clear of the taskbar, or just clear of the icon in the hidden icons popup. It slides out from behind the taskbar, follows the Windows mode like the tray icon, and closes when it loses focus or on Esc.
