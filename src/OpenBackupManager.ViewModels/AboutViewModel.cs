@@ -19,15 +19,15 @@ public sealed partial class AboutViewModel : ObservableObject
         _actions = actions;
         _time = time;
         Name = app.Name;
-        Version = "Version " + app.Version + (updater.IsTestSource ? " (test updates)" : "");
+        Version = Text.Format(updater.IsTestSource ? Strings.About_VersionTestUpdates : Strings.About_Version, app.Version);
         Copyright = app.Copyright;
         UpdateButtonText = ButtonText();
-        UpdateStatus = updater.CanUpdate ? Status() : "Updates are unavailable on dev builds";
+        UpdateStatus = updater.CanUpdate ? Status() : Strings.About_UpdatesUnavailable;
     }
 
     public string Name { get; }
 
-    public string Title => "About " + Name;
+    public string Title => Text.Format(Strings.About_Title, Name);
 
     public string Version { get; }
 
@@ -51,23 +51,23 @@ public sealed partial class AboutViewModel : ObservableObject
             return;
         }
 
-        UpdateStatus = "Checking…";
+        UpdateStatus = Strings.About_Checking;
         // Reported back on this thread
-        IProgress<int> downloading = new Progress<int>(percent => UpdateStatus = $"Downloading update… {percent}%");
+        IProgress<int> downloading = new Progress<int>(percent => UpdateStatus = Text.Format(Strings.About_Downloading, percent));
         var check = _updater.CheckNow(downloading.Report);
         await Task.WhenAll(check, Task.Delay(MinimumCheckTime, _time));
         UpdateStatus = await check switch
         {
             UpdateCheckResult.UpdateReady => ReadyText(),
-            UpdateCheckResult.UpToDate => "You're up to date",
-            _ => "Couldn't check for updates",
+            UpdateCheckResult.UpToDate => Strings.About_UpToDate,
+            _ => Strings.About_CheckFailed,
         };
         UpdateButtonText = ButtonText();
     }
 
-    private string ButtonText() => _updater.UpdateReady ? "Restart to update" : "Check for updates";
+    private string ButtonText() => _updater.UpdateReady ? Strings.About_RestartToUpdate : Strings.About_CheckForUpdates;
 
-    private string ReadyText() => $"Version {_updater.ReadyVersion} is ready to install";
+    private string ReadyText() => Text.Format(Strings.About_ReadyToInstall, _updater.ReadyVersion);
 
     private string Status()
     {
@@ -78,7 +78,7 @@ public sealed partial class AboutViewModel : ObservableObject
 
         if (_updater.LastChecked is not { } lastChecked)
         {
-            return "Not checked yet";
+            return Strings.About_NotChecked;
         }
 
         var today = _time.GetLocalNow().Date;
@@ -87,14 +87,14 @@ public sealed partial class AboutViewModel : ObservableObject
         var time = checkedAt.ToString("t", culture);
         if (checkedAt.Date == today)
         {
-            return $"Last checked at {time}";
+            return Text.Format(Strings.About_LastCheckedToday, time);
         }
 
         if (checkedAt.Date == today.AddDays(-1))
         {
-            return $"Last checked yesterday at {time}";
+            return Text.Format(Strings.About_LastCheckedYesterday, time);
         }
 
-        return $"Last checked on {checkedAt.ToString("M", culture)} at {time}";
+        return Text.Format(Strings.About_LastCheckedOn, checkedAt.ToString("M", culture), time);
     }
 }

@@ -39,20 +39,20 @@ public sealed class Notifications : IDisposable
     public static bool StartedByClick => Environment.GetCommandLineArgs().Contains("-Embedding");
 
     public void ShowTest() => Show(new Toast(ViewDetails)
-        .Text("Sync failed")
-        .Text("Test folder couldn't sync (test notification)")
-        .Button("View details", ViewDetails));
+        .Text(Strings.Notification_TestTitle)
+        .Text(Strings.Notification_TestText)
+        .Button(Strings.Notification_ViewDetails, ViewDetails));
 
     public void ShowUpdateReady(string version) => Show(new Toast()
-        .Text("Update available")
-        .Text($"Version {version} is ready to install")
-        .Button("Restart now", Restart)
-        .DismissButton("Not now"));
+        .Text(Strings.Notification_UpdateReadyTitle)
+        .Text(Text.Format(Strings.Notification_UpdateReadyText, version))
+        .Button(Strings.Notification_RestartNow, Restart)
+        .DismissButton(Strings.Notification_NotNow));
 
     public void ShowUpdated(string version) => Show(new Toast()
-        .Text("Update installed")
-        .Text($"Version {version} is now installed")
-        .Link("What's new", new Uri($"{Updater.RepositoryUrl}/releases/tag/v{version}")));
+        .Text(Strings.Notification_UpdatedTitle)
+        .Text(Text.Format(Strings.Notification_UpdatedText, version))
+        .Link(Strings.Notification_WhatsNew, new Uri($"{Updater.RepositoryUrl}/releases/tag/v{version}")));
 
     // When uninstalling, so nothing is left behind
     public static void Unregister()

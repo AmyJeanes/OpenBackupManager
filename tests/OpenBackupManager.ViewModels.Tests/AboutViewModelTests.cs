@@ -4,6 +4,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace OpenBackupManager.ViewModels.Tests;
 
 [SetCulture("en-GB")]
+[SetUICulture("en-GB")]
 public class AboutViewModelTests
 {
     private static readonly AppInfo App = new("Open Backup Manager", "1.2.3", "© 2026 Amy Jeanes");

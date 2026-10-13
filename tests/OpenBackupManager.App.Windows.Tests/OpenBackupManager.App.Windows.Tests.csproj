@@ -27,4 +27,9 @@
     <ProjectReference Include="..\..\src\OpenBackupManager.App.Windows\OpenBackupManager.App.Windows.csproj" />
   </ItemGroup>
 
+  <!-- For XamlTextTests, which checks the app's XAML has no text that can't be translated -->
+  <ItemGroup>
+    <None Include="..\..\src\OpenBackupManager.App.Windows\**\*.xaml" Exclude="..\..\src\OpenBackupManager.App.Windows\bin\**;..\..\src\OpenBackupManager.App.Windows\obj\**" LinkBase="Xaml" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
 </Project>

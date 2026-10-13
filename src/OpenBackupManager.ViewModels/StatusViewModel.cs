@@ -16,11 +16,11 @@ public sealed partial class StatusViewModel(AppInfo app, IAppActions actions) : 
 
     public string StatusText => State switch
     {
-        SyncState.Idle => "Up to date",
-        SyncState.Syncing => "Syncing",
-        SyncState.Paused => "Paused",
-        SyncState.NeedsAttention => "Needs attention",
-        SyncState.Error => "Error",
+        SyncState.Idle => Strings.Status_Idle,
+        SyncState.Syncing => Strings.Status_Syncing,
+        SyncState.Paused => Strings.Status_Paused,
+        SyncState.NeedsAttention => Strings.Status_NeedsAttention,
+        SyncState.Error => Strings.Status_Error,
         _ => throw new ArgumentOutOfRangeException(nameof(State)),
     };
 

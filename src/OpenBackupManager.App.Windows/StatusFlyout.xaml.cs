@@ -33,6 +33,7 @@ public sealed partial class StatusFlyout : Window
     {
         ViewModel = viewModel;
         InitializeComponent();
+        Title = viewModel.AppName;
         _trayIconId = trayIconId;
         SystemBackdrop = new BlurBehind();
         var presenter = OverlappedPresenter.Create();

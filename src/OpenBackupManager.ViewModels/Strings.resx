@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="About_Title" xml:space="preserve">
+    <value>About {0}</value>
+    <comment>{0} is the app's name</comment>
+  </data>
+  <data name="About_Version" xml:space="preserve">
+    <value>Version {0}</value>
+    <comment>{0} is the version, such as 1.2.3</comment>
+  </data>
+  <data name="About_VersionTestUpdates" xml:space="preserve">
+    <value>Version {0} (test updates)</value>
+    <comment>{0} is the version. Shown when updates come from a local test feed rather than GitHub</comment>
+  </data>
+  <data name="About_CheckForUpdates" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="About_RestartToUpdate" xml:space="preserve">
+    <value>Restart to update</value>
+  </data>
+  <data name="About_UpdatesUnavailable" xml:space="preserve">
+    <value>Updates are unavailable on dev builds</value>
+  </data>
+  <data name="About_NotChecked" xml:space="preserve">
+    <value>Not checked yet</value>
+  </data>
+  <data name="About_LastCheckedToday" xml:space="preserve">
+    <value>Last checked at {0}</value>
+    <comment>{0} is a time</comment>
+  </data>
+  <data name="About_LastCheckedYesterday" xml:space="preserve">
+    <value>Last checked yesterday at {0}</value>
+    <comment>{0} is a time</comment>
+  </data>
+  <data name="About_LastCheckedOn" xml:space="preserve">
+    <value>Last checked on {0} at {1}</value>
+    <comment>{0} is a day and month, {1} is a time</comment>
+  </data>
+  <data name="About_Checking" xml:space="preserve">
+    <value>Checking…</value>
+  </data>
+  <data name="About_Downloading" xml:space="preserve">
+    <value>Downloading update… {0}%</value>
+    <comment>{0} is a percentage from 0 to 100</comment>
+  </data>
+  <data name="About_UpToDate" xml:space="preserve">
+    <value>You're up to date</value>
+  </data>
+  <data name="About_CheckFailed" xml:space="preserve">
+    <value>Couldn't check for updates</value>
+  </data>
+  <data name="About_ReadyToInstall" xml:space="preserve">
+    <value>Version {0} is ready to install</value>
+    <comment>{0} is the version, such as 1.2.3</comment>
+  </data>
+  <data name="About_GitHub" xml:space="preserve">
+    <value>GitHub</value>
+  </data>
+  <data name="About_Licence" xml:space="preserve">
+    <value>Licence</value>
+  </data>
+  <data name="About_ThirdPartyNotices" xml:space="preserve">
+    <value>Third-party notices</value>
+  </data>
+  <data name="Status_Idle" xml:space="preserve">
+    <value>Up to date</value>
+  </data>
+  <data name="Status_Syncing" xml:space="preserve">
+    <value>Syncing</value>
+  </data>
+  <data name="Status_Paused" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="Status_NeedsAttention" xml:space="preserve">
+    <value>Needs attention</value>
+  </data>
+  <data name="Status_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Status_SyncNow" xml:space="preserve">
+    <value>Sync now</value>
+  </data>
+  <data name="Status_Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Tray_SyncAllNow" xml:space="preserve">
+    <value>Sync all now</value>
+  </data>
+  <data name="Tray_Pause" xml:space="preserve">
+    <value>Pause</value>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Tray_ShowTestNotification" xml:space="preserve">
+    <value>Show test notification</value>
+  </data>
+  <data name="Tray_About" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Tray_Quit" xml:space="preserve">
+    <value>Quit</value>
+  </data>
+  <data name="Notification_TestTitle" xml:space="preserve">
+    <value>Sync failed</value>
+  </data>
+  <data name="Notification_TestText" xml:space="preserve">
+    <value>Test folder couldn't sync (test notification)</value>
+  </data>
+  <data name="Notification_ViewDetails" xml:space="preserve">
+    <value>View details</value>
+  </data>
+  <data name="Notification_UpdateReadyTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="Notification_UpdateReadyText" xml:space="preserve">
+    <value>Version {0} is ready to install</value>
+    <comment>{0} is the version, such as 1.2.3</comment>
+  </data>
+  <data name="Notification_RestartNow" xml:space="preserve">
+    <value>Restart now</value>
+  </data>
+  <data name="Notification_NotNow" xml:space="preserve">
+    <value>Not now</value>
+  </data>
+  <data name="Notification_UpdatedTitle" xml:space="preserve">
+    <value>Update installed</value>
+  </data>
+  <data name="Notification_UpdatedText" xml:space="preserve">
+    <value>Version {0} is now installed</value>
+    <comment>{0} is the version, such as 1.2.3</comment>
+  </data>
+  <data name="Notification_WhatsNew" xml:space="preserve">
+    <value>What's new</value>
+  </data>
+</root>
