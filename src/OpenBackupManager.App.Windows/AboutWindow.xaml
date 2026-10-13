@@ -20,20 +20,24 @@
     <TextBlock
       x:Name="NameText"
       HorizontalAlignment="Center"
-      Style="{StaticResource SubtitleTextBlockStyle}" />
+      Style="{StaticResource SubtitleTextBlockStyle}"
+      Text="{x:Bind ViewModel.Name}" />
     <TextBlock
       x:Name="VersionText"
       HorizontalAlignment="Center"
-      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+      Text="{x:Bind ViewModel.Version}" />
     <Button
       x:Name="UpdateButton"
       Margin="0,4"
       HorizontalAlignment="Center"
-      Click="OnUpdateButton" />
+      Command="{x:Bind ViewModel.UpdateCommand}"
+      Content="{x:Bind ViewModel.UpdateButtonText, Mode=OneWay}" />
     <TextBlock
       x:Name="UpdateStatusText"
       HorizontalAlignment="Center"
       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+      Text="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}"
       TextAlignment="Center"
       TextWrapping="Wrap" />
     <StackPanel
@@ -48,6 +52,7 @@
       x:Name="CopyrightText"
       HorizontalAlignment="Center"
       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-      Style="{StaticResource CaptionTextBlockStyle}" />
+      Style="{StaticResource CaptionTextBlockStyle}"
+      Text="{x:Bind ViewModel.Copyright}" />
   </StackPanel>
 </Window>

@@ -3,12 +3,12 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using OpenBackupManager.ViewModels;
 using WinUIEx;
 
 namespace OpenBackupManager.App.Windows;
 
-// What the tray, notifications and windows ask the app to do
-public sealed partial class AppActions(IHost host, ILogger<AppActions> logger)
+public sealed partial class AppActions(IHost host, ILogger<AppActions> logger) : IAppActions
 {
     private readonly IHost _host = host;
     private readonly ILogger _logger = logger;

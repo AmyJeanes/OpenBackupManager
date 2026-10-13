@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.UI.Dispatching;
 using Microsoft.Win32;
+using OpenBackupManager.ViewModels;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 
@@ -21,12 +22,12 @@ public sealed class Notifications : IDisposable
     // The activator's COM class, made from the app's ID so each copy keeps the same one
     private static readonly Guid ActivatorId = new(SHA256.HashData(Encoding.UTF8.GetBytes(AppId))[..16]);
 
-    private readonly AppActions _actions;
+    private readonly IAppActions _actions;
     private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
     private readonly uint _activator;
     private readonly ToastNotifier _notifier;
 
-    public Notifications(AppActions actions)
+    public Notifications(IAppActions actions)
     {
         _actions = actions;
         Register();

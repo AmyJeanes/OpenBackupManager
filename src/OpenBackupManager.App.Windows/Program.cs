@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
+using OpenBackupManager.ViewModels;
 using Serilog;
 using Serilog.Events;
 using Velopack;
@@ -60,10 +61,16 @@ public static class Program
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         builder.Services
-            .AddSingleton<AppActions>()
+            .AddSingleton(AppInfo.FromAssembly(AppName, typeof(Program).Assembly))
+            .AddSingleton(TimeProvider.System)
+            .AddSingleton<IAppActions, AppActions>()
             .AddSingleton<Notifications>()
+            // AppActions installs updates through Updater itself. IUpdater leaves that out, so view models go through
+            // AppActions. Both hand out the same Updater, since registering the type again would create a second one
             .AddSingleton<Updater>()
+            .AddSingleton<IUpdater>(services => services.GetRequiredService<Updater>())
             .AddSingleton<Tray>()
+            .AddTransient<AboutViewModel>()
             // One file a day, and another once one reaches 10 MB. Keeping the newest 7 is usually a week
             .AddSerilog(log => log
                 .MinimumLevel.Information()

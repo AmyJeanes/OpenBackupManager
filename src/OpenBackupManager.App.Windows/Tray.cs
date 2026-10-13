@@ -1,6 +1,7 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Win32;
+using OpenBackupManager.ViewModels;
 using Windows.UI.ViewManagement;
 using WinUIEx;
 
@@ -13,12 +14,12 @@ public sealed partial class Tray : IDisposable
     private readonly TrayIcon _icon;
     private readonly UISettings _uiSettings = new();
     private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
-    private readonly AppActions _actions;
+    private readonly IAppActions _actions;
     private readonly Notifications _notifications;
     private readonly StatusFlyout _flyout;
     private bool _skipClick;
 
-    public Tray(AppActions actions, Notifications notifications)
+    public Tray(IAppActions actions, Notifications notifications)
     {
         _actions = actions;
         _notifications = notifications;

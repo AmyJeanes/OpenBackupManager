@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
+using OpenBackupManager.ViewModels;
 
 namespace OpenBackupManager.App.Windows;
 
@@ -40,7 +41,7 @@ public sealed partial class App : Application
         // dev builds, since closing the terminal also closes an attached app
         if (!Program.Installed && NativeMethods.AttachToParentConsole())
         {
-            var actions = _services.GetRequiredService<AppActions>();
+            var actions = _services.GetRequiredService<IAppActions>();
             Console.CancelKeyPress += (_, e) =>
             {
                 e.Cancel = true;

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using OpenBackupManager.ViewModels;
 using Velopack;
 using Velopack.Locators;
 using Velopack.Sources;
@@ -6,16 +7,9 @@ using Velopack.Sources;
 namespace OpenBackupManager.App.Windows;
 
 // Auto updates the application from GitHub Releases
-public sealed partial class Updater : IDisposable
+public sealed partial class Updater : IUpdater, IDisposable
 {
     public const string RepositoryUrl = "https://github.com/AmyJeanes/OpenBackupManager";
-
-    public enum CheckResult
-    {
-        UpToDate,
-        UpdateReady,
-        Failed,
-    }
 
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
 
@@ -26,6 +20,7 @@ public sealed partial class Updater : IDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly SemaphoreSlim _checking = new(1, 1);
     private string? _seenVersion;
+    private bool _disposed;
 
     public Updater(Notifications notifications, ILogger<Updater> logger)
     {
@@ -52,13 +47,12 @@ public sealed partial class Updater : IDisposable
 
     public string? ReadyVersion => _manager.UpdatePendingRestart?.Version.ToString();
 
-    // Failed checks don't count
-    public DateTime? LastChecked { get; private set; }
+    public DateTimeOffset? LastChecked { get; private set; }
 
     public bool IsTestSource { get; }
 
-    // Reports the download's progress as a percentage. About shows the result, so this doesn't notify
-    public Task<CheckResult> CheckNow(Action<int> downloading) => Check(notify: false, downloading);
+    // About shows the result, so this doesn't notify
+    public Task<UpdateCheckResult> CheckNow(Action<int> downloading) => Check(notify: false, downloading);
 
     // Exits the app. Velopack restarts it without its arguments, so the home is passed on
     public void RestartToUpdate() => _manager.ApplyUpdatesAndRestart(_manager.UpdatePendingRestart, ["--home", _home]);
@@ -72,8 +66,15 @@ public sealed partial class Updater : IDisposable
         }
     }
 
+    // Called twice on Quit, since the services dispose it as both Updater and IUpdater
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         _stop.Cancel();
         _stop.Dispose();
         _checking.Dispose();
@@ -122,18 +123,18 @@ public sealed partial class Updater : IDisposable
         }
     }
 
-    private async Task<CheckResult> Check(bool notify, Action<int>? downloading)
+    private async Task<UpdateCheckResult> Check(bool notify, Action<int>? downloading)
     {
         // So two downloads never run at once
         await _checking.WaitAsync(_stop.Token);
         try
         {
             var update = await _manager.CheckForUpdatesAsync();
-            LastChecked = DateTime.Now;
+            LastChecked = DateTimeOffset.Now;
             if (update is null)
             {
                 LogUpToDate();
-                return CheckResult.UpToDate;
+                return UpdateCheckResult.UpToDate;
             }
 
             await _manager.DownloadUpdatesAsync(update, downloading, _stop.Token);
@@ -149,13 +150,13 @@ public sealed partial class Updater : IDisposable
                 }
             }
 
-            return CheckResult.UpdateReady;
+            return UpdateCheckResult.UpdateReady;
         }
         catch (Exception e) when (e is HttpRequestException or IOException)
         {
             LogCheckFailed(e);
             // Offline or GitHub is down. The next check tries again
-            return CheckResult.Failed;
+            return UpdateCheckResult.Failed;
         }
         finally
         {
