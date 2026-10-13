@@ -216,7 +216,7 @@ jobs:
           dotnet vpk pack
           --packId OpenBackupManager.App
           --packVersion $VERSION
-          --packTitle OpenBackupManager
+          --packTitle "Open Backup Manager"
           --packAuthors "Amy Jeanes"
           --packDir publish
           --mainExe OpenBackupManager.App.Windows.exe

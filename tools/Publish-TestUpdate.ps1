@@ -51,7 +51,7 @@ $packArgs = @(
     'vpk', 'pack'
     '--packId', 'OpenBackupManager.App'
     '--packVersion', $Version
-    '--packTitle', 'OpenBackupManager'
+    '--packTitle', 'Open Backup Manager'
     '--packAuthors', 'Amy Jeanes'
     '--packDir', $publish
     '--mainExe', 'OpenBackupManager.App.Windows.exe'

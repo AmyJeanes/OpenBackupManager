@@ -2,7 +2,7 @@ namespace OpenBackupManager.ViewModels.Tests;
 
 public class StatusViewModelTests
 {
-    private static readonly AppInfo App = new("OpenBackupManager", "1.2.3", null);
+    private static readonly AppInfo App = new("Open Backup Manager", "1.2.3", null);
 
     [Test]
     public void StartsIdle()
@@ -11,7 +11,7 @@ public class StatusViewModelTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(status.AppName, Is.EqualTo("OpenBackupManager"));
+            Assert.That(status.AppName, Is.EqualTo("Open Backup Manager"));
             Assert.That(status.State, Is.EqualTo(SyncState.Idle));
             Assert.That(status.StatusText, Is.EqualTo("Up to date"));
         }

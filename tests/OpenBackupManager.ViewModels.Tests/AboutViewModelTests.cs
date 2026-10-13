@@ -6,7 +6,7 @@ namespace OpenBackupManager.ViewModels.Tests;
 [SetCulture("en-GB")]
 public class AboutViewModelTests
 {
-    private static readonly AppInfo App = new("OpenBackupManager", "1.2.3", "© 2026 Amy Jeanes");
+    private static readonly AppInfo App = new("Open Backup Manager", "1.2.3", "© 2026 Amy Jeanes");
 
     private FakeTimeProvider _time = null!;
     private FakeUpdater _updater = null!;
@@ -34,8 +34,8 @@ public class AboutViewModelTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(about.Title, Is.EqualTo("About OpenBackupManager"));
-            Assert.That(about.Name, Is.EqualTo("OpenBackupManager"));
+            Assert.That(about.Title, Is.EqualTo("About Open Backup Manager"));
+            Assert.That(about.Name, Is.EqualTo("Open Backup Manager"));
             Assert.That(about.Version, Is.EqualTo("Version 1.2.3"));
             Assert.That(about.Copyright, Is.EqualTo("© 2026 Amy Jeanes"));
         }

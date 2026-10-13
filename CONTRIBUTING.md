@@ -1,8 +1,8 @@
 # Contributing
 
-Thanks for your interest. OpenBackupManager is early and has one maintainer, so please open an issue before starting anything bigger than a small fix, so we can agree the approach first.
+Thanks for your interest. Open Backup Manager is early and has one maintainer, so please open an issue before starting anything bigger than a small fix, so we can agree the approach first.
 
-OpenBackupManager is a cross-platform backup and two-way sync app. Our own sync engine plans every change; rclone, run as a supervised `rclone rcd`, only moves the bytes.
+Open Backup Manager is a cross-platform backup and two-way sync app. Our own sync engine plans every change; rclone, run as a supervised `rclone rcd`, only moves the bytes.
 
 ## Making a change
 

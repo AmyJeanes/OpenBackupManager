@@ -1,6 +1,6 @@
 # Third-party notices
 
-OpenBackupManager bundles the following software.
+Open Backup Manager bundles the following software.
 
 ## rclone
 

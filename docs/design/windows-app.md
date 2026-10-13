@@ -15,7 +15,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 - The tray icon is single-colour and shows one of five states: idle, syncing, paused, needs attention and error. Each state has an SVG for a light taskbar and one for a dark taskbar in `Assets/Tray/`, and the icon switches when the Windows mode changes.
 - Launching the app opens the status flyout rather than the main window, which is the full view and opens from Open. Closing the window destroys it, and the tray keeps the app running. Quit removes the tray icon and exits.
 - One copy runs for each home folder. Launching the app again hands over to the running copy, which opens its flyout, and the new copy exits.
-- `AppHome` picks the home folder, where everything the app keeps will go: `--home`, then the `OBM_HOME` environment variable, then `%LocalAppData%\OpenBackupManager` for an installed copy, or `%LocalAppData%\OpenBackupManager-Dev` for one that wasn't installed, such as a build run while developing. The single-instance lock is named from it, so copies with different homes run side by side. A copy that wasn't installed calls itself "OpenBackupManager (dev)" in its tooltip, flyout, window title and notifications.
+- `AppHome` picks the home folder, where everything the app keeps will go: `--home`, then the `OBM_HOME` environment variable, then `%LocalAppData%\OpenBackupManager` for an installed copy, or `%LocalAppData%\OpenBackupManager-Dev` for one that wasn't installed, such as a build run while developing. The single-instance lock is named from it, so copies with different homes run side by side. A copy that wasn't installed calls itself "Open Backup Manager (dev)" in its tooltip, flyout, window title and notifications.
 - Velopack installs it per user into `%LocalAppData%\OpenBackupManager.App`, with a Start menu shortcut and no admin rights. Each architecture, x64 and ARM64, is its own Velopack channel, so an install only updates to its own build.
 - `Updater` checks GitHub Releases when the app starts and every 6 hours, and downloads an update in the background. It then shows an Update available notification whose Restart now installs it, or it installs when the user quits or next starts the app. Restarting to update keeps the copy's home, which Velopack's restart would otherwise drop with the rest of the command line. The first time a newer version starts, however it was installed, an Update installed notification links to its release notes. It knows by keeping the last version that ran in `last-version` in the home folder. It follows prereleases while running one, until Settings has an option for it. Copies that weren't installed by Velopack don't check. For trying updates out locally, an `update-source` file in the install folder, or the `OBM_UPDATE_SOURCE` environment variable, points it at a folder or URL instead of GitHub, and About marks the version with (test updates). The file lasts through updates but goes when the app is uninstalled or reinstalled.
 - Uninstalling runs the app's uninstall hook first, which removes its notification registration and clears its notifications.
@@ -24,6 +24,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 
 ## Why
 
+- **People see Open Backup Manager, with spaces.** Start menu and store searches match each word, and screen readers read it naturally. The joined `OpenBackupManager` stays wherever it's an identifier: the repo, the pack ID, and the install and data folders.
 - **Only the WinUI package, not all of `Microsoft.WindowsAppSDK`.** The full package also brings the SDK's AI, machine learning and search parts, which take the app from 94 MB to 154 MB. `Microsoft.WindowsAppSDK.InteractiveExperiences` is referenced directly because the WinUI package asks for a version of it that was never published.
 - **WinUIEx for the tray icon.** WinUI has none of its own. WinUIEx's needs no window, takes any WinUI flyout as its menu, and accepts SVG icons. H.NotifyIcon was the alternative, but WinUIEx did everything we needed and its window helpers are useful elsewhere too.
 - **CsWin32 for the Windows APIs that WinUI and WinUIEx don't cover.** It generates the declarations, structs and constants from Windows' own metadata for the names in `NativeMethods.txt`, which is Microsoft's recommended way to call them, so `NativeMethods.cs` only holds our helpers.
@@ -75,7 +76,7 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 3. `./tools/Publish-TestUpdate.ps1 -Version 0.0.2-local` adds a newer version to the feed.
 4. Check for updates again: it should download the update, show Version 0.0.2-local is ready to install, and turn the button into Restart to update.
 5. Restart to update, or Restart now on the notification, should restart into the new version. To try installing on Quit instead, add another version as in step 3, check, and quit.
-6. Uninstall OpenBackupManager from Settings > Apps when done.
+6. Uninstall Open Backup Manager from Settings > Apps when done.
 
 ## Releasing
 

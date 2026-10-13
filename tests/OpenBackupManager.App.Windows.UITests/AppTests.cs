@@ -34,7 +34,7 @@ public abstract class AppTests
 
     protected virtual string AppPath => BuiltAppPath;
 
-    protected virtual string AppName => "OpenBackupManager (dev)";
+    protected virtual string AppName => "Open Backup Manager (dev)";
 
     [SetUp]
     public void Launch()

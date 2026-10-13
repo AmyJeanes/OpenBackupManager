@@ -17,7 +17,7 @@ namespace OpenBackupManager.App.Windows;
 public static class Program
 {
     // Marks a copy that wasn't installed, such as a build run while developing, so it's easy to tell from the installed app
-    internal static string AppName { get; private set; } = "OpenBackupManager";
+    internal static string AppName { get; private set; } = "Open Backup Manager";
 
     internal static string Home { get; private set; } = "";
 

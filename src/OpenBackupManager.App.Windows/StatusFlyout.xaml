@@ -3,7 +3,7 @@
   x:Class="OpenBackupManager.App.Windows.StatusFlyout"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  Title="OpenBackupManager">
+  Title="Open Backup Manager">
   <Grid
     x:Name="Root"
     Padding="16"

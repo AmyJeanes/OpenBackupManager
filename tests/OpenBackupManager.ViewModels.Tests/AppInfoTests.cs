@@ -5,11 +5,11 @@ public class AppInfoTests
     [Test]
     public void FromAssembly_LeavesBuildDetailsOutOfTheVersion()
     {
-        var app = AppInfo.FromAssembly("OpenBackupManager", typeof(AppInfoTests).Assembly);
+        var app = AppInfo.FromAssembly("Open Backup Manager", typeof(AppInfoTests).Assembly);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(app.Name, Is.EqualTo("OpenBackupManager"));
+            Assert.That(app.Name, Is.EqualTo("Open Backup Manager"));
             Assert.That(app.Version, Is.Not.Empty.And.Not.Contain('+'));
             Assert.That(app.Copyright, Does.StartWith("©"));
         }

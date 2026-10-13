@@ -25,7 +25,7 @@ public sealed class InstallTests : AppTests
 
     protected override string AppPath => Path.Combine(InstallFolder, "current", "OpenBackupManager.App.Windows.exe");
 
-    protected override string AppName => "OpenBackupManager";
+    protected override string AppName => "Open Backup Manager";
 
     // Before the app starts
     [OneTimeSetUp]
