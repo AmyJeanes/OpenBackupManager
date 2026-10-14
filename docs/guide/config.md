@@ -24,6 +24,18 @@ The file is [TOML](https://toml.io): settings are `name = value`, grouped into s
 
 ## Settings
 
+These go at the top of the file, before any section.
+
+| Setting | Values | Default |
+| --- | --- | --- |
+| `start-at-login` | `true` to start the app when you sign in, in the tray, or `false` not to | `true` for the installed app, unless it was started with another home |
+
+```toml
+start-at-login = false
+```
+
+On Windows you can also turn it off in Settings > Apps > Startup, or Task Manager's Startup apps, which the app leaves alone even while this is `true`.
+
 ### `[updates]`
 
 | Setting | Values | Default |

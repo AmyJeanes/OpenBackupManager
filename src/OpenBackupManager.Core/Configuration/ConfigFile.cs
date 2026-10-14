@@ -15,6 +15,8 @@ public sealed class ConfigFile(string path)
         # Anything left out has its default.
         version = 1
 
+        # start-at-login = false    # Start the app when you sign in. Left out, it does when installed unless a custom home folder is used
+
         # [updates]
         # prereleases = true    # Get test versions early. Left out, updates follow what's installed
 
@@ -31,6 +33,7 @@ public sealed class ConfigFile(string path)
     private static readonly Dictionary<string, ValueKind> Keys = new()
     {
         ["version"] = ValueKind.Integer,
+        ["start-at-login"] = ValueKind.Boolean,
         ["updates.prereleases"] = ValueKind.Boolean,
         ["remotes.id"] = ValueKind.String,
         ["remotes.name"] = ValueKind.String,

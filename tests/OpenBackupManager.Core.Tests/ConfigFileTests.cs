@@ -23,6 +23,7 @@ public class ConfigFileTests
         {
             Assert.That(result.Config, Is.EqualTo(new AppConfig()));
             Assert.That(result.Config!.Version, Is.EqualTo(AppConfig.CurrentVersion));
+            Assert.That(result.Config.StartAtLogin, Is.Null);
             Assert.That(result.Config.Updates.Prereleases, Is.Null);
             Assert.That(result.Problems, Is.Empty);
         }
@@ -33,6 +34,7 @@ public class ConfigFileTests
     {
         var result = ConfigFile.Parse("""
             version = 1
+            start-at-login = false
 
             [updates]
             prereleases = true
@@ -46,7 +48,8 @@ public class ConfigFileTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Problems, Is.Empty);
-            Assert.That(result.Config!.Updates.Prereleases, Is.True);
+            Assert.That(result.Config!.StartAtLogin, Is.False);
+            Assert.That(result.Config.Updates.Prereleases, Is.True);
             Assert.That(result.Config.Remotes, Is.EquivalentTo([new RemoteSettings { Id = "onedrive", Name = "OneDrive", Root = "onedrive:OpenBackupManager/" }]));
         }
     }
@@ -165,6 +168,12 @@ public class ConfigFileTests
     [Test]
     public void Edit_AddsTheSection() =>
         Assert.That(ConfigFile.Edit("version = 1", "updates", "prereleases", false), Is.EqualTo("version = 1\n\n[updates]\nprereleases = false\n"));
+
+    [Test]
+    public void Edit_AddsATopLevelSettingBeforeTheSections() =>
+        Assert.That(
+            ConfigFile.Edit("version = 1\n\n[updates]\nprereleases = true\n", null, "start-at-login", false),
+            Is.EqualTo("version = 1\nstart-at-login = false\n\n[updates]\nprereleases = true\n"));
 
     [Test]
     public void Edit_RemovesASetting() =>

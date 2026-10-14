@@ -11,6 +11,9 @@ public sealed record AppConfig
 
     public int Version { get; init; } = CurrentVersion;
 
+    // Left out, only the installed app's own home starts at login, so any other home has to ask for it
+    public bool? StartAtLogin { get; init; }
+
     public UpdateSettings Updates { get; init; } = new();
 
     public IReadOnlyList<RemoteSettings> Remotes { get; init; } = [];

@@ -59,6 +59,8 @@ public sealed class InstallTests : AppTests
     [Test]
     public void UpdatesAndUninstalls()
     {
+        // Only the installed app's own home starts at login without asking, and the test's home is another
+        File.WriteAllText(Path.Combine(Home, "config.toml"), "version = 1\nstart-at-login = true\n");
         ChooseFromTrayMenu("About");
         var about = WaitForWindow("About " + AppName);
         Assert.That(Text(about, "VersionText"), Is.EqualTo("Version 0.0.1 (test updates)"));
@@ -114,13 +116,19 @@ public sealed class InstallTests : AppTests
         Quit();
 
         var registrations = NotificationRegistrations().ToList();
-        Assert.That(registrations, Is.Not.Empty);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(registrations, Is.Not.Empty);
+            Assert.That(RunEntries(), Does.Contain($"\"{AppPath}\" --home \"{Home}\" --at-login"));
+        }
+
         Uninstall();
         Assert.Multiple(() =>
         {
             Assert.That(Retry.WhileTrue(() => Directory.Exists(InstallFolder), Timeout).Result, Is.True, "The install folder should be removed");
             Assert.That(KeyExists(UninstallKey), Is.False);
             Assert.That(registrations.Where(KeyExists), Is.Empty, "The notification registration should be removed");
+            Assert.That(RunEntries(), Is.Empty, "Starting at login should be removed");
             Assert.That(
                 Retry.WhileFalse(() => !OpenNotificationCentre().FindAllDescendants(c => c.ByControlType(ControlType.ListItem))
                     .Any(n => n.FindFirstChild(c => c.ByAutomationId("Title"))?.Name == "Update installed"), Timeout, ignoreException: true).Result,
@@ -190,6 +198,17 @@ public sealed class InstallTests : AppTests
                 yield return $@"Software\Classes\CLSID\{id.GetValue("CustomActivator")}";
             }
         }
+    }
+
+    // The commands in the user's Run key that start the installed app
+    private List<string> RunEntries()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
+        return key?.GetValueNames()
+            .Select(name => key.GetValue(name) as string)
+            .OfType<string>()
+            .Where(command => command.StartsWith($"\"{AppPath}\"", StringComparison.OrdinalIgnoreCase))
+            .ToList() ?? [];
     }
 
     // With the command Velopack registers for uninstalling without asking, as IT tools do

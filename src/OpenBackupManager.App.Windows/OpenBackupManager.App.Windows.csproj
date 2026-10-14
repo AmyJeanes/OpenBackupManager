@@ -11,6 +11,8 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <!-- The name Windows shows for the exe, such as in Startup apps and Task Manager -->
+    <AssemblyTitle>$(Product)</AssemblyTitle>
     <!-- Default to this machine's runtime, which the self-contained Windows App SDK needs -->
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
     <!-- CsWin32's generated Windows API code uses pointers -->

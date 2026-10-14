@@ -28,6 +28,12 @@ public sealed partial class App : Application
         var version = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         var logger = _services.GetRequiredService<ILogger<App>>();
         LogStarted(logger, version, Program.Home);
+        if (Program.StartedAtLogin)
+        {
+            LogStartedAtLogin(logger);
+        }
+
+        _ = _services.GetRequiredService<StartAtLoginSetting>();
         // Created here because they need the UI thread. The updater starts checking as it's created
         _ = _services.GetRequiredService<Updater>();
         var tray = _services.GetRequiredService<Tray>();
@@ -37,7 +43,7 @@ public sealed partial class App : Application
         {
             _services.GetRequiredService<AppActions>().ShowCrash(crash);
         }
-        else if (!WindowsNotifier.StartedByClick)
+        else if (!WindowsNotifier.StartedByClick && !Program.StartedAtLogin)
         {
             tray.ShowFlyout();
         }
@@ -61,4 +67,7 @@ public sealed partial class App : Application
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Started version {Version} with its home in {Home}")]
     private static partial void LogStarted(ILogger logger, string? version, string home);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Started at login")]
+    private static partial void LogStartedAtLogin(ILogger logger);
 }

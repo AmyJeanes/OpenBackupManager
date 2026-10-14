@@ -87,7 +87,7 @@ public abstract class AppTests
         }
     }
 
-    protected Process LaunchApp() => Process.Start(new ProcessStartInfo(AppPath, ["--home", Home]))!;
+    protected Process LaunchApp(params string[] arguments) => Process.Start(new ProcessStartInfo(AppPath, ["--home", Home, .. arguments]))!;
 
     // After Quit, as the copy the test goes on with
     protected void LaunchAgain()
@@ -97,10 +97,10 @@ public abstract class AppTests
     }
 
     // As LaunchAgain, for a copy that may hand over to another before it opens anything
-    protected void StartAgain()
+    protected void StartAgain(params string[] arguments)
     {
         App.Dispose();
-        App = LaunchApp();
+        App = LaunchApp(arguments);
     }
 
     // As a crash or shutting down would, which leaves its icon behind on the taskbar

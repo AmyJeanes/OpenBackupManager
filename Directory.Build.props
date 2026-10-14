@@ -8,8 +8,10 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <!-- Releases set the version from their tag -->
     <Version>0.0.0</Version>
+    <Company>Amy Jeanes</Company>
+    <Product>Open Backup Manager</Product>
     <CopyrightYears>2026</CopyrightYears>
     <CopyrightYears Condition="$([System.DateTime]::UtcNow.Year) &gt; 2026">2026&#x2013;$([System.DateTime]::UtcNow.Year)</CopyrightYears>
-    <Copyright>© $(CopyrightYears) Amy Jeanes</Copyright>
+    <Copyright>© $(CopyrightYears) $(Company)</Copyright>
   </PropertyGroup>
 </Project>

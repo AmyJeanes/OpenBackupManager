@@ -40,4 +40,4 @@ On Windows the app is installed in `%LocalAppData%\OpenBackupManager.App\`, alon
 
 ## Uninstalling
 
-Uninstalling removes the app, its Start menu shortcut and its notifications, but leaves your data, so installing it again picks up where you left off. To remove everything, delete the data folder too.
+Uninstalling removes the app, its Start menu shortcut, its notifications and its start at login, but leaves your data, so installing it again picks up where you left off. To remove everything, delete the data folder too.
