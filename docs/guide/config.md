@@ -35,4 +35,4 @@ The file is [TOML](https://toml.io): settings are `name = value`, grouped into s
 prereleases = true
 ```
 
-A change takes effect from the next check for updates, which the app makes every few hours, or straight away from **Check for updates** in About.
+A change takes effect from the next [check for updates](updates.md), which the app makes every few hours, or straight away from **Check for updates** in About.

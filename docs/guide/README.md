@@ -4,3 +4,4 @@ How to install, set up and use Open Backup Manager: getting started, the main co
 
 - [Files and folders](files.md): where the app keeps its files, its logs, and what uninstalling leaves
 - [Settings file](config.md): where config.toml is, editing it, and each setting
+- [Updates](updates.md): how the app keeps itself up to date, and getting test versions
