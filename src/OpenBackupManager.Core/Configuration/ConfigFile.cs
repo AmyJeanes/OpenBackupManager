@@ -1,0 +1,280 @@
+using Tomlyn;
+using Tomlyn.Parsing;
+using Tomlyn.Syntax;
+
+namespace OpenBackupManager.Core.Configuration;
+
+/// <summary>
+/// Reads and writes config.toml. A write changes one value in place, so comments and layout written by hand stay,
+/// and swaps the new file in whole, keeping the last one as config.toml.bak
+/// </summary>
+public sealed class ConfigFile(string path)
+{
+    public const string DefaultText = """
+        # Open Backup Manager's settings for this device. The app writes this file, and you can edit it too.
+        # Anything left out has its default.
+        version = 1
+
+        # [updates]
+        # prereleases = true    # Get test versions early. Left out, updates follow what's installed
+
+        """;
+
+    private enum ValueKind
+    {
+        Boolean,
+        Integer,
+        String,
+    }
+
+    // Every key the file can have, for checking it. Each [[remotes]] entry has the remotes keys
+    private static readonly Dictionary<string, ValueKind> Keys = new()
+    {
+        ["version"] = ValueKind.Integer,
+        ["updates.prereleases"] = ValueKind.Boolean,
+        ["remotes.id"] = ValueKind.String,
+        ["remotes.name"] = ValueKind.String,
+        ["remotes.root"] = ValueKind.String,
+    };
+
+    private static readonly HashSet<string> TableArrays = ["remotes"];
+
+    public string Path { get; } = path;
+
+    public ConfigResult Read() => File.Exists(Path) ? Parse(File.ReadAllText(Path)) : new ConfigResult(new AppConfig(), []);
+
+    // Writes the starting file if there isn't one, so there's something to edit
+    public void CreateIfMissing()
+    {
+        if (!File.Exists(Path))
+        {
+            Write(DefaultText.ReplaceLineEndings("\n"));
+        }
+    }
+
+    public static ConfigResult Parse(string text)
+    {
+        var document = SyntaxParser.Parse(text);
+        var problems = document.Diagnostics
+            .Select(d => new ConfigProblem(d.Span.Start.Line + 1, d.Message, d.Kind == DiagnosticMessageKind.Error))
+            .ToList();
+        if (!document.HasErrors)
+        {
+            Check(document, problems);
+        }
+
+        if (problems.Any(p => p.IsError))
+        {
+            return new ConfigResult(null, problems);
+        }
+
+        AppConfig config;
+        try
+        {
+            config = TomlSerializer.Deserialize(text, AppConfigContext.Default.AppConfig) ?? new AppConfig();
+        }
+        catch (TomlException e)
+        {
+            // Only for shapes the checks above leave alone, such as a section written as an inline table
+            problems.Add(new ConfigProblem(e.Line ?? 1, e.Message, IsError: true));
+            return new ConfigResult(null, problems);
+        }
+
+        if (config.Version > AppConfig.CurrentVersion)
+        {
+            problems.Add(new ConfigProblem(Line(document.KeyValues.First(kv => Name(kv.Key) == "version")), "written by a newer version of the app, which this version won't change", IsError: false));
+        }
+
+        return new ConfigResult(config, problems);
+    }
+
+    // Changes one setting, or removes it when the value is null
+    public void Set(string? table, string key, object? value)
+    {
+        var text = File.Exists(Path) ? File.ReadAllText(Path) : DefaultText.ReplaceLineEndings("\n");
+        var result = Parse(text);
+        if (result.HasErrors)
+        {
+            throw new ConfigException($"config.toml can't be changed until it's fixed: {result.Problems.First(p => p.IsError)}");
+        }
+
+        if (result.Config!.Version > AppConfig.CurrentVersion)
+        {
+            throw new ConfigException("config.toml was written by a newer version of the app, so this version won't change it");
+        }
+
+        var updated = Edit(text, table, key, value);
+        if (Parse(updated) is { HasErrors: true } check)
+        {
+            throw new InvalidOperationException($"Changing {key} would break config.toml: {check.Problems.First(p => p.IsError)}");
+        }
+
+        Write(updated);
+    }
+
+    internal static string Edit(string text, string? table, string key, object? value)
+    {
+        var document = SyntaxParser.Parse(text);
+        var section = table is null ? null : document.Tables.OfType<TableSyntax>().FirstOrDefault(t => Name(t.Name) == table);
+        IEnumerable<KeyValueSyntax> items = table is null ? document.KeyValues : section?.Items ?? [];
+        var existing = items.FirstOrDefault(kv => Name(kv.Key) == key);
+        if (existing is not null)
+        {
+            if (value is null)
+            {
+                var start = LineStart(text, existing.Span.Start.Offset);
+                return text.Remove(start, LineEnd(text, existing.Span.End.Offset) - start);
+            }
+
+            var replacement = Value(value);
+            // The old value's trivia holds the spacing and any comment after it
+            Token(replacement).LeadingTrivia = Token(existing.Value!).LeadingTrivia;
+            Token(replacement).TrailingTrivia = Token(existing.Value!).TrailingTrivia;
+            existing.Value = replacement;
+            return document.ToString();
+        }
+
+        if (value is null)
+        {
+            return text;
+        }
+
+        var newLine = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var line = $"{key} = {Value(value)}{newLine}";
+        if (table is null)
+        {
+            return document.KeyValues.LastOrDefault() is { } last ? text.Insert(LineEnd(text, last.Span.End.Offset), line) : line + text;
+        }
+
+        if (section is not null)
+        {
+            var after = section.Items.LastOrDefault() is { } lastItem ? lastItem.Span.End.Offset : section.Span.Start.Offset;
+            return text.Insert(LineEnd(text, after), line);
+        }
+
+        var ending = text.Length == 0 || text.EndsWith('\n') ? "" : newLine;
+        var gap = text.Length == 0 ? "" : newLine;
+        return text + ending + gap + $"[{table}]{newLine}" + line;
+    }
+
+    private static void Check(DocumentSyntax document, List<ConfigProblem> problems)
+    {
+        foreach (var kv in document.KeyValues)
+        {
+            CheckKey(Name(kv.Key), kv, problems);
+        }
+
+        var ids = new HashSet<string>();
+        foreach (var table in document.Tables)
+        {
+            var name = Name(table.Name);
+            if (!Keys.Keys.Any(k => k.StartsWith(name + ".", StringComparison.Ordinal)))
+            {
+                problems.Add(new ConfigProblem(Line(table), $"[{name}] isn't a known section", IsError: false));
+                continue;
+            }
+
+            if (TableArrays.Contains(name) != table is TableArraySyntax)
+            {
+                problems.Add(new ConfigProblem(Line(table), TableArrays.Contains(name) ? $"{name} should be [[{name}]]" : $"{name} should be [{name}]", IsError: true));
+                continue;
+            }
+
+            foreach (var kv in table.Items)
+            {
+                CheckKey(name + "." + Name(kv.Key), kv, problems);
+            }
+
+            if (name == "remotes")
+            {
+                var id = table.Items.FirstOrDefault(kv => Name(kv.Key) == "id");
+                if (id?.Value is not StringValueSyntax { Value: { Length: > 0 } value })
+                {
+                    problems.Add(new ConfigProblem(Line(table), "each [[remotes]] needs an id", IsError: true));
+                }
+                else if (!ids.Add(value))
+                {
+                    problems.Add(new ConfigProblem(Line(id), $"the remote id \"{value}\" is used twice", IsError: true));
+                }
+            }
+        }
+    }
+
+    private static void CheckKey(string path, KeyValueSyntax kv, List<ConfigProblem> problems)
+    {
+        if (!Keys.TryGetValue(path, out var kind))
+        {
+            // A known section written as a dotted key or inline table is left to the reader
+            if (!Keys.Keys.Any(k => k.StartsWith(path + ".", StringComparison.Ordinal)))
+            {
+                problems.Add(new ConfigProblem(Line(kv), $"{path} isn't a known setting", IsError: false));
+            }
+
+            return;
+        }
+
+        var (matches, expected) = kind switch
+        {
+            ValueKind.Boolean => (kv.Value is BooleanValueSyntax, "true or false"),
+            ValueKind.Integer => (kv.Value is IntegerValueSyntax, "a whole number"),
+            _ => (kv.Value is StringValueSyntax, "text in quotes"),
+        };
+        if (!matches)
+        {
+            problems.Add(new ConfigProblem(Line(kv), $"{path} should be {expected}", IsError: true));
+        }
+        else if (path == "version" && kv.Value is IntegerValueSyntax { Value: < 1 })
+        {
+            problems.Add(new ConfigProblem(Line(kv), "version should be 1 or more", IsError: true));
+        }
+    }
+
+    private static ValueSyntax Value(object value) => value switch
+    {
+        bool b => new BooleanValueSyntax(b),
+        int i => new IntegerValueSyntax(i),
+        long l => new IntegerValueSyntax(l),
+        string s => new StringValueSyntax(s),
+        _ => throw new ArgumentException($"config.toml can't hold a {value.GetType().Name}", nameof(value)),
+    };
+
+    // Only plain values are changed in place, which every setting so far is
+    private static SyntaxToken Token(ValueSyntax value) => value switch
+    {
+        BooleanValueSyntax b => b.Token!,
+        IntegerValueSyntax i => i.Token!,
+        StringValueSyntax s => s.Token!,
+        _ => throw new NotSupportedException($"Can't change a {value.GetType().Name} in place"),
+    };
+
+    // Keys are compared without spacing or quotes
+    private static string Name(KeySyntax? key) =>
+        string.Join('.', (key?.ToString() ?? "").Split('.').Select(part => part.Trim().Trim('"', '\'')));
+
+    private static int Line(SyntaxNode node) => node.Span.Start.Line + 1;
+
+    private static int LineStart(string text, int offset) => text.LastIndexOf('\n', Math.Max(offset - 1, 0)) + 1;
+
+    private static int LineEnd(string text, int offset)
+    {
+        var end = text.IndexOf('\n', Math.Clamp(offset - 1, 0, text.Length));
+        return end < 0 ? text.Length : end + 1;
+    }
+
+    private void Write(string text)
+    {
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+        var temporary = Path + ".tmp";
+        File.WriteAllText(temporary, text);
+        if (File.Exists(Path))
+        {
+            File.Replace(temporary, Path, Path + ".bak");
+        }
+        else
+        {
+            File.Move(temporary, Path);
+        }
+    }
+}
+
+public sealed class ConfigException(string message) : Exception(message);
