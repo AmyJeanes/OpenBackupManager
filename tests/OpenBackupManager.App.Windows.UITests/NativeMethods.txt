@@ -1,8 +1,14 @@
 DwmGetWindowAttribute
+ENDSESSION_LOGOFF
 EnumWindows
 GetAncestor
+GetApplicationRestartSettings
 GetDoubleClickTime
 GetForegroundWindow
 GetWindowThreadProcessId
+REGISTER_APPLICATION_RESTART_FLAGS
+SendMessageTimeout
 SetForegroundWindow
 Shell_NotifyIconGetRect
+WM_ENDSESSION
+WM_QUERYENDSESSION

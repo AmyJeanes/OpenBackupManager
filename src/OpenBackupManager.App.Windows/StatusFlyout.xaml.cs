@@ -51,7 +51,8 @@ public sealed partial class StatusFlyout : Window
         AppWindow.Changed += OnAppWindowChanged;
         NativeMethods.Cloak(this.GetWindowHandle(), true);
         AppWindow.Show(false);
-        _uiSettings.AdvancedEffectsEnabledChanged += (_, _) => DispatcherQueue.TryEnqueue(UpdateBackground);
+        var ui = SynchronizationContext.Current!;
+        _uiSettings.AdvancedEffectsEnabledChanged += (_, _) => ui.Post(_ => UpdateBackground(), null);
         Activated += OnActivated;
         // Opened as the app starts, it waits until it has been drawn
         FirstDraw.WhenDrawn(this, () =>

@@ -1,9 +1,9 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
+using OpenBackupManager.Core;
 using OpenBackupManager.Platform.Windows;
 using OpenBackupManager.ViewModels;
 
@@ -19,6 +19,8 @@ public sealed partial class App : Application
         InitializeComponent();
         // The tray keeps the app running with no window open
         DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
+        // Errors on the UI thread come here rather than to .NET's handler
+        UnhandledException += (_, e) => services.GetRequiredService<CrashCapture>().Capture(e.Exception);
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -29,15 +31,20 @@ public sealed partial class App : Application
         // Created here because they need the UI thread. The updater starts checking as it's created
         _ = _services.GetRequiredService<Updater>();
         var tray = _services.GetRequiredService<Tray>();
+        _ = _services.GetRequiredService<SessionEnd>();
         _ = _services.GetRequiredService<ConfigNotices>();
-        if (!WindowsNotifier.StartedByClick)
+        if (_services.GetRequiredService<CrashReports>().TakeNew() is { } crash)
+        {
+            _services.GetRequiredService<AppActions>().ShowCrash(crash);
+        }
+        else if (!WindowsNotifier.StartedByClick)
         {
             tray.ShowFlyout();
         }
 
         // Raised off the UI thread when the app is launched again
-        var dispatcher = DispatcherQueue.GetForCurrentThread();
-        AppInstance.GetCurrent().Activated += (_, _) => dispatcher.TryEnqueue(tray.ShowFlyout);
+        var ui = SynchronizationContext.Current!;
+        AppInstance.GetCurrent().Activated += (_, _) => ui.Post(_ => tray.ShowFlyout(), null);
 
         // A window app gets no Ctrl+C from the terminal that started it, and dotnet run waits for it to exit. Only for
         // dev builds, since closing the terminal also closes an attached app
@@ -47,7 +54,7 @@ public sealed partial class App : Application
             Console.CancelKeyPress += (_, e) =>
             {
                 e.Cancel = true;
-                dispatcher.TryEnqueue(actions.Quit);
+                ui.Post(_ => actions.Quit(), null);
             };
         }
     }

@@ -25,13 +25,14 @@ public abstract class AppTests
         typeof(AppTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Single(a => a.Key == "AppPath").Value!;
 
     private UIA3Automation _automation = null!;
-    private Process _process = null!;
 
     // The flyout the app opens as it starts. Tests wait for it before using the tray, since it takes focus as it opens,
     // which closes the tray menu
     protected Window LaunchFlyout { get; private set; } = null!;
 
     protected string Home { get; private set; } = "";
+
+    protected Process App { get; private set; } = null!;
 
     protected virtual string AppPath => BuiltAppPath;
 
@@ -42,7 +43,7 @@ public abstract class AppTests
     {
         Home = Directory.CreateTempSubdirectory("obm-uitests-").FullName;
         _automation = new UIA3Automation();
-        _process = LaunchApp();
+        App = LaunchApp();
         LaunchFlyout = WaitForFlyout();
     }
 
@@ -58,7 +59,7 @@ public abstract class AppTests
             }
 
             // Quitting, rather than ending the process, takes its icon off the taskbar before the next test
-            if (!_process.HasExited)
+            if (!App.HasExited)
             {
                 try
                 {
@@ -73,12 +74,14 @@ public abstract class AppTests
         }
         finally
         {
-            if (!_process.HasExited)
+            if (!App.HasExited)
             {
-                _process.Kill();
+                App.Kill();
+                // Until then it still has its log open
+                App.WaitForExit();
             }
 
-            _process.Dispose();
+            App.Dispose();
             _automation.Dispose();
             Directory.Delete(Home, recursive: true);
         }
@@ -96,27 +99,27 @@ public abstract class AppTests
     // As LaunchAgain, for a copy that may hand over to another before it opens anything
     protected void StartAgain()
     {
-        _process.Dispose();
-        _process = LaunchApp();
+        App.Dispose();
+        App = LaunchApp();
     }
 
     // As a crash or shutting down would, which leaves its icon behind on the taskbar
     protected void EndApp()
     {
-        _process.Kill();
-        _process.WaitForExit();
+        App.Kill();
+        App.WaitForExit();
     }
 
     // A copy Windows starts, such as for a notification clicked after Quit, is the one the test goes on with
     protected void WaitForCopyStartedSince(DateTime time)
     {
         var started = Retry.WhileNull(
-                () => Process.GetProcessesByName(Path.GetFileNameWithoutExtension(AppPath)).FirstOrDefault(p => p.Id != _process.Id && p.StartTime > time),
+                () => Process.GetProcessesByName(Path.GetFileNameWithoutExtension(AppPath)).FirstOrDefault(p => p.Id != App.Id && p.StartTime > time),
                 Timeout,
                 throwOnTimeout: true)
             .Result!;
-        _process.Dispose();
-        _process = started;
+        App.Dispose();
+        App = started;
     }
 
     protected Window WaitForFlyout() => WaitForWindow(IsFlyout);
@@ -141,7 +144,7 @@ public abstract class AppTests
         ShowIconOnTaskbar();
         var taskbar = Taskbar().BoundingRectangle;
         var bounds = Retry.While(
-                () => NativeMethods.TrayIconBounds(_process.Id, TrayIconId),
+                () => NativeMethods.TrayIconBounds(App.Id, TrayIconId),
                 b => b is not { } icon || !taskbar.Contains(icon),
                 Timeout,
                 throwOnTimeout: true)
@@ -149,16 +152,28 @@ public abstract class AppTests
         return new Point(bounds.X + (bounds.Width / 2), bounds.Y + (bounds.Height / 2));
     }
 
-    protected void ChooseFromTrayMenu(string item)
+    // Each item before the last opens a submenu
+    protected void ChooseFromTrayMenu(params string[] path)
     {
         Mouse.Click(TrayIcon(), MouseButton.Right);
-        // Invoked rather than clicked, since a click that lands while the menu is still opening is lost
-        Retry.WhileNull(
-                () => Windows().Select(w => w.FindFirstDescendant(c => c.ByControlType(ControlType.MenuItem).And(c.ByName(item)))).FirstOrDefault(i => i is not null),
-                Timeout,
-                throwOnTimeout: true,
-                ignoreException: true)
-            .Result!.AsMenuItem().Invoke();
+        for (var i = 0; i < path.Length; i++)
+        {
+            var item = Retry.WhileNull(
+                    () => Windows().Select(w => w.FindFirstDescendant(c => c.ByControlType(ControlType.MenuItem).And(c.ByName(path[i])))).FirstOrDefault(found => found is not null),
+                    Timeout,
+                    throwOnTimeout: true,
+                    ignoreException: true)
+                .Result!.AsMenuItem();
+            // Invoked rather than clicked, since a click that lands while the menu is still opening is lost
+            if (i < path.Length - 1)
+            {
+                item.Expand();
+            }
+            else
+            {
+                item.Invoke();
+            }
+        }
     }
 
     // Notifications are found in the notification centre rather than as they pop up, as CI has Do Not Disturb enabled.
@@ -221,7 +236,7 @@ public abstract class AppTests
     protected void WaitForNotificationCentreToClose() =>
         Assert.That(Retry.WhileFalse(() => NotificationCentre() is null, Timeout, ignoreException: true).Result, Is.True);
 
-    protected bool WaitForExit() => _process.WaitForExit(Timeout);
+    protected bool WaitForExit() => App.WaitForExit(Timeout);
 
     protected void Quit()
     {
@@ -239,7 +254,9 @@ public abstract class AppTests
     // Saved with the test results, so a failure on CI can be seen
     private static void AttachScreenshot()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"{TestContext.CurrentContext.Test.Name}.png");
+        // A test with arguments has them in its name, quotes and all, which a file name can't have
+        var name = string.Concat(TestContext.CurrentContext.Test.Name.Split(Path.GetInvalidFileNameChars()));
+        var path = Path.Combine(Path.GetTempPath(), $"{name}.png");
         Capture.Screen().ToFile(path);
         TestContext.AddTestAttachment(path);
     }
@@ -258,7 +275,7 @@ public abstract class AppTests
         _automation.GetDesktop().FindAllChildren()
             .Select(NativeMethods.TopLevelWindow)
             .Distinct()
-            .Where(hwnd => NativeMethods.ProcessId(hwnd) == _process.Id)
+            .Where(hwnd => NativeMethods.ProcessId(hwnd) == App.Id)
             .Select(hwnd => _automation.FromHandle(hwnd).AsWindow());
 
     private AutomationElement? NotificationCentre() =>

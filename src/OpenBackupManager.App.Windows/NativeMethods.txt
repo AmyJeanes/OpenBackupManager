@@ -1,6 +1,6 @@
+ATTACH_PARENT_PROCESS
 AllowSetForegroundWindow
 AttachConsole
-ATTACH_PARENT_PROCESS
 DwmFlush
 DwmSetWindowAttribute
 EnumThreadWindows
@@ -9,3 +9,4 @@ GetCurrentThreadId
 GetDpiForMonitor
 SetWindowPos
 Shell_NotifyIconGetRect
+WM_ENDSESSION

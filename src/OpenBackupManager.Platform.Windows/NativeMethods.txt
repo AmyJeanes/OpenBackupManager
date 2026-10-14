@@ -4,4 +4,5 @@ CredFree
 CredRead
 CredWrite
 GetCurrentProcessExplicitAppUserModelID
+RegisterApplicationRestart
 WIN32_ERROR

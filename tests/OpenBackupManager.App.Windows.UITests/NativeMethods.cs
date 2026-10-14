@@ -7,6 +7,7 @@ using FlaUI.Core.WindowsAPI;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
+using Windows.Win32.System.Recovery;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.WindowsAndMessaging;
 
@@ -21,6 +22,25 @@ internal static class NativeMethods
         var cloaked = 0;
         return PInvoke.DwmGetWindowAttribute(Handle(window), DWMWINDOWATTRIBUTE.DWMWA_CLOAKED, MemoryMarshal.AsBytes(new Span<int>(ref cloaked))).Succeeded
             && cloaked != 0;
+    }
+
+    // What Windows restarts the app with after a crash, if the app asked it to
+    public static (string CommandLine, REGISTER_APPLICATION_RESTART_FLAGS Flags)? RestartSettings(Process process)
+    {
+        Span<char> commandLine = stackalloc char[1024];
+        var size = (uint)commandLine.Length;
+        return PInvoke.GetApplicationRestartSettings(process.SafeHandle, commandLine, ref size, out var flags).Succeeded
+            ? (new string(commandLine[..((int)size - 1)]), (REGISTER_APPLICATION_RESTART_FLAGS)flags)
+            : null;
+    }
+
+    // As Windows tells each top-level window when the user signs out: first asking whether it can, then that it is
+    public static void SignOut(Window window)
+    {
+        var hwnd = Handle(window);
+        var logOff = unchecked((nint)PInvoke.ENDSESSION_LOGOFF);
+        _ = PInvoke.SendMessageTimeout(hwnd, PInvoke.WM_QUERYENDSESSION, 0, logOff, SEND_MESSAGE_TIMEOUT_FLAGS.SMTO_ABORTIFHUNG, 5000, out _);
+        _ = PInvoke.SendMessageTimeout(hwnd, PInvoke.WM_ENDSESSION, 1, logOff, SEND_MESSAGE_TIMEOUT_FLAGS.SMTO_ABORTIFHUNG, 5000, out _);
     }
 
     // Windows only lets the process that had the last input bring a window to the front, so this presses Alt first.

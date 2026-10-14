@@ -41,12 +41,28 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         Show(_about);
     }
 
+    public void ShowCrash(string report)
+    {
+        var window = new CrashWindow(new CrashViewModel(_host.Services.GetRequiredService<AppInfo>(), report));
+        Show(window);
+    }
+
     public void Quit()
     {
         LogQuitting();
+        _host.Services.GetRequiredService<CrashReports>().Stopped();
         _host.Services.GetRequiredService<Updater>().UpdateOnExit();
-        _host.Dispose();
-        Application.Current.Exit();
+        Exit();
+    }
+
+    // When Windows signs out or shuts down, it can end the app as soon as this returns, so the clean end is noted first.
+    // The rest of quitting follows if there's time, but not installing an update, which Windows could cut off part way.
+    // A waiting update installs at the next start instead
+    public void EndSession()
+    {
+        LogEndingSession();
+        _host.Services.GetRequiredService<CrashReports>().Stopped();
+        SynchronizationContext.Current!.Post(_ => Exit(), null);
     }
 
     public void RestartToUpdate()
@@ -58,6 +74,7 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         }
 
         LogRestartingToUpdate(updater.ReadyVersion);
+        _host.Services.GetRequiredService<CrashReports>().Stopped();
         _host.Dispose();
         updater.RestartToUpdate();
     }
@@ -68,8 +85,22 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
     [LoggerMessage(Level = LogLevel.Information, Message = "Quitting")]
     private partial void LogQuitting();
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Quitting, as Windows is signing out or shutting down")]
+    private partial void LogEndingSession();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Stopping the app's services")]
+    private partial void LogStopping();
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Restarting to install version {Version}")]
     private partial void LogRestartingToUpdate(string? version);
+
+    // Logged first, since logging is one of the services it disposes
+    private void Exit()
+    {
+        LogStopping();
+        _host.Dispose();
+        Application.Current.Exit();
+    }
 
     private static void Show(Window window)
     {

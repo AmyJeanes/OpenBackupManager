@@ -59,9 +59,14 @@ public static class Program
         }
 
         var host = BuildHost(Home);
+        var crashes = host.Services.GetRequiredService<CrashCapture>();
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => crashes.Capture((Exception)e.ExceptionObject);
+        TaskScheduler.UnobservedTaskException += (_, e) => crashes.Unobserved(e.Exception);
+        crashes.Start();
+        CrashRestart.Register($"--home \"{Home}\"");
         Application.Start(p =>
         {
-            SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
+            SynchronizationContext.SetSynchronizationContext(new UiSynchronizationContext(DispatcherQueue.GetForCurrentThread(), crashes));
             _ = new App(host.Services);
         });
     }
@@ -82,7 +87,11 @@ public static class Program
                 return new ConfigWatcher(file);
             })
             .AddSingleton<ConfigNotices>()
-            .AddSingleton<IAppActions, AppActions>()
+            .AddSingleton(services => new CrashReports(paths, services.GetRequiredService<TimeProvider>(), "app-*.log"))
+            .AddSingleton<CrashCapture>()
+            // App opens the crash window through AppActions itself, which view models never need
+            .AddSingleton<AppActions>()
+            .AddSingleton<IAppActions>(services => services.GetRequiredService<AppActions>())
             .AddSingleton<INotifier>(_ => new WindowsNotifier(AppName, Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"), $"--home \"{home}\""))
             .AddSingleton<AppNotifications>()
             .AddSingleton<ISecretStore>(_ => new CredentialManager(AppHome.InstanceKey(home)))
@@ -91,6 +100,7 @@ public static class Program
             .AddSingleton<Updater>()
             .AddSingleton<IUpdater>(services => services.GetRequiredService<Updater>())
             .AddSingleton<Tray>()
+            .AddSingleton(services => new SessionEnd(services.GetRequiredService<Tray>().Flyout, services.GetRequiredService<AppActions>()))
             .AddSingleton<StatusViewModel>()
             .AddTransient<AboutViewModel>()
             // One file a day, and another once one reaches 10 MB. Keeping the newest 7 is usually a week

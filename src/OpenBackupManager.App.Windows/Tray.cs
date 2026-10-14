@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Win32;
 using OpenBackupManager.ViewModels;
@@ -14,11 +13,10 @@ public sealed partial class Tray : IDisposable
 
     private readonly TrayIcon _icon;
     private readonly UISettings _uiSettings = new();
-    private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
+    private readonly SynchronizationContext _ui = SynchronizationContext.Current!;
     private readonly StatusViewModel _status;
     private readonly IAppActions _actions;
     private readonly AppNotifications _notifications;
-    private readonly StatusFlyout _flyout;
     private bool _skipClick;
 
     public Tray(StatusViewModel status, IAppActions actions, AppNotifications notifications)
@@ -26,8 +24,8 @@ public sealed partial class Tray : IDisposable
         _status = status;
         _actions = actions;
         _notifications = notifications;
-        _flyout = new StatusFlyout(status, IconId);
-        _flyout.Update(TaskbarIsLight());
+        Flyout = new StatusFlyout(status, IconId);
+        Flyout.Update(TaskbarIsLight());
         _icon = new TrayIcon(IconId, IconPath(status.State), Tooltip());
         _icon.Selected += (_, _) => OnClick();
         _icon.LeftDoubleClick += (_, _) => OnDoubleClick();
@@ -37,7 +35,10 @@ public sealed partial class Tray : IDisposable
         _icon.IsVisible = true;
     }
 
-    public void ShowFlyout() => _flyout.Show();
+    // Open for as long as the app runs, though hidden while it isn't shown
+    public StatusFlyout Flyout { get; }
+
+    public void ShowFlyout() => Flyout.Show();
 
     private void OnClick()
     {
@@ -49,7 +50,7 @@ public sealed partial class Tray : IDisposable
 
         // Clicking the icon while the flyout is open should only close it. Pressing the icon gives the taskbar focus,
         // which hides the flyout, and the click then arrives on release, so a click just after it hides is that one
-        if (!_flyout.JustHidden)
+        if (!Flyout.JustHidden)
         {
             ShowFlyout();
         }
@@ -68,10 +69,10 @@ public sealed partial class Tray : IDisposable
         _uiSettings.ColorValuesChanged -= OnColorValuesChanged;
         _status.PropertyChanged -= OnStatusChanged;
         _icon.Dispose();
-        _flyout.Close();
+        Flyout.Close();
     }
 
-    private void OnColorValuesChanged(UISettings sender, object args) => _dispatcher.TryEnqueue(Update);
+    private void OnColorValuesChanged(UISettings sender, object args) => _ui.Post(_ => Update(), null);
 
     private void OnStatusChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -83,7 +84,7 @@ public sealed partial class Tray : IDisposable
 
     private void Update()
     {
-        _flyout.Update(TaskbarIsLight());
+        Flyout.Update(TaskbarIsLight());
         _icon.SetIcon(IconPath(_status.State));
         // WinUIEx 2.9.3 hides the tooltip whenever the icon changes, and only sends a tooltip that's different.
         // Remove once the fix for https://github.com/dotMorten/WinUIEx/issues/279 is released
@@ -106,6 +107,21 @@ public sealed partial class Tray : IDisposable
         }
 
         menu.Items.Add(states);
+        menu.Items.Add(new MenuFlyoutSubItem
+        {
+            Text = "Crash",
+            Items =
+            {
+                // Queued, as async code resumes, rather than thrown by the item, which UI Automation's invoke would catch
+                Item("On the UI thread", () => _ui.Post(_ => throw new InvalidOperationException("Test crash on the UI thread"), null)),
+                Item("In a click", () => throw new InvalidOperationException("Test crash in a click")),
+                Item("On another thread", () => new Thread(() => throw new InvalidOperationException("Test crash on another thread")).Start()),
+                // Ends the app at once without running any handler, as a crash inside Windows' own code does
+                Item("Fail fast", () => Environment.FailFast("Test crash that fails fast")),
+                // Queued, so the click finishes before the UI thread stops responding
+                Item("Hang", () => _ui.Post(_ => Thread.Sleep(Timeout.Infinite), null)),
+            },
+        });
 #endif
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item(Strings.Tray_About, _actions.About));
