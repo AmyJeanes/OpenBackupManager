@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core.Configuration;
 
@@ -47,8 +48,7 @@ public sealed partial class ConfigNotices : IDisposable
 
         if (result.Problems.FirstOrDefault(p => p.IsError) is { } error)
         {
-            // Core's messages have no translations yet, so this stays in English
-            _notifications.ShowConfigError($"Line {error.Line}: {error.Message}");
+            _notifications.ShowConfigError(error.Describe(CultureInfo.CurrentUICulture));
         }
     }
 

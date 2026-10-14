@@ -83,7 +83,19 @@ public class ConfigFileTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Config, Is.Null);
-            Assert.That(result.Problems, Has.One.EqualTo(new ConfigProblem(line, message, IsError: true)));
+            Assert.That(result.Problems.Where(p => p.IsError).Select(p => p.ToString()), Has.One.EqualTo($"line {line}: {message}"));
+        }
+    }
+
+    [Test]
+    public void Parse_TomlynsOwnError_IsPassedOnAsItIs()
+    {
+        var problem = ConfigFile.Parse("[updates]\nprereleases = tru\n").Problems.Single(p => p.IsError);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(problem.Kind, Is.EqualTo(ConfigProblemKind.Tomlyn));
+            Assert.That(problem.ToString(), Is.EqualTo("line 2: Unexpected token `tru` for a value"));
         }
     }
 
@@ -109,7 +121,7 @@ public class ConfigFileTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Config, Is.Not.Null);
-            Assert.That(result.Problems, Is.EquivalentTo([new ConfigProblem(line, message, IsError: false)]));
+            Assert.That(result.Problems.Select(p => (p.ToString(), p.IsError)), Is.EquivalentTo([($"line {line}: {message}", false)]));
         }
     }
 

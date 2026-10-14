@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <NeutralLanguage>en-GB</NeutralLanguage>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,5 +12,17 @@
   <ItemGroup>
     <InternalsVisibleTo Include="OpenBackupManager.Core.Tests" />
   </ItemGroup>
+
+  <!-- The Strings class is generated when building, so it isn't kept in the repo -->
+  <ItemGroup>
+    <EmbeddedResource Update="Strings.resx">
+      <StronglyTypedFileName>$(IntermediateOutputPath)Strings.Designer.cs</StronglyTypedFileName>
+      <StronglyTypedLanguage>CSharp</StronglyTypedLanguage>
+      <StronglyTypedNamespace>OpenBackupManager.Core</StronglyTypedNamespace>
+      <StronglyTypedClassName>Strings</StronglyTypedClassName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Import Project="../PseudoLocale.targets" />
 
 </Project>

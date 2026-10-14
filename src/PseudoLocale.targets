@@ -1,7 +1,8 @@
 <Project>
 
-  <!-- Debug builds get a qps-ploc copy of Strings with every letter accented and the text 40% longer, in brackets.
-       Running with OBM_UI_CULTURE=qps-ploc then shows any text that isn't from Strings, or that gets cut off -->
+  <!-- For each project with a Strings.resx. Debug builds get a qps-ploc copy of Strings with every letter accented and
+       the text 40% longer, in brackets. Running with OBM_UI_CULTURE=qps-ploc then shows any text that isn't from
+       Strings, or that gets cut off -->
   <UsingTask TaskName="WritePseudoLocale" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <Source ParameterType="System.String" Required="true" />
@@ -46,7 +47,7 @@
   <Target Name="AddPseudoLocale" BeforeTargets="AssignTargetPaths" DependsOnTargets="WritePseudoLocale" Condition="'$(Configuration)' == 'Debug'">
     <ItemGroup>
       <EmbeddedResource Include="$(IntermediateOutputPath)Strings.qps-ploc.resx" Culture="qps-ploc" WithCulture="true"
-                        ManifestResourceName="OpenBackupManager.ViewModels.Strings.qps-ploc" />
+                        ManifestResourceName="$(RootNamespace).Strings.qps-ploc" />
     </ItemGroup>
   </Target>
 

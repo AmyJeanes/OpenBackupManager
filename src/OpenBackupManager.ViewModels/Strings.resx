@@ -18,11 +18,10 @@
   </data>
   <data name="About_Version" xml:space="preserve">
     <value>Version {0}</value>
-    <comment>{0} is the version, such as 1.2.3</comment>
   </data>
   <data name="About_VersionTestUpdates" xml:space="preserve">
     <value>Version {0} (test updates)</value>
-    <comment>{0} is the version. Shown when updates come from a local test feed rather than GitHub</comment>
+    <comment>Shown when updates come from a local test feed rather than GitHub</comment>
   </data>
   <data name="About_CheckForUpdates" xml:space="preserve">
     <value>Check for updates</value>
@@ -53,7 +52,6 @@
   </data>
   <data name="About_Downloading" xml:space="preserve">
     <value>Downloading update… {0}%</value>
-    <comment>{0} is a percentage from 0 to 100</comment>
   </data>
   <data name="About_UpToDate" xml:space="preserve">
     <value>You're up to date</value>
@@ -63,7 +61,6 @@
   </data>
   <data name="About_ReadyToInstall" xml:space="preserve">
     <value>Version {0} is ready to install</value>
-    <comment>{0} is the version, such as 1.2.3</comment>
   </data>
   <data name="About_GitHub" xml:space="preserve">
     <value>GitHub</value>
@@ -127,7 +124,6 @@
   </data>
   <data name="Notification_UpdateReadyText" xml:space="preserve">
     <value>Version {0} is ready to install</value>
-    <comment>{0} is the version, such as 1.2.3</comment>
   </data>
   <data name="Notification_RestartNow" xml:space="preserve">
     <value>Restart now</value>
@@ -140,7 +136,6 @@
   </data>
   <data name="Notification_UpdatedText" xml:space="preserve">
     <value>Version {0} is now installed</value>
-    <comment>{0} is the version, such as 1.2.3</comment>
   </data>
   <data name="Notification_WhatsNew" xml:space="preserve">
     <value>What's new</value>

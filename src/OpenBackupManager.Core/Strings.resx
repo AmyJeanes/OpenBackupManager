@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ConfigProblem_OnLine" xml:space="preserve">
+    <value>Line {0}: {1}</value>
+    <comment>{1} is one of the problems below, or the TOML reader's own message, which is only in English</comment>
+  </data>
+  <data name="ConfigProblem_ShouldBeTrueOrFalse" xml:space="preserve">
+    <value>{0} should be true or false</value>
+    <comment>true and false are written in the file, so stay as they are</comment>
+  </data>
+  <data name="ConfigProblem_ShouldBeWholeNumber" xml:space="preserve">
+    <value>{0} should be a whole number</value>
+  </data>
+  <data name="ConfigProblem_ShouldBeText" xml:space="preserve">
+    <value>{0} should be text in quotes</value>
+  </data>
+  <data name="ConfigProblem_VersionTooLow" xml:space="preserve">
+    <value>version should be 1 or more</value>
+    <comment>version is a setting's name, so stays as it is</comment>
+  </data>
+  <data name="ConfigProblem_ShouldBeTableArray" xml:space="preserve">
+    <value>{0} should be [[{0}]]</value>
+    <comment>[[{0}]] is how it's written in the file, so stays as it is</comment>
+  </data>
+  <data name="ConfigProblem_ShouldBeTable" xml:space="preserve">
+    <value>{0} should be [{0}]</value>
+    <comment>[{0}] is how it's written in the file, so stays as it is</comment>
+  </data>
+  <data name="ConfigProblem_RemoteNeedsId" xml:space="preserve">
+    <value>each [[remotes]] needs an id</value>
+    <comment>[[remotes]] and id are written in the file, so stay as they are</comment>
+  </data>
+  <data name="ConfigProblem_RemoteIdUsedTwice" xml:space="preserve">
+    <value>the remote id "{0}" is used twice</value>
+    <comment>A remote is a place backups go, such as OneDrive</comment>
+  </data>
+  <data name="ConfigProblem_UnknownSetting" xml:space="preserve">
+    <value>{0} isn't a known setting</value>
+  </data>
+  <data name="ConfigProblem_UnknownSection" xml:space="preserve">
+    <value>[{0}] isn't a known section</value>
+  </data>
+  <data name="ConfigProblem_NewerVersion" xml:space="preserve">
+    <value>written by a newer version of the app, which this version won't change</value>
+  </data>
+</root>

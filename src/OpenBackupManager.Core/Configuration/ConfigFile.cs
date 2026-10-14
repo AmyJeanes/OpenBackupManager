@@ -56,7 +56,7 @@ public sealed class ConfigFile(string path)
     {
         var document = SyntaxParser.Parse(text);
         var problems = document.Diagnostics
-            .Select(d => new ConfigProblem(d.Span.Start.Line + 1, d.Message, d.Kind == DiagnosticMessageKind.Error))
+            .Select(d => new ConfigProblem(d.Span.Start.Line + 1, ConfigProblemKind.Tomlyn, d.Kind == DiagnosticMessageKind.Error, d.Message))
             .ToList();
         if (!document.HasErrors)
         {
@@ -76,13 +76,13 @@ public sealed class ConfigFile(string path)
         catch (TomlException e)
         {
             // Only for shapes the checks above leave alone, such as a section written as an inline table
-            problems.Add(new ConfigProblem(e.Line ?? 1, e.Message, IsError: true));
+            problems.Add(new ConfigProblem(e.Line ?? 1, ConfigProblemKind.Tomlyn, IsError: true, e.Message));
             return new ConfigResult(null, problems);
         }
 
         if (config.Version > AppConfig.CurrentVersion)
         {
-            problems.Add(new ConfigProblem(Line(document.KeyValues.First(kv => Name(kv.Key) == "version")), "written by a newer version of the app, which this version won't change", IsError: false));
+            problems.Add(new ConfigProblem(Line(document.KeyValues.First(kv => Name(kv.Key) == "version")), ConfigProblemKind.NewerVersion, IsError: false));
         }
 
         return new ConfigResult(config, problems);
@@ -170,13 +170,13 @@ public sealed class ConfigFile(string path)
             var name = Name(table.Name);
             if (!Keys.Keys.Any(k => k.StartsWith(name + ".", StringComparison.Ordinal)))
             {
-                problems.Add(new ConfigProblem(Line(table), $"[{name}] isn't a known section", IsError: false));
+                problems.Add(new ConfigProblem(Line(table), ConfigProblemKind.UnknownSection, IsError: false, name));
                 continue;
             }
 
             if (TableArrays.Contains(name) != table is TableArraySyntax)
             {
-                problems.Add(new ConfigProblem(Line(table), TableArrays.Contains(name) ? $"{name} should be [[{name}]]" : $"{name} should be [{name}]", IsError: true));
+                problems.Add(new ConfigProblem(Line(table), TableArrays.Contains(name) ? ConfigProblemKind.ShouldBeTableArray : ConfigProblemKind.ShouldBeTable, IsError: true, name));
                 continue;
             }
 
@@ -190,11 +190,11 @@ public sealed class ConfigFile(string path)
                 var id = table.Items.FirstOrDefault(kv => Name(kv.Key) == "id");
                 if (id?.Value is not StringValueSyntax { Value: { Length: > 0 } value })
                 {
-                    problems.Add(new ConfigProblem(Line(table), "each [[remotes]] needs an id", IsError: true));
+                    problems.Add(new ConfigProblem(Line(table), ConfigProblemKind.RemoteNeedsId, IsError: true));
                 }
                 else if (!ids.Add(value))
                 {
-                    problems.Add(new ConfigProblem(Line(id), $"the remote id \"{value}\" is used twice", IsError: true));
+                    problems.Add(new ConfigProblem(Line(id), ConfigProblemKind.RemoteIdUsedTwice, IsError: true, value));
                 }
             }
         }
@@ -207,7 +207,7 @@ public sealed class ConfigFile(string path)
             // A known section written as a dotted key or inline table is left to the reader
             if (!Keys.Keys.Any(k => k.StartsWith(path + ".", StringComparison.Ordinal)))
             {
-                problems.Add(new ConfigProblem(Line(kv), $"{path} isn't a known setting", IsError: false));
+                problems.Add(new ConfigProblem(Line(kv), ConfigProblemKind.UnknownSetting, IsError: false, path));
             }
 
             return;
@@ -215,17 +215,17 @@ public sealed class ConfigFile(string path)
 
         var (matches, expected) = kind switch
         {
-            ValueKind.Boolean => (kv.Value is BooleanValueSyntax, "true or false"),
-            ValueKind.Integer => (kv.Value is IntegerValueSyntax, "a whole number"),
-            _ => (kv.Value is StringValueSyntax, "text in quotes"),
+            ValueKind.Boolean => (kv.Value is BooleanValueSyntax, ConfigProblemKind.ShouldBeTrueOrFalse),
+            ValueKind.Integer => (kv.Value is IntegerValueSyntax, ConfigProblemKind.ShouldBeWholeNumber),
+            _ => (kv.Value is StringValueSyntax, ConfigProblemKind.ShouldBeText),
         };
         if (!matches)
         {
-            problems.Add(new ConfigProblem(Line(kv), $"{path} should be {expected}", IsError: true));
+            problems.Add(new ConfigProblem(Line(kv), expected, IsError: true, path));
         }
         else if (path == "version" && kv.Value is IntegerValueSyntax { Value: < 1 })
         {
-            problems.Add(new ConfigProblem(Line(kv), "version should be 1 or more", IsError: true));
+            problems.Add(new ConfigProblem(Line(kv), ConfigProblemKind.VersionTooLow, IsError: true));
         }
     }
 
