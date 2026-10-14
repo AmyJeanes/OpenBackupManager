@@ -12,6 +12,7 @@ public class AppInfoTests
             Assert.That(app.Name, Is.EqualTo("Open Backup Manager"));
             Assert.That(app.Version, Is.Not.Empty.And.Not.Contain('+'));
             Assert.That(app.Copyright, Does.StartWith("©"));
+            Assert.That(app.Repository, Is.EqualTo(new Uri("https://github.com/AmyJeanes/OpenBackupManager")));
         }
     }
 }

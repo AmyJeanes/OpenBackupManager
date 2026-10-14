@@ -3,7 +3,7 @@ namespace OpenBackupManager.ViewModels.Tests;
 [SetUICulture("en-GB")]
 public class StatusViewModelTests
 {
-    private static readonly AppInfo App = new("Open Backup Manager", "1.2.3", null);
+    private static readonly AppInfo App = new("Open Backup Manager", "1.2.3", null, new Uri("https://example.com/obm"));
 
     [Test]
     public void StartsIdle()

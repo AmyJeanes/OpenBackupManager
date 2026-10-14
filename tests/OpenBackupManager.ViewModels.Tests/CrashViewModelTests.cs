@@ -6,7 +6,7 @@ public class CrashViewModelTests
     [Test]
     public void ShowsTheReport()
     {
-        var crash = new CrashViewModel(new AppInfo("Open Backup Manager", "1.2.3", null), "Open Backup Manager closed unexpectedly at …");
+        var crash = new CrashViewModel(new AppInfo("Open Backup Manager", "1.2.3", null, new Uri("https://example.com/obm")), "Open Backup Manager closed unexpectedly at …");
 
         using (Assert.EnterMultipleScope())
         {

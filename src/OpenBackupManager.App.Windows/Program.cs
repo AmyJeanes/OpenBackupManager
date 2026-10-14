@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,7 +25,7 @@ public static class Program
     private const string AtLoginArgument = "--at-login";
 
     // Marks a copy that wasn't installed, such as a build run while developing, so it's easy to tell from the installed app
-    internal static string AppName { get; private set; } = "Open Backup Manager";
+    internal static string AppName { get; private set; } = typeof(Program).Assembly.GetCustomAttribute<AssemblyProductAttribute>()!.Product;
 
     internal static string Home { get; private set; } = "";
 
@@ -105,7 +106,7 @@ public static class Program
             // App opens the crash window through AppActions itself, which view models never need
             .AddSingleton<AppActions>()
             .AddSingleton<IAppActions>(services => services.GetRequiredService<AppActions>())
-            .AddSingleton<INotifier>(_ => new WindowsNotifier(AppName, Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"), $"--home \"{home}\""))
+            .AddSingleton<INotifier>(_ => new WindowsNotifier(AppName, AppIcons.Ico, $"--home \"{home}\""))
             .AddSingleton<AppNotifications>()
             .AddSingleton<ISecretStore>(_ => new CredentialManager(AppHome.InstanceKey(home)))
             .AddSingleton<IStartAtLogin>(_ => new RunKey(AppHome.InstanceKey(home), $"\"{Environment.ProcessPath}\" --home \"{home}\" {AtLoginArgument}"))

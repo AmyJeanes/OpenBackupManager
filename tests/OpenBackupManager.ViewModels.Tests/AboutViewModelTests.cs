@@ -7,7 +7,7 @@ namespace OpenBackupManager.ViewModels.Tests;
 [SetUICulture("en-GB")]
 public class AboutViewModelTests
 {
-    private static readonly AppInfo App = new("Open Backup Manager", "1.2.3", "© 2026 Amy Jeanes");
+    private static readonly AppInfo App = new("Open Backup Manager", "1.2.3", "© 2026 Amy Jeanes", new Uri("https://example.com/obm"));
 
     private FakeTimeProvider _time = null!;
     private FakeUpdater _updater = null!;
@@ -39,6 +39,19 @@ public class AboutViewModelTests
             Assert.That(about.Name, Is.EqualTo("Open Backup Manager"));
             Assert.That(about.Version, Is.EqualTo("Version 1.2.3"));
             Assert.That(about.Copyright, Is.EqualTo("© 2026 Amy Jeanes"));
+        }
+    }
+
+    [Test]
+    public void Links_AreInTheRepository()
+    {
+        var about = About();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(about.GitHubLink, Is.EqualTo(new Uri("https://example.com/obm")));
+            Assert.That(about.LicenceLink, Is.EqualTo(new Uri("https://example.com/obm/blob/main/LICENSE")));
+            Assert.That(about.ThirdPartyNoticesLink, Is.EqualTo(new Uri("https://example.com/obm/blob/main/THIRD-PARTY-NOTICES.md")));
         }
     }
 

@@ -12,7 +12,7 @@ public sealed partial class CrashWindow : Window
     {
         ViewModel = viewModel;
         InitializeComponent();
-        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+        AppWindow.SetIcon(AppIcons.Ico);
         Title = viewModel.Title;
         AppWindow.TitleBar.PreferredTheme = TitleBarTheme.UseDefaultAppMode;
         this.SetWindowSize(720, 520);

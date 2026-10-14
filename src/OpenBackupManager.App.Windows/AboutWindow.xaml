@@ -45,9 +45,9 @@
       Margin="0,8,0,0"
       HorizontalAlignment="Center"
       Orientation="Horizontal">
-      <HyperlinkButton Content="{x:Bind res:Strings.About_GitHub}" NavigateUri="https://github.com/AmyJeanes/OpenBackupManager" />
-      <HyperlinkButton Content="{x:Bind res:Strings.About_Licence}" NavigateUri="https://github.com/AmyJeanes/OpenBackupManager/blob/main/LICENSE" />
-      <HyperlinkButton Content="{x:Bind res:Strings.About_ThirdPartyNotices}" NavigateUri="https://github.com/AmyJeanes/OpenBackupManager/blob/main/THIRD-PARTY-NOTICES.md" />
+      <HyperlinkButton Content="{x:Bind res:Strings.About_GitHub}" NavigateUri="{x:Bind ViewModel.GitHubLink}" />
+      <HyperlinkButton Content="{x:Bind res:Strings.About_Licence}" NavigateUri="{x:Bind ViewModel.LicenceLink}" />
+      <HyperlinkButton Content="{x:Bind res:Strings.About_ThirdPartyNotices}" NavigateUri="{x:Bind ViewModel.ThirdPartyNoticesLink}" />
     </StackPanel>
     <TextBlock
       x:Name="CopyrightText"

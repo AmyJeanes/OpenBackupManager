@@ -21,6 +21,9 @@ public sealed partial class AboutViewModel : ObservableObject
         Name = app.Name;
         Version = Text.Format(updater.IsTestSource ? Strings.About_VersionTestUpdates : Strings.About_Version, app.Version);
         Copyright = app.Copyright;
+        GitHubLink = app.Repository;
+        LicenceLink = new Uri($"{app.Repository}/blob/main/LICENSE");
+        ThirdPartyNoticesLink = new Uri($"{app.Repository}/blob/main/THIRD-PARTY-NOTICES.md");
         UpdateButtonText = ButtonText();
         UpdateStatus = updater.CanUpdate ? Status() : Strings.About_UpdatesUnavailable;
     }
@@ -32,6 +35,12 @@ public sealed partial class AboutViewModel : ObservableObject
     public string Version { get; }
 
     public string? Copyright { get; }
+
+    public Uri GitHubLink { get; }
+
+    public Uri LicenceLink { get; }
+
+    public Uri ThirdPartyNoticesLink { get; }
 
     [ObservableProperty]
     public partial string UpdateButtonText { get; private set; }

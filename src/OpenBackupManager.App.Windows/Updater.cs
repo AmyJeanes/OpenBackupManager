@@ -11,11 +11,10 @@ namespace OpenBackupManager.App.Windows;
 // Auto updates the application from GitHub Releases
 public sealed partial class Updater : IUpdater, IDisposable
 {
-    public const string RepositoryUrl = "https://github.com/AmyJeanes/OpenBackupManager";
-
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
 
     private readonly AppPaths _paths;
+    private readonly AppInfo _app;
     private readonly ConfigWatcher _config;
     private readonly AppNotifications _notifications;
     private readonly ILogger _logger;
@@ -27,9 +26,10 @@ public sealed partial class Updater : IUpdater, IDisposable
     private string? _seenVersion;
     private bool _disposed;
 
-    public Updater(AppPaths paths, ConfigWatcher config, AppNotifications notifications, ILogger<Updater> logger)
+    public Updater(AppPaths paths, AppInfo app, ConfigWatcher config, AppNotifications notifications, ILogger<Updater> logger)
     {
         _paths = paths;
+        _app = app;
         _config = config;
         _notifications = notifications;
         _logger = logger;
@@ -110,7 +110,7 @@ public sealed partial class Updater : IUpdater, IDisposable
     private static bool Prereleases(AppConfig config) =>
         config.Updates.Prereleases ?? VelopackLocator.Current.CurrentlyInstalledVersion?.IsPrerelease ?? false;
 
-    private static UpdateManager FromGitHub(bool prereleases) => new(new GithubSource(RepositoryUrl, null, prereleases));
+    private UpdateManager FromGitHub(bool prereleases) => new(new GithubSource(_app.Repository.ToString(), null, prereleases));
 
     private void OnConfigChanged(ConfigResult _)
     {
@@ -140,7 +140,7 @@ public sealed partial class Updater : IUpdater, IDisposable
         if (last is not null && current.CompareTo(last) > 0)
         {
             LogUpdated(last, current);
-            _notifications.ShowUpdated(current.ToString(), new Uri($"{RepositoryUrl}/releases/tag/v{current}"));
+            _notifications.ShowUpdated(current.ToString(), new Uri($"{_app.Repository}/releases/tag/v{current}"));
         }
     }
 

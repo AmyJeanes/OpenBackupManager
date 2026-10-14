@@ -10,7 +10,7 @@ public sealed partial class MainWindow : Window
         AppInfo = appInfo;
         InitializeComponent();
         Title = AppTitleBar.Title = appInfo.Name;
-        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+        AppWindow.SetIcon(AppIcons.Ico);
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         FirstDraw.HideUntilDrawn(this);

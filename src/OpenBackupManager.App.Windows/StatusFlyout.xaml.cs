@@ -35,7 +35,7 @@ public sealed partial class StatusFlyout : Window
         InitializeComponent();
         Title = viewModel.AppName;
         // Never seen on the flyout, but Task Manager lists its window under the app with it
-        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+        AppWindow.SetIcon(AppIcons.Ico);
         _trayIconId = trayIconId;
         SystemBackdrop = new BlurBehind();
         var presenter = OverlappedPresenter.Create();

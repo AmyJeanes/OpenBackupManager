@@ -12,9 +12,9 @@ public sealed partial class AboutWindow : Window
     {
         ViewModel = viewModel;
         InitializeComponent();
-        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+        AppWindow.SetIcon(AppIcons.Ico);
         // Use a PNG for the Image control, as the .ico's first size that the Image control would display is too small
-        Logo.Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.png")));
+        Logo.Source = new BitmapImage(new Uri(AppIcons.Png));
         Title = viewModel.Title;
         AppWindow.TitleBar.PreferredTheme = TitleBarTheme.UseDefaultAppMode;
         var presenter = OverlappedPresenter.Create();
