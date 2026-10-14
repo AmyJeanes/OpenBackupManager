@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
+using FlaUI.Core.Exceptions;
 using FlaUI.Core.Tools;
 using Microsoft.Win32;
 
@@ -77,7 +78,7 @@ public sealed class InstallTests : AppTests
         {
             restart.Invoke();
         }
-        catch (System.ComponentModel.Win32Exception)
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or ElementNotAvailableException)
         {
             // UI Automation reports a failure when the app quits before the invoke returns, as this one does
         }
