@@ -6,7 +6,7 @@ namespace OpenBackupManager.Core.Configuration;
 
 /// <summary>
 /// Reads and writes config.toml. A write changes one value in place, so comments and layout written by hand stay,
-/// and swaps the new file in whole, keeping the last one as config.toml.bak
+/// and moves the new file over the old one in one step, keeping the last one as config.toml.bak
 /// </summary>
 public sealed class ConfigFile(string path)
 {
@@ -268,12 +268,11 @@ public sealed class ConfigFile(string path)
         File.WriteAllText(temporary, text);
         if (File.Exists(Path))
         {
-            File.Replace(temporary, Path, Path + ".bak");
+            File.Copy(Path, Path + ".bak", overwrite: true);
         }
-        else
-        {
-            File.Move(temporary, Path);
-        }
+
+        // One rename over the old file, so anything watching it never sees it missing, as it would with File.Replace
+        File.Move(temporary, Path, overwrite: true);
     }
 }
 
