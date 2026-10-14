@@ -85,6 +85,7 @@ public static class Program
             .AddSingleton<IAppActions, AppActions>()
             .AddSingleton<INotifier>(_ => new WindowsNotifier(AppName, Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"), $"--home \"{home}\""))
             .AddSingleton<AppNotifications>()
+            .AddSingleton<ISecretStore>(_ => new CredentialManager(AppHome.InstanceKey(home)))
             // AppActions installs updates through Updater itself. IUpdater leaves that out, so view models go through
             // AppActions. Both hand out the same Updater, since registering the type again would create a second one
             .AddSingleton<Updater>()

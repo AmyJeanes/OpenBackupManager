@@ -4,6 +4,6 @@ How each part of Open Backup Manager works and why: the decisions, the alternati
 
 - [Bundled rclone](rclone-bundling.md): how the build fetches rclone and checks it's genuine
 - [Configuration and files](config.md): where the app keeps its files on each OS, and config.toml
-- [Platform layer](platform.md): what each OS does its own way, such as notifications
+- [Platform layer](platform.md): what each OS does its own way, such as notifications and secrets
 - [View models](view-models.md): what each screen shows and does, shared by every app
 - [Windows app](windows-app.md): the WinUI tray app, its packages, and why it only builds on Windows

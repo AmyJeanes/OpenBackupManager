@@ -1,2 +1,7 @@
 CoTaskMemFree
+CredDelete
+CredFree
+CredRead
+CredWrite
 GetCurrentProcessExplicitAppUserModelID
+WIN32_ERROR
