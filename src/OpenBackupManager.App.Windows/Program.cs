@@ -5,6 +5,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.ViewModels;
 using Serilog;
 using Serilog.Events;
@@ -71,6 +72,13 @@ public static class Program
             .AddSingleton(AppInfo.FromAssembly(AppName, typeof(Program).Assembly))
             .AddSingleton(TimeProvider.System)
             .AddSingleton(paths)
+            .AddSingleton(_ =>
+            {
+                var file = new ConfigFile(paths.ConfigFile);
+                file.CreateIfMissing();
+                return new ConfigWatcher(file);
+            })
+            .AddSingleton<ConfigNotices>()
             .AddSingleton<IAppActions, AppActions>()
             .AddSingleton<Notifications>()
             // AppActions installs updates through Updater itself. IUpdater leaves that out, so view models go through

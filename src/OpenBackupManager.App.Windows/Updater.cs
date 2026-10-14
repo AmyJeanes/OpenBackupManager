@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.ViewModels;
 using Velopack;
 using Velopack.Locators;
@@ -14,27 +15,37 @@ public sealed partial class Updater : IUpdater, IDisposable
 
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
 
-    private readonly UpdateManager _manager;
     private readonly AppPaths _paths;
+    private readonly ConfigWatcher _config;
     private readonly Notifications _notifications;
     private readonly ILogger _logger;
     private readonly CancellationTokenSource _stop = new();
     private readonly SemaphoreSlim _checking = new(1, 1);
+    private readonly Lock _lock = new();
+    private volatile UpdateManager _manager;
+    private bool _prereleases;
     private string? _seenVersion;
     private bool _disposed;
 
-    public Updater(AppPaths paths, Notifications notifications, ILogger<Updater> logger)
+    public Updater(AppPaths paths, ConfigWatcher config, Notifications notifications, ILogger<Updater> logger)
     {
         _paths = paths;
+        _config = config;
         _notifications = notifications;
         _logger = logger;
-        // Follows prereleases while running one
-        var prerelease = VelopackLocator.Current.CurrentlyInstalledVersion?.IsPrerelease ?? false;
         var source = TestSource();
         IsTestSource = source is not null;
-        _manager = source is null
-            ? new UpdateManager(new GithubSource(RepositoryUrl, null, prerelease))
-            : new UpdateManager(source);
+        if (source is null)
+        {
+            _prereleases = Prereleases(config.Config);
+            _manager = FromGitHub(_prereleases);
+            config.Changed += OnConfigChanged;
+        }
+        else
+        {
+            _manager = new UpdateManager(source);
+        }
+
         if (_manager.IsInstalled)
         {
             NoticeUpdate();
@@ -76,6 +87,7 @@ public sealed partial class Updater : IUpdater, IDisposable
         }
 
         _disposed = true;
+        _config.Changed -= OnConfigChanged;
         _stop.Cancel();
         _stop.Dispose();
         _checking.Dispose();
@@ -92,6 +104,30 @@ public sealed partial class Updater : IUpdater, IDisposable
 
         var file = VelopackLocator.Current.RootAppDir is { } root ? Path.Combine(root, "update-source") : null;
         return file is not null && File.Exists(file) ? File.ReadAllText(file).Trim() : null;
+    }
+
+    // Left out, updates follow what's installed, so a prerelease gets prereleases
+    private static bool Prereleases(AppConfig config) =>
+        config.Updates.Prereleases ?? VelopackLocator.Current.CurrentlyInstalledVersion?.IsPrerelease ?? false;
+
+    private static UpdateManager FromGitHub(bool prereleases) => new(new GithubSource(RepositoryUrl, null, prereleases));
+
+    private void OnConfigChanged(ConfigResult _)
+    {
+        // Changes can be raised from two threads at once
+        lock (_lock)
+        {
+            var prereleases = Prereleases(_config.Config);
+            if (prereleases == _prereleases)
+            {
+                return;
+            }
+
+            _prereleases = prereleases;
+            // Takes effect from the next check. One already running finishes with the manager it started with
+            _manager = FromGitHub(prereleases);
+            LogPrereleasesChanged(prereleases);
+        }
     }
 
     private void NoticeUpdate()
@@ -128,9 +164,10 @@ public sealed partial class Updater : IUpdater, IDisposable
     {
         // So two downloads never run at once
         await _checking.WaitAsync(_stop.Token);
+        var manager = _manager;
         try
         {
-            var update = await _manager.CheckForUpdatesAsync();
+            var update = await manager.CheckForUpdatesAsync();
             LastChecked = DateTimeOffset.Now;
             if (update is null)
             {
@@ -138,7 +175,7 @@ public sealed partial class Updater : IUpdater, IDisposable
                 return UpdateCheckResult.UpToDate;
             }
 
-            await _manager.DownloadUpdatesAsync(update, downloading, _stop.Token);
+            await manager.DownloadUpdatesAsync(update, downloading, _stop.Token);
             var version = update.TargetFullRelease.Version.ToString();
             LogDownloaded(version);
             // A version found from About counts as seen, so a later regular check doesn't notify about it
@@ -176,6 +213,9 @@ public sealed partial class Updater : IUpdater, IDisposable
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't check for updates")]
     private partial void LogCheckFailed(Exception e);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Updates now include prereleases: {Prereleases}")]
+    private partial void LogPrereleasesChanged(bool prereleases);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Installing version {Version} once the app exits")]
     private partial void LogInstallingOnExit(SemanticVersion version);

@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.UI.Dispatching;
 using Microsoft.Win32;
+using OpenBackupManager.Core;
 using OpenBackupManager.ViewModels;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
@@ -13,6 +15,7 @@ public sealed class Notifications : IDisposable
 {
     private const string ViewDetails = "viewDetails";
     private const string Restart = "restart";
+    private const string ShowConfig = "showConfig";
 
     // Windows groups notifications by the app's ID. Velopack gives the installed app its Start menu shortcut's ID,
     // and a copy that wasn't installed gets one from its path, so copies in different folders keep their own
@@ -23,13 +26,15 @@ public sealed class Notifications : IDisposable
     private static readonly Guid ActivatorId = new(SHA256.HashData(Encoding.UTF8.GetBytes(AppId))[..16]);
 
     private readonly IAppActions _actions;
+    private readonly AppPaths _paths;
     private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
     private readonly uint _activator;
     private readonly ToastNotifier _notifier;
 
-    public Notifications(IAppActions actions)
+    public Notifications(IAppActions actions, AppPaths paths)
     {
         _actions = actions;
+        _paths = paths;
         Register();
         _notifier = ToastNotificationManager.CreateToastNotifier(AppId);
         _activator = NotificationActivator.Register(ActivatorId, OnActivated);
@@ -53,6 +58,12 @@ public sealed class Notifications : IDisposable
         .Text(Strings.Notification_UpdatedTitle)
         .Text(Text.Format(Strings.Notification_UpdatedText, version))
         .Link(Strings.Notification_WhatsNew, new Uri($"{Updater.RepositoryUrl}/releases/tag/v{version}")));
+
+    public void ShowConfigError(string problem) => Show(new Toast(ShowConfig)
+        .Text(Strings.Notification_ConfigErrorTitle)
+        .Text(problem)
+        .Text(Strings.Notification_ConfigErrorKept)
+        .Button(Strings.Notification_ShowFile, ShowConfig));
 
     // When uninstalling, so nothing is left behind
     public static void Unregister()
@@ -95,6 +106,10 @@ public sealed class Notifications : IDisposable
                 break;
             case Restart:
                 _dispatcher.TryEnqueue(_actions.RestartToUpdate);
+                break;
+            case ShowConfig:
+                // Opens the folder with the file selected, since .toml files often have no app to open them
+                Process.Start("explorer.exe", $"/select,\"{_paths.ConfigFile}\"")?.Dispose();
                 break;
         }
     }

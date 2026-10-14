@@ -145,4 +145,13 @@
   <data name="Notification_WhatsNew" xml:space="preserve">
     <value>What's new</value>
   </data>
+  <data name="Notification_ConfigErrorTitle" xml:space="preserve">
+    <value>Settings file has a problem</value>
+  </data>
+  <data name="Notification_ConfigErrorKept" xml:space="preserve">
+    <value>Last good settings kept until resolved</value>
+  </data>
+  <data name="Notification_ShowFile" xml:space="preserve">
+    <value>Show file</value>
+  </data>
 </root>

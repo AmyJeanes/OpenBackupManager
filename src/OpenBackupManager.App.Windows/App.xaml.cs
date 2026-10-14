@@ -28,6 +28,7 @@ public sealed partial class App : Application
         // Created here because they need the UI thread. The updater starts checking as it's created
         _ = _services.GetRequiredService<Updater>();
         var tray = _services.GetRequiredService<Tray>();
+        _ = _services.GetRequiredService<ConfigNotices>();
         if (!Notifications.StartedByClick)
         {
             tray.ShowFlyout();

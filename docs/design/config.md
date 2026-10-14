@@ -19,7 +19,7 @@ Where the app keeps its files on each OS, and its settings file, `config.toml`.
 - Core's `ConfigFile` reads it. A syntax error, a value of the wrong type or a remote without a unique `id` is an error naming the line, and a file with an error isn't used. An unknown key or section is only a warning.
 - A file whose `version` is newer than this version knows, such as after rolling back an update, is read for the settings this version understands but never written, so nothing newer is lost.
 - Writing re-reads the file first and won't go ahead while it has an error. It changes the one value in the file's syntax tree, so comments and layout written by hand stay, checks the result reads cleanly, copies the old file to `config.toml.bak`, then writes a temporary file and moves it over the old one.
-- `ConfigWatcher` keeps the settings up to date with the file, so an edit applies as soon as it's saved, whether by hand or by the app. An edit with an error leaves the last good settings in use, and says what's wrong, until it's fixed. Deleting the file goes back to the defaults.
+- `ConfigWatcher` keeps the settings up to date with the file, so an edit applies as soon as it's saved, whether by hand or by the app. An edit with an error leaves the last good settings in use until it's fixed. The Windows app logs every problem and shows the first error in a notification, which can show the file. Deleting the file goes back to the defaults.
 - If `config.toml` or its folder is a link, as dotfiles managers make them, the watcher also watches the folder the link points to, since that's where edits happen.
 
 ## Why

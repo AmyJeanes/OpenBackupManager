@@ -24,13 +24,14 @@ public abstract class AppTests
     private static readonly string BuiltAppPath =
         typeof(AppTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Single(a => a.Key == "AppPath").Value!;
 
-    private string _home = "";
     private UIA3Automation _automation = null!;
     private Process _process = null!;
 
     // The flyout the app opens as it starts. Tests wait for it before using the tray, since it takes focus as it opens,
     // which closes the tray menu
     protected Window LaunchFlyout { get; private set; } = null!;
+
+    protected string Home { get; private set; } = "";
 
     protected virtual string AppPath => BuiltAppPath;
 
@@ -39,7 +40,7 @@ public abstract class AppTests
     [SetUp]
     public void Launch()
     {
-        _home = Directory.CreateTempSubdirectory("obm-uitests-").FullName;
+        Home = Directory.CreateTempSubdirectory("obm-uitests-").FullName;
         _automation = new UIA3Automation();
         _process = LaunchApp();
         LaunchFlyout = WaitForFlyout();
@@ -79,11 +80,11 @@ public abstract class AppTests
 
             _process.Dispose();
             _automation.Dispose();
-            Directory.Delete(_home, recursive: true);
+            Directory.Delete(Home, recursive: true);
         }
     }
 
-    protected Process LaunchApp() => Process.Start(new ProcessStartInfo(AppPath, ["--home", _home]))!;
+    protected Process LaunchApp() => Process.Start(new ProcessStartInfo(AppPath, ["--home", Home]))!;
 
     // After Quit, as the copy the test goes on with
     protected void LaunchAgain()
@@ -160,14 +161,15 @@ public abstract class AppTests
             .Result!.AsMenuItem().Invoke();
     }
 
-    // Notifications are found in the notification centre rather than as they pop up, as CI has Do Not Disturb enabled
+    // Notifications are found in the notification centre rather than as they pop up, as CI has Do Not Disturb enabled.
+    // It shows every line after the title as one block of text, so the text can be any of those lines
     protected AutomationElement FindNotification(string title, string? text = null)
     {
         var centre = OpenNotificationCentre();
         var notification = Retry.WhileNull(
                 () => centre.FindAllDescendants(c => c.ByControlType(ControlType.ListItem))
                     .FirstOrDefault(n => n.FindFirstChild(c => c.ByAutomationId("Title"))?.Name == title
-                        && (text is null || n.FindFirstDescendant(c => c.ByName(text)) is not null)),
+                        && (text is null || n.FindFirstDescendant(c => c.ByAutomationId("Content"))?.Name.Contains(text, StringComparison.Ordinal) == true)),
                 Timeout,
                 throwOnTimeout: true,
                 ignoreException: true)

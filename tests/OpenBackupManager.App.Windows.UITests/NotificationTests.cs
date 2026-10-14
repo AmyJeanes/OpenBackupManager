@@ -39,4 +39,12 @@ public sealed class NotificationTests : AppTests
         WaitForWindow(AppName);
         Assert.That(IsFlyoutShown(), Is.False);
     }
+
+    [Test]
+    public void ABrokenEditToTheSettingsFile_SaysWhatsWrong()
+    {
+        File.WriteAllText(Path.Combine(Home, "config.toml"), "version = 1\n[updates]\nprereleases = \"yes\"\n");
+
+        FindNotification("Settings file has a problem", "Line 3: updates.prereleases should be true or false");
+    }
 }
