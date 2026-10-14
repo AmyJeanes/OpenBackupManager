@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core.Configuration;
+using OpenBackupManager.ViewModels;
 
 namespace OpenBackupManager.App.Windows;
 
@@ -8,10 +9,10 @@ namespace OpenBackupManager.App.Windows;
 public sealed partial class ConfigNotices : IDisposable
 {
     private readonly ConfigWatcher _config;
-    private readonly Notifications _notifications;
+    private readonly AppNotifications _notifications;
     private readonly ILogger _logger;
 
-    public ConfigNotices(ConfigWatcher config, Notifications notifications, ILogger<ConfigNotices> logger)
+    public ConfigNotices(ConfigWatcher config, AppNotifications notifications, ILogger<ConfigNotices> logger)
     {
         _config = config;
         _notifications = notifications;

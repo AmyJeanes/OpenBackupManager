@@ -1,6 +1,6 @@
 using System.Xml.Linq;
 
-namespace OpenBackupManager.App.Windows;
+namespace OpenBackupManager.Platform.Windows;
 
 // The XML Windows shows a notification from. Clicking the notification or a button with arguments passes them to the
 // app's activator. https://learn.microsoft.com/uwp/schemas/tiles/toastschema/schema-root

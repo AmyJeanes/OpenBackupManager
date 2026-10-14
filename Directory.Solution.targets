@@ -1,6 +1,6 @@
 <Project InitialTargets="SkipWindowsOnlyProjects">
 
-  <!-- WinUI's XAML compiler only runs on Windows, so other OSes leave out the projects with .Windows in their names -->
+  <!-- Projects with .Windows in their names are for Windows only, and WinUI's XAML compiler only runs there, so other OSes leave them out -->
   <Target Name="SkipWindowsOnlyProjects" Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
     <ItemGroup>
       <ProjectReference Remove="@(ProjectReference)" Condition="$([System.String]::Copy('%(Filename)').Contains('.Windows'))" />

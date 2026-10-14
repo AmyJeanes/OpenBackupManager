@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/OpenBackupManager.App.Windows/OpenBackupManager.App.Windows.csproj" />
     <Project Path="src/OpenBackupManager.Core/OpenBackupManager.Core.csproj" />
+    <Project Path="src/OpenBackupManager.Platform.Windows/OpenBackupManager.Platform.Windows.csproj" />
     <Project Path="src/OpenBackupManager.Rclone/OpenBackupManager.Rclone.csproj" />
     <Project Path="src/OpenBackupManager.ViewModels/OpenBackupManager.ViewModels.csproj" />
   </Folder>
@@ -9,6 +10,7 @@
     <Project Path="tests/OpenBackupManager.App.Windows.Tests/OpenBackupManager.App.Windows.Tests.csproj" />
     <Project Path="tests/OpenBackupManager.App.Windows.UITests/OpenBackupManager.App.Windows.UITests.csproj" />
     <Project Path="tests/OpenBackupManager.Core.Tests/OpenBackupManager.Core.Tests.csproj" />
+    <Project Path="tests/OpenBackupManager.Platform.Windows.Tests/OpenBackupManager.Platform.Windows.Tests.csproj" />
     <Project Path="tests/OpenBackupManager.Rclone.Tests/OpenBackupManager.Rclone.Tests.csproj" />
     <Project Path="tests/OpenBackupManager.ViewModels.Tests/OpenBackupManager.ViewModels.Tests.csproj" />
   </Folder>

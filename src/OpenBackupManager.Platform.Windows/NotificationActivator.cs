@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 
-namespace OpenBackupManager.App.Windows;
+namespace OpenBackupManager.Platform.Windows;
 
 // The COM class Windows calls when a notification or one of its buttons is clicked. While the app runs it's registered
 // with COM, and when it isn't, Windows starts the app from the command in the registry and calls it once registered

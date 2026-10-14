@@ -1,6 +1,6 @@
 using System.Xml.Linq;
 
-namespace OpenBackupManager.App.Windows.Tests;
+namespace OpenBackupManager.Platform.Windows.Tests;
 
 public class ToastTests
 {

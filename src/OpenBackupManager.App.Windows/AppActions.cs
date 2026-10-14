@@ -1,16 +1,19 @@
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using OpenBackupManager.Core;
 using OpenBackupManager.ViewModels;
 using WinUIEx;
 
 namespace OpenBackupManager.App.Windows;
 
-public sealed partial class AppActions(IHost host, ILogger<AppActions> logger) : IAppActions
+public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppActions> logger) : IAppActions
 {
     private readonly IHost _host = host;
+    private readonly AppPaths _paths = paths;
     private readonly ILogger _logger = logger;
     private MainWindow? _window;
     private AboutWindow? _about;
@@ -58,6 +61,9 @@ public sealed partial class AppActions(IHost host, ILogger<AppActions> logger) :
         _host.Dispose();
         updater.RestartToUpdate();
     }
+
+    // Opens the folder with the file selected, since .toml files often have no app to open them
+    public void ShowConfigFile() => Process.Start("explorer.exe", $"/select,\"{_paths.ConfigFile}\"")?.Dispose();
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Quitting")]
     private partial void LogQuitting();

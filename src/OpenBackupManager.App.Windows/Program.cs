@@ -6,6 +6,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Configuration;
+using OpenBackupManager.Core.Platform;
+using OpenBackupManager.Platform.Windows;
 using OpenBackupManager.ViewModels;
 using Serilog;
 using Serilog.Events;
@@ -30,7 +32,7 @@ public static class Program
     {
         // Velopack's installer runs the app with hook arguments, which are handled here and then exit
         VelopackApp.Build()
-            .OnBeforeUninstallFastCallback(_ => Notifications.Unregister())
+            .OnBeforeUninstallFastCallback(_ => WindowsNotifier.Unregister())
             .Run();
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Installed = VelopackLocator.Current.CurrentlyInstalledVersion is not null;
@@ -56,7 +58,7 @@ public static class Program
             return;
         }
 
-        var host = BuildHost(AppPaths.InHome(Home));
+        var host = BuildHost(Home);
         Application.Start(p =>
         {
             SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
@@ -64,8 +66,9 @@ public static class Program
         });
     }
 
-    internal static IHost BuildHost(AppPaths paths)
+    internal static IHost BuildHost(string home)
     {
+        var paths = AppPaths.InHome(home);
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         builder.Services
@@ -80,7 +83,8 @@ public static class Program
             })
             .AddSingleton<ConfigNotices>()
             .AddSingleton<IAppActions, AppActions>()
-            .AddSingleton<Notifications>()
+            .AddSingleton<INotifier>(_ => new WindowsNotifier(AppName, Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"), $"--home \"{home}\""))
+            .AddSingleton<AppNotifications>()
             // AppActions installs updates through Updater itself. IUpdater leaves that out, so view models go through
             // AppActions. Both hand out the same Updater, since registering the type again would create a second one
             .AddSingleton<Updater>()

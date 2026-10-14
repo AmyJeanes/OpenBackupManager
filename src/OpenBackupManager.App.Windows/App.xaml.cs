@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
+using OpenBackupManager.Platform.Windows;
 using OpenBackupManager.ViewModels;
 
 namespace OpenBackupManager.App.Windows;
@@ -29,7 +30,7 @@ public sealed partial class App : Application
         _ = _services.GetRequiredService<Updater>();
         var tray = _services.GetRequiredService<Tray>();
         _ = _services.GetRequiredService<ConfigNotices>();
-        if (!Notifications.StartedByClick)
+        if (!WindowsNotifier.StartedByClick)
         {
             tray.ShowFlyout();
         }

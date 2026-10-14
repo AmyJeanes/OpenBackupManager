@@ -17,7 +17,7 @@ public sealed partial class Updater : IUpdater, IDisposable
 
     private readonly AppPaths _paths;
     private readonly ConfigWatcher _config;
-    private readonly Notifications _notifications;
+    private readonly AppNotifications _notifications;
     private readonly ILogger _logger;
     private readonly CancellationTokenSource _stop = new();
     private readonly SemaphoreSlim _checking = new(1, 1);
@@ -27,7 +27,7 @@ public sealed partial class Updater : IUpdater, IDisposable
     private string? _seenVersion;
     private bool _disposed;
 
-    public Updater(AppPaths paths, ConfigWatcher config, Notifications notifications, ILogger<Updater> logger)
+    public Updater(AppPaths paths, ConfigWatcher config, AppNotifications notifications, ILogger<Updater> logger)
     {
         _paths = paths;
         _config = config;
@@ -140,7 +140,7 @@ public sealed partial class Updater : IUpdater, IDisposable
         if (last is not null && current.CompareTo(last) > 0)
         {
             LogUpdated(last, current);
-            _notifications.ShowUpdated(current.ToString());
+            _notifications.ShowUpdated(current.ToString(), new Uri($"{RepositoryUrl}/releases/tag/v{current}"));
         }
     }
 

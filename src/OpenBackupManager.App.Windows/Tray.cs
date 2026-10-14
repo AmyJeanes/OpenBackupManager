@@ -17,11 +17,11 @@ public sealed partial class Tray : IDisposable
     private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
     private readonly StatusViewModel _status;
     private readonly IAppActions _actions;
-    private readonly Notifications _notifications;
+    private readonly AppNotifications _notifications;
     private readonly StatusFlyout _flyout;
     private bool _skipClick;
 
-    public Tray(StatusViewModel status, IAppActions actions, Notifications notifications)
+    public Tray(StatusViewModel status, IAppActions actions, AppNotifications notifications)
     {
         _status = status;
         _actions = actions;

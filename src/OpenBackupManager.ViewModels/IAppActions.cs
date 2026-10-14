@@ -10,4 +10,6 @@ public interface IAppActions
     void Quit();
 
     void RestartToUpdate();
+
+    void ShowConfigFile();
 }

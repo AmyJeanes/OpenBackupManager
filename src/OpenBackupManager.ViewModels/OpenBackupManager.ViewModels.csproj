@@ -9,6 +9,10 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\OpenBackupManager.Core\OpenBackupManager.Core.csproj" />
+  </ItemGroup>
+
   <!-- The Strings class is generated when building, so it isn't kept in the repo -->
   <ItemGroup>
     <EmbeddedResource Update="Strings.resx">
