@@ -61,11 +61,8 @@ public static class Program
         }
 
         StartedAtLogin = args.Contains(AtLoginArgument);
-        Home = AppHome.Resolve(
-            args,
-            Environment.GetEnvironmentVariable("OBM_HOME"),
-            Installed,
-            LocalAppData);
+        Home = AppHome.Chosen(HomeArgument(args), Environment.GetEnvironmentVariable("OBM_HOME"))
+            ?? AppHome.WindowsDefault(Installed, LocalAppData);
         // Off the UI thread, as Microsoft's single-instance guidance does, so the UI thread never blocks on the handover
         if (Task.Run(() => HandOverToRunningCopy(AppHome.InstanceKey(Home), StartedAtLogin)).Result)
         {
@@ -136,6 +133,12 @@ public static class Program
                     rollOnFileSizeLimit: true,
                     retainedFileCountLimit: 7));
         return builder.Build();
+    }
+
+    private static string? HomeArgument(string[] args)
+    {
+        var at = Array.IndexOf(args, "--home");
+        return at >= 0 && at < args.Length - 1 ? args[at + 1] : null;
     }
 
     private static bool HandOverToRunningCopy(string instanceKey, bool atLogin)

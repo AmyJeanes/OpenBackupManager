@@ -13,6 +13,11 @@ public sealed record AppPaths(string Config, string State, string Logs, string C
     // For --home and OBM_HOME
     public static AppPaths InHome(string home) => new(home, home, Path.Combine(home, "logs"), Path.Combine(home, "cache"));
 
+    public static AppPaths ForThisOS() =>
+        ForOS(
+            OperatingSystem.IsWindows() ? OSPlatform.Windows : OperatingSystem.IsMacOS() ? OSPlatform.OSX : OSPlatform.Linux,
+            Environment.GetEnvironmentVariable);
+
     // Worked out here rather than with Environment.SpecialFolder, which maps differently on each OS and ignores XDG
     public static AppPaths ForOS(OSPlatform os, Func<string, string?> environment)
     {

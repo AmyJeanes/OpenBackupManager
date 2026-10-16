@@ -25,7 +25,8 @@ On Linux, `XDG_CONFIG_HOME` and `XDG_STATE_HOME` move these folders as they do f
 The app writes what it does to a log: starting up, checking for and installing updates, and any problems with the settings file. If something goes wrong, the log is the first place to look, and it's worth attaching to a bug report.
 
 - There's a file for each day, such as `app-20261014.log`. A day that writes more than 10 MB carries on in `app-20261014_001.log`, and so on.
-- Only the newest 7 files are kept, which is usually about a week.
+- The engine, which `obm daemon` runs, has its own, such as `engine-20261014.log`.
+- Only the newest 7 files of each are kept, which is usually about a week.
 - Passwords and tokens are never written to the logs, so they're safe to share.
 
 ## Crash reports
