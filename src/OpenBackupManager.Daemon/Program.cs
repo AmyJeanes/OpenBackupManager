@@ -24,6 +24,18 @@ return await command.Parse(args).InvokeAsync(new InvocationConfiguration { Proce
 
 static async Task<int> RunAsync(AppPaths paths, CancellationToken cancellationToken)
 {
+    if (OperatingSystem.IsWindows() && RunningAs.AdministratorWithNormalTokenToo())
+    {
+        await Console.Error.WriteLineAsync("obmd: this is running as administrator, so the tray app and obm in a normal terminal couldn't reach the engine. Run it again from a normal terminal");
+        return 1;
+    }
+
+    if (!OperatingSystem.IsWindows() && RunningAs.SwitchedFromAnotherUser())
+    {
+        await Console.Error.WriteLineAsync("obmd: sudo or similar started this as another user, so the engine would run as them instead of you. Run it again without sudo");
+        return 1;
+    }
+
     using var engineLock = ProcessLock.TryTake("engine", paths);
     if (engineLock is null)
     {

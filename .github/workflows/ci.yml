@@ -53,6 +53,11 @@ jobs:
       - name: Test
         run: dotnet test OpenBackupManager.slnx --no-build --results-directory TestResults --logger trx
 
+      # Makes an admin account on Windows and uses sudo elsewhere, so it only runs here
+      - name: Test running as administrator and root
+        shell: pwsh
+        run: ./.github/scripts/Test-RunningAs.ps1
+
       # With the UI tests' screenshots of the screen when they failed
       - name: Upload the test results
         if: failure()
