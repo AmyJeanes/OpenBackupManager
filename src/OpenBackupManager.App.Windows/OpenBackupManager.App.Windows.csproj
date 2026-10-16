@@ -41,6 +41,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenBackupManager.Core\OpenBackupManager.Core.csproj" />
+    <!-- obmd.exe goes beside the app, which starts it. Built for the app's runtime, or it can't find its files there -->
+    <ProjectReference Include="..\OpenBackupManager.Daemon\OpenBackupManager.Daemon.csproj" AdditionalProperties="RuntimeIdentifier=$(RuntimeIdentifier)" />
     <ProjectReference Include="..\OpenBackupManager.Platform.Windows\OpenBackupManager.Platform.Windows.csproj" />
     <ProjectReference Include="..\OpenBackupManager.ViewModels\OpenBackupManager.ViewModels.csproj" />
   </ItemGroup>

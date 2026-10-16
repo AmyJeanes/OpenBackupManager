@@ -10,6 +10,8 @@ using FlaUI.Core.WindowsAPI;
 using FlaUI.UIA3;
 using Microsoft.Win32;
 using NUnit.Framework.Interfaces;
+using OpenBackupManager.Core;
+using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
@@ -83,6 +85,8 @@ public abstract class AppTests
 
             App.Dispose();
             _automation.Dispose();
+            // The engine has its log open in the home
+            StopEngine();
             Directory.Delete(Home, recursive: true);
         }
     }
@@ -123,6 +127,28 @@ public abstract class AppTests
     }
 
     protected Window WaitForFlyout() => WaitForWindow(IsFlyout);
+
+    // The status line says the app is connected to the engine once it isn't saying anything about the engine
+    protected void WaitUntilConnected() =>
+        Assert.That(
+            Retry.WhileFalse(() => LaunchFlyout.FindFirstDescendant(c => c.ByAutomationId("StatusText"))?.Name == "Up to date", Timeout, ignoreException: true).Result,
+            Is.True);
+
+    // Null if no engine is running for the test's home
+    protected StatusResult? EngineStatus()
+    {
+        using var engine = EngineClient.ConnectAsync(AppPaths.InHome(Home), TimeSpan.FromMilliseconds(500), CancellationToken.None).GetAwaiter().GetResult();
+        return engine?.StatusAsync(CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    // As someone would from a terminal, rather than the app. Through the shell, so it doesn't inherit the test's output,
+    // which would keep dotnet test waiting for it
+    protected Process StartEngineByHand() =>
+        Process.Start(new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(AppPath)!, "obmd.exe"), $"--home \"{Home}\"")
+        {
+            UseShellExecute = true,
+            WindowStyle = ProcessWindowStyle.Hidden,
+        })!;
 
     protected Window WaitForWindow(string title) => WaitForWindow(w => w.Title == title);
 
@@ -249,6 +275,19 @@ public abstract class AppTests
             Assert.That(WaitForExit(), Is.True);
             Assert.That(Retry.WhileFalse(() => TrayIconCount() < icons, Timeout).Result, Is.True);
         });
+    }
+
+    private void StopEngine()
+    {
+        using var engine = EngineClient.ConnectAsync(AppPaths.InHome(Home), TimeSpan.FromMilliseconds(500), CancellationToken.None).GetAwaiter().GetResult();
+        if (engine is null)
+        {
+            return;
+        }
+
+        using var process = Process.GetProcessById(engine.StatusAsync(CancellationToken.None).GetAwaiter().GetResult().ProcessId);
+        engine.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
+        process.WaitForExit(Timeout);
     }
 
     // Saved with the test results, so a failure on CI can be seen

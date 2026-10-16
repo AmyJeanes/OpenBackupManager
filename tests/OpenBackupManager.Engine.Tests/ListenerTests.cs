@@ -50,7 +50,63 @@ public class ListenerTests
             Assert.That(status.Started, Is.InRange(before, DateTimeOffset.UtcNow));
             Assert.That(status.Config, Is.EqualTo(_home.Config));
             Assert.That(status.State, Is.EqualTo(_home.State));
+            Assert.That(status.StartedByApp, Is.False);
         }
+    }
+
+    [Test]
+    public async Task Status_SaysTheAppStartedIt()
+    {
+        await StartAsync(startedByApp: true);
+
+        using var client = await ConnectAsync();
+
+        Assert.That((await client.StatusAsync(CancellationToken.None)).StartedByApp, Is.True);
+    }
+
+    [Test]
+    public async Task Stop_StopsTheEngine()
+    {
+        // Run, as obmd does, since only that stops when the engine asks to
+        var running = EngineHost.Build(_home).RunAsync();
+        using var client = await ConnectAsync();
+
+        await client.StopAsync(CancellationToken.None);
+
+        Assert.That(async () => await running.WaitAsync(Timeout), Throws.Nothing);
+    }
+
+    [Test]
+    public async Task Closed_WhenTheEngineStops()
+    {
+        await StartAsync();
+        using var client = await ConnectAsync();
+
+        await _engine!.StopAsync();
+
+        Assert.That(async () => await client.Closed.WaitAsync(Timeout), Throws.Nothing);
+    }
+
+    [Test]
+    public async Task ACall_OnceTheEngineHasStopped_SaysSo()
+    {
+        await StartAsync();
+        using var client = await ConnectAsync();
+        await _engine!.StopAsync();
+        await client.Closed.WaitAsync(Timeout);
+
+        Assert.That(() => client.StatusAsync(CancellationToken.None), Throws.TypeOf<EngineException>());
+    }
+
+    [Test]
+    public async Task OverlappingCalls_EachGetTheirOwnAnswer()
+    {
+        await StartAsync();
+        using var client = await ConnectAsync();
+
+        var statuses = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => client.StatusAsync(CancellationToken.None)));
+
+        Assert.That(statuses.Select(s => s.ProcessId), Is.All.EqualTo(Environment.ProcessId));
     }
 
     [Test]
@@ -221,7 +277,7 @@ public class ListenerTests
     {
         _home = AppPaths.InHome(Path.Combine(Path.GetTempPath(), "obm-engine-" + new string('x', 120)));
 
-        var e = await Assert.ThrowsAsync<EngineException>(StartAsync);
+        var e = await Assert.ThrowsAsync<EngineException>(() => StartAsync());
 
         Assert.That(e.Message, Does.Contain("--home"));
     }
@@ -232,14 +288,14 @@ public class ListenerTests
     {
         using var squatter = new NamedPipeServerStream(EngineSocket.Name(_home), PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances);
 
-        var e = await Assert.ThrowsAsync<EngineException>(StartAsync);
+        var e = await Assert.ThrowsAsync<EngineException>(() => StartAsync());
 
         Assert.That(e.Message, Does.Contain("already listening"));
     }
 
-    private async Task StartAsync()
+    private async Task StartAsync(bool startedByApp = false)
     {
-        _engine = EngineHost.Build(_home);
+        _engine = EngineHost.Build(_home, startedByApp);
         await _engine.StartAsync();
     }
 

@@ -1,6 +1,7 @@
 using System.IO.Pipes;
 using System.Runtime.Versioning;
 using System.Text;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
@@ -8,7 +9,12 @@ using OpenBackupManager.Core.Protocol;
 namespace OpenBackupManager.Engine;
 
 // Answers the tray app and obm on the engine's socket, any number at once
-internal sealed partial class Listener(AppPaths paths, TimeProvider time, ILogger<Listener> logger) : IDisposable
+internal sealed partial class Listener(
+    AppPaths paths,
+    EngineOptions options,
+    IHostApplicationLifetime lifetime,
+    TimeProvider time,
+    ILogger<Listener> logger) : IDisposable
 {
     private const UnixFileMode Private = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
 
@@ -51,7 +57,7 @@ internal sealed partial class Listener(AppPaths paths, TimeProvider time, ILogge
 
     public void Dispose() => _stopping.Dispose();
 
-    private StatusResult Status() => new(AppVersion.Current, Environment.ProcessId, _started, paths.Config, paths.State);
+    private StatusResult Status() => new(AppVersion.Current, Environment.ProcessId, _started, paths.Config, paths.State, options.StartedByApp);
 
     // .NET leaves the socket's permissions to the umask, so a private folder keeps other users from reaching it at all
     [UnsupportedOSPlatform("windows")]
@@ -155,6 +161,12 @@ internal sealed partial class Listener(AppPaths paths, TimeProvider time, ILogge
                         await pipe.WriteAsync(EngineProtocol.Line(response, ProtocolJson.Default.RpcResponse), cancellationToken);
                         await pipe.FlushAsync(cancellationToken);
                     }
+
+                    if (connection.Stopping)
+                    {
+                        LogAskedToStop();
+                        lifetime.StopApplication();
+                    }
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -169,6 +181,9 @@ internal sealed partial class Listener(AppPaths paths, TimeProvider time, ILogge
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Listening at {Socket}")]
     private partial void LogListening(string socket);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Stopping, as a client asked")]
+    private partial void LogAskedToStop();
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Refused a connection from another user")]
     private partial void LogRefused();

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Pipes;
 using System.Runtime.Versioning;
 using System.Security.Principal;
@@ -7,19 +8,24 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace OpenBackupManager.Core.Protocol;
 
-/// <summary>A connection to the engine for a home</summary>
+/// <summary>A connection to the engine for a home. Calls can overlap, each answered by its own id</summary>
 public sealed class EngineClient : IDisposable
 {
     private readonly NamedPipeClientStream _pipe;
     private readonly StreamReader _reader;
-    private readonly SemaphoreSlim _calling = new(1, 1);
+    private readonly SemaphoreSlim _writing = new(1, 1);
+    private readonly ConcurrentDictionary<int, TaskCompletionSource<RpcResponse>> _waiting = new();
     private int _lastId;
 
     private EngineClient(NamedPipeClientStream pipe)
     {
         _pipe = pipe;
         _reader = new StreamReader(pipe, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
+        Closed = ReadAsync();
     }
+
+    // Completes once the connection ends, such as when the engine stops or crashes
+    public Task Closed { get; }
 
     // Null if no engine is running, which takes the whole timeout to find out, as one may be starting
     public static async Task<EngineClient?> ConnectAsync(AppPaths paths, TimeSpan timeout, CancellationToken cancellationToken)
@@ -75,11 +81,18 @@ public sealed class EngineClient : IDisposable
     public Task<StatusResult> StatusAsync(CancellationToken cancellationToken) =>
         CallAsync(EngineProtocol.Status, null, ProtocolJson.Default.StatusResult, cancellationToken);
 
+    // Returns once the engine has closed the connection, as it does as it stops
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await CallAsync(EngineProtocol.Stop, null, ProtocolJson.Default.StopResult, cancellationToken);
+        await Closed.WaitAsync(cancellationToken);
+    }
+
     public void Dispose()
     {
-        _reader.Dispose();
         _pipe.Dispose();
-        _calling.Dispose();
+        _reader.Dispose();
+        _writing.Dispose();
     }
 
     // Either way it's this user's: an engine that's elevated too makes its pipe belong to Administrators
@@ -98,17 +111,30 @@ public sealed class EngineClient : IDisposable
         CancellationToken cancellationToken)
         where TResult : class
     {
-        await _calling.WaitAsync(cancellationToken);
+        var id = Interlocked.Increment(ref _lastId);
+        var answer = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _waiting[id] = answer;
         try
         {
-            var id = ++_lastId;
             var request = new RpcRequest("2.0", JsonSerializer.SerializeToElement(id, ProtocolJson.Default.Int32), method, parameters);
-            await _pipe.WriteAsync(EngineProtocol.Line(request, ProtocolJson.Default.RpcRequest), cancellationToken);
-            await _pipe.FlushAsync(cancellationToken);
+            await _writing.WaitAsync(cancellationToken);
+            try
+            {
+                await _pipe.WriteAsync(EngineProtocol.Line(request, ProtocolJson.Default.RpcRequest), cancellationToken);
+                await _pipe.FlushAsync(cancellationToken);
+            }
+            catch (IOException e)
+            {
+                throw new EngineException("The engine closed the connection", e);
+            }
+            finally
+            {
+                _writing.Release();
+            }
 
-            var line = await _reader.ReadLineAsync(cancellationToken) ?? throw new EngineException("The engine closed the connection");
-            var response = JsonSerializer.Deserialize(line, ProtocolJson.Default.RpcResponse)
-                ?? throw new EngineException("The engine sent an empty reply");
+            // The connection may have ended before this call was waiting, so its end wasn't passed on to it
+            await Task.WhenAny(answer.Task, Closed).WaitAsync(cancellationToken);
+            var response = answer.Task.IsCompleted ? await answer.Task : throw new EngineException("The engine closed the connection");
             if (response.Error is { } error)
             {
                 throw new EngineException(error.Message);
@@ -120,7 +146,31 @@ public sealed class EngineClient : IDisposable
         }
         finally
         {
-            _calling.Release();
+            _waiting.TryRemove(id, out _);
+        }
+    }
+
+    // Hands each reply to the call with its id. Whatever ends the connection, every call still waiting is told
+    private async Task ReadAsync()
+    {
+        try
+        {
+            while (await _reader.ReadLineAsync() is { } line)
+            {
+                var response = JsonSerializer.Deserialize(line, ProtocolJson.Default.RpcResponse);
+                if (response?.Id is { ValueKind: JsonValueKind.Number } id && id.TryGetInt32(out var number) && _waiting.TryGetValue(number, out var answer))
+                {
+                    answer.TrySetResult(response);
+                }
+            }
+        }
+        catch (Exception e) when (e is IOException or ObjectDisposedException or OperationCanceledException or JsonException)
+        {
+        }
+
+        foreach (var answer in _waiting.Values)
+        {
+            answer.TrySetException(new EngineException("The engine closed the connection"));
         }
     }
 }

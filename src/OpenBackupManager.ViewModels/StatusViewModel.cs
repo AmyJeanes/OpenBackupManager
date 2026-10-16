@@ -14,7 +14,19 @@ public sealed partial class StatusViewModel(AppInfo app, IAppActions actions) : 
     [NotifyPropertyChangedFor(nameof(StatusText))]
     public partial SyncState State { get; set; }
 
-    public string StatusText => State switch
+    // Until it's connected, that's what the status says rather than how syncing is going
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    public partial EngineState Engine { get; set; }
+
+    public string StatusText => Engine switch
+    {
+        EngineState.Starting => Strings.Status_EngineStarting,
+        EngineState.Unreachable => Strings.Status_EngineUnreachable,
+        _ => SyncText,
+    };
+
+    private string SyncText => State switch
     {
         SyncState.Idle => Strings.Status_Idle,
         SyncState.Syncing => Strings.Status_Syncing,

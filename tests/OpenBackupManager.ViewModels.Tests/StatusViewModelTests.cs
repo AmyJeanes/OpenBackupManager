@@ -6,7 +6,7 @@ public class StatusViewModelTests
     private static readonly AppInfo App = new("Open Backup Manager", "1.2.3", null, new Uri("https://example.com/obm"));
 
     [Test]
-    public void StartsIdle()
+    public void StartsIdle_WhileTheEngineStarts()
     {
         var status = new StatusViewModel(App, new FakeActions());
 
@@ -14,7 +14,8 @@ public class StatusViewModelTests
         {
             Assert.That(status.AppName, Is.EqualTo("Open Backup Manager"));
             Assert.That(status.State, Is.EqualTo(SyncState.Idle));
-            Assert.That(status.StatusText, Is.EqualTo("Up to date"));
+            Assert.That(status.Engine, Is.EqualTo(EngineState.Starting));
+            Assert.That(status.StatusText, Is.EqualTo("Starting"));
         }
     }
 
@@ -24,7 +25,24 @@ public class StatusViewModelTests
     [TestCase(SyncState.NeedsAttention, "Needs attention")]
     [TestCase(SyncState.Error, "Error")]
     public void StatusText_DescribesTheState(SyncState state, string text) =>
-        Assert.That(new StatusViewModel(App, new FakeActions()) { State = state }.StatusText, Is.EqualTo(text));
+        Assert.That(new StatusViewModel(App, new FakeActions()) { Engine = EngineState.Connected, State = state }.StatusText, Is.EqualTo(text));
+
+    [TestCase(EngineState.Starting, "Starting")]
+    [TestCase(EngineState.Unreachable, "Can't reach the engine")]
+    public void StatusText_UntilTheEngineIsConnected_DescribesThat(EngineState engine, string text) =>
+        Assert.That(new StatusViewModel(App, new FakeActions()) { Engine = engine, State = SyncState.Syncing }.StatusText, Is.EqualTo(text));
+
+    [Test]
+    public void ChangingTheEngine_ChangesTheText()
+    {
+        var status = new StatusViewModel(App, new FakeActions());
+        var changed = new List<string?>();
+        status.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        status.Engine = EngineState.Connected;
+
+        Assert.That(changed, Is.EquivalentTo([nameof(StatusViewModel.Engine), nameof(StatusViewModel.StatusText)]));
+    }
 
     [Test]
     public void ChangingTheState_ChangesTheText()

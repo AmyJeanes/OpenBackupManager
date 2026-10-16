@@ -13,6 +13,7 @@ public static class EngineProtocol
 
     public const string Hello = "hello";
     public const string Status = "status";
+    public const string Stop = "stop";
 
     public static byte[] Line<T>(T message, JsonTypeInfo<T> type) => [.. JsonSerializer.SerializeToUtf8Bytes(message, type), (byte)'\n'];
 }
@@ -48,7 +49,11 @@ public sealed record HelloParams(int Protocol, string Version);
 
 public sealed record HelloResult(int Protocol, string Version);
 
-public sealed record StatusResult(string Version, int ProcessId, DateTimeOffset Started, string Config, string State);
+// StartedByApp says whether Quit in the tray app stops it
+public sealed record StatusResult(string Version, int ProcessId, DateTimeOffset Started, string Config, string State, bool StartedByApp);
+
+// The engine replies, then stops, closing every connection
+public sealed record StopResult;
 
 // Nullable annotations are kept to, so a message missing what it needs isn't read
 [JsonSourceGenerationOptions(
@@ -62,4 +67,5 @@ public sealed record StatusResult(string Version, int ProcessId, DateTimeOffset 
 [JsonSerializable(typeof(HelloParams))]
 [JsonSerializable(typeof(HelloResult))]
 [JsonSerializable(typeof(StatusResult))]
+[JsonSerializable(typeof(StopResult))]
 public sealed partial class ProtocolJson : JsonSerializerContext;

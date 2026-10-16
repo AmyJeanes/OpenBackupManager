@@ -12,17 +12,24 @@ var homeOption = new Option<string>("--home")
     HelpName = "folder",
 };
 
+// The tray app starts it with this, so its Quit stops only an engine it started
+var startedByAppOption = new Option<bool>("--started-by-app") { Hidden = true };
+
 var command = new RootCommand("Open Backup Manager's engine, in the foreground with no UI. obm and the app talk to it, and one runs for each home")
 {
     homeOption,
+    startedByAppOption,
 };
-command.SetAction((parseResult, cancellationToken) => RunAsync(AppHome.CommandLinePaths(parseResult.GetValue(homeOption), Installed), cancellationToken));
+command.SetAction((parseResult, cancellationToken) => RunAsync(
+    AppHome.CommandLinePaths(parseResult.GetValue(homeOption), Installed),
+    parseResult.GetValue(startedByAppOption),
+    cancellationToken));
 
 // The host handles Ctrl+C and SIGTERM itself. System.CommandLine's own handling would end the process if stopping took
 // over 2 seconds, so it's turned off
 return await command.Parse(args).InvokeAsync(new InvocationConfiguration { ProcessTerminationTimeout = null });
 
-static async Task<int> RunAsync(AppPaths paths, CancellationToken cancellationToken)
+static async Task<int> RunAsync(AppPaths paths, bool startedByApp, CancellationToken cancellationToken)
 {
     if (OperatingSystem.IsWindows() && RunningAs.AdministratorWithNormalTokenToo())
     {
@@ -43,7 +50,7 @@ static async Task<int> RunAsync(AppPaths paths, CancellationToken cancellationTo
         return 1;
     }
 
-    using var host = EngineHost.Build(paths);
+    using var host = EngineHost.Build(paths, startedByApp);
     using var shutdownHandler = OperatingSystem.IsWindows() ? new WindowsShutdownHandler(host) : null;
     try
     {

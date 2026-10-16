@@ -16,6 +16,8 @@ using Serilog.Events;
 using Velopack;
 using Velopack.Locators;
 using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace OpenBackupManager.App.Windows;
 
@@ -23,6 +25,9 @@ namespace OpenBackupManager.App.Windows;
 public static class Program
 {
     private const string AtLoginArgument = "--at-login";
+
+    // Held until the app ends, as only one copy for each home may start and stop its engine
+    private static ProcessLock? _instanceLock;
 
     // Marks a copy that wasn't installed, such as a build run while developing, so it's easy to tell from the installed app
     internal static string AppName { get; private set; } = typeof(Program).Assembly.GetCustomAttribute<AssemblyProductAttribute>()!.Product;
@@ -63,11 +68,23 @@ public static class Program
         StartedAtLogin = args.Contains(AtLoginArgument);
         Home = AppHome.Chosen(HomeArgument(args), Environment.GetEnvironmentVariable("OBM_HOME"))
             ?? AppHome.WindowsDefault(Installed, LocalAppData);
-        // Off the UI thread, as Microsoft's single-instance guidance does, so the UI thread never blocks on the handover
-        if (Task.Run(() => HandOverToRunningCopy(AppHome.InstanceKey(Home), StartedAtLogin)).Result)
+        // Global, unlike AppInstance, so it covers every session. Taken on this thread, which runs until the app ends,
+        // as a mutex belongs to the thread that took it
+        var instanceKey = AppHome.InstanceKey(Home);
+        _instanceLock = ProcessLock.TryTake("app", AppPaths.InHome(Home));
+        if (_instanceLock is null)
         {
+            // Off the UI thread, as Microsoft's single-instance guidance does, so the UI thread never blocks on the handover
+            if (!Task.Run(() => HandOverToRunningCopy(instanceKey, StartedAtLogin)).Result && !StartedAtLogin)
+            {
+                ShowRunningElsewhere();
+            }
+
             return;
         }
+
+        // So the next launch can hand over to this copy
+        Task.Run(() => AppInstance.FindOrRegisterForKey(instanceKey)).Wait();
 
         var host = BuildHost(Home);
         var crashes = host.Services.GetRequiredService<CrashCapture>();
@@ -119,6 +136,12 @@ public static class Program
             .AddSingleton<Tray>()
             .AddSingleton(services => new SessionEnd(services.GetRequiredService<Tray>().Flyout, services.GetRequiredService<AppActions>()))
             .AddSingleton<StatusViewModel>()
+            .AddSingleton(services => new EngineConnection(
+                home,
+                paths,
+                services.GetRequiredService<StatusViewModel>(),
+                services.GetRequiredService<TimeProvider>(),
+                services.GetRequiredService<ILogger<EngineConnection>>()))
             .AddTransient<AboutViewModel>()
             // One file a day, and another once one reaches 10 MB. Keeping the newest 7 is usually a week
             .AddSerilog(log => log
@@ -141,12 +164,21 @@ public static class Program
         return at >= 0 && at < args.Length - 1 ? args[at + 1] : null;
     }
 
+    // False if there's no copy to hand over to here, as when it runs in another session or is another exe
     private static bool HandOverToRunningCopy(string instanceKey, bool atLogin)
     {
-        var running = AppInstance.FindOrRegisterForKey(instanceKey);
-        if (running.IsCurrent)
+        // The running copy registers just after it takes the lock, so one launched at the same time may need a moment.
+        // Only looks, where FindOrRegisterForKey would register this copy when it finds none
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        AppInstance? running;
+        while ((running = AppInstance.GetInstances().FirstOrDefault(i => i.Key == instanceKey)) is null)
         {
-            return false;
+            if (DateTime.UtcNow > until)
+            {
+                return false;
+            }
+
+            Thread.Sleep(200);
         }
 
         // Nothing to open, since nobody launched it
@@ -160,4 +192,10 @@ public static class Program
         running.RedirectActivationToAsync(AppInstance.GetCurrent().GetActivatedEventArgs()).AsTask().Wait();
         return true;
     }
+
+    private static void ShowRunningElsewhere() => PInvoke.MessageBox(
+        HWND.Null,
+        Text.Format(Strings.Launch_RunningElsewhere, AppName),
+        AppName,
+        MESSAGEBOX_STYLE.MB_OK | MESSAGEBOX_STYLE.MB_ICONINFORMATION);
 }

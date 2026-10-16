@@ -37,6 +37,7 @@ public sealed partial class App : Application
         // Created here because they need the UI thread. The updater starts checking as it's created
         _ = _services.GetRequiredService<Updater>();
         var tray = _services.GetRequiredService<Tray>();
+        _services.GetRequiredService<EngineConnection>().Start();
         _ = _services.GetRequiredService<SessionEnd>();
         _ = _services.GetRequiredService<ConfigNotices>();
         if (_services.GetRequiredService<CrashReports>().TakeNew() is { } crash)

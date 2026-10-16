@@ -17,6 +17,7 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
     private readonly ILogger _logger = logger;
     private MainWindow? _window;
     private AboutWindow? _about;
+    private bool _quitting;
 
     // Windows are created when opened and destroyed when closed, so the app stays small while it sits in the tray
     public void Open()
@@ -47,10 +48,18 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         Show(window);
     }
 
-    public void Quit()
+    // Async, as stopping the engine waits for it. A second Quit while it does changes nothing
+    public async void Quit()
     {
+        if (_quitting)
+        {
+            return;
+        }
+
+        _quitting = true;
         LogQuitting();
         _host.Services.GetRequiredService<CrashReports>().Stopped();
+        await _host.Services.GetRequiredService<EngineConnection>().QuitAsync();
         _host.Services.GetRequiredService<Updater>().UpdateOnExit();
         Exit();
     }

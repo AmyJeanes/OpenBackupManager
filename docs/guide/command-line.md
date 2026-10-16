@@ -14,6 +14,8 @@
 
 `obmd` runs the engine in the foreground with no UI, until you press Ctrl+C. Only one runs at a time for each data folder, and `obm` talks to it. It takes `--home` like `obm`, and `obmd --version` shows its version.
 
+The Windows app starts the engine itself when it isn't running, and stops it when you quit the app. If you started the engine yourself, such as at sign-in with Task Scheduler, the app uses that one and leaves it running when you quit.
+
 ## Running as administrator or root
 
 You don't need administrator or root rights for Open Backup Manager. It backs up your own folders, so run `obm` and `obmd` as yourself, from a normal terminal.

@@ -7,6 +7,7 @@ EnumThreadWindows
 FindWindow
 GetCurrentThreadId
 GetDpiForMonitor
+MessageBox
 SetWindowPos
 Shell_NotifyIconGetRect
 WM_ENDSESSION

@@ -55,6 +55,15 @@ public class DaemonTests
         }
     }
 
+    // Only the tray app uses it
+    [Test]
+    public void StartedByApp_Runs_ButIsntListed()
+    {
+        Daemon(NewHome(), "--started-by-app").WaitFor(Started);
+
+        Assert.That(Tool.Run("obmd", "--help").Output, Does.Not.Contain("--started-by-app"));
+    }
+
     [Test]
     public void AnotherHome_RunsAlongside()
     {
@@ -111,9 +120,9 @@ public class DaemonTests
         }
     }
 
-    private Tool Daemon(string home)
+    private Tool Daemon(string home, params string[] options)
     {
-        var daemon = Tool.Start("obmd", "--home", home);
+        var daemon = Tool.Start("obmd", ["--home", home, .. options]);
         _running.Add(daemon);
         return daemon;
     }

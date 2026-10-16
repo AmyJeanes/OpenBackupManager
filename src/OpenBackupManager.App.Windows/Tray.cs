@@ -76,7 +76,7 @@ public sealed partial class Tray : IDisposable
 
     private void OnStatusChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(StatusViewModel.State))
+        if (e.PropertyName is nameof(StatusViewModel.State) or nameof(StatusViewModel.StatusText))
         {
             Update();
         }

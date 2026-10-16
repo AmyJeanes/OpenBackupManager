@@ -12,6 +12,9 @@ internal sealed class Connection(Func<StatusResult> status)
 
     public bool Closing { get; private set; }
 
+    // Once it's answered stop, which the engine then does
+    public bool Stopping { get; private set; }
+
     // Null when nothing should be sent back: a message without an id is a notification, which JSON-RPC never answers
     public RpcResponse? Answer(string line)
     {
@@ -45,6 +48,7 @@ internal sealed class Connection(Func<StatusResult> status)
         {
             EngineProtocol.Hello => Hello(id, request.Params),
             EngineProtocol.Status => Result(id, status(), ProtocolJson.Default.StatusResult),
+            EngineProtocol.Stop => Stop(id),
             _ => Error(id, RpcError.MethodNotFound, $"There's no method called {method}"),
         };
     }
@@ -77,6 +81,12 @@ internal sealed class Connection(Func<StatusResult> status)
 
         _greeted = true;
         return Result(id, new HelloResult(EngineProtocol.Version, AppVersion.Current), ProtocolJson.Default.HelloResult);
+    }
+
+    private RpcResponse Stop(JsonElement id)
+    {
+        Stopping = Closing = true;
+        return Result(id, new StopResult(), ProtocolJson.Default.StopResult);
     }
 
     private static RpcResponse Result<T>(JsonElement id, T result, JsonTypeInfo<T> type) =>
