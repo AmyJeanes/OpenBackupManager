@@ -1,5 +1,7 @@
 using System.CommandLine;
 using OpenBackupManager.Cli;
+using OpenBackupManager.Core;
+using Velopack.Locators;
 
 var homeOption = new Option<string>("--home")
 {
@@ -8,15 +10,16 @@ var homeOption = new Option<string>("--home")
     Recursive = true,
 };
 
-var daemonCommand = new Command("daemon", "Run the engine with no UI, in the foreground");
-daemonCommand.SetAction((parseResult, cancellationToken) => Daemon.RunAsync(Home.Paths(parseResult.GetValue(homeOption)), cancellationToken));
+var statusCommand = new Command("status", "Show whether the engine is running, and which");
+statusCommand.SetAction((parseResult, cancellationToken) => Status.RunAsync(AppHome.CommandLinePaths(parseResult.GetValue(homeOption), Installed), cancellationToken));
 
 var command = new RootCommand("Open Backup Manager's command line")
 {
     homeOption,
-    daemonCommand,
+    statusCommand,
 };
 
-// The daemon's host handles Ctrl+C and SIGTERM itself. System.CommandLine's own handling would end the process if
-// stopping took over 2 seconds, so it's turned off
-return await command.Parse(args).InvokeAsync(new InvocationConfiguration { ProcessTerminationTimeout = null });
+return await command.Parse(args).InvokeAsync();
+
+// Velopack installs obm beside the app, so it finds the same install
+static bool Installed() => VelopackLocator.CreateDefaultForPlatform().CurrentlyInstalledVersion is not null;

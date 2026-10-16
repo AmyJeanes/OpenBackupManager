@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Win32;
 
-namespace OpenBackupManager.Cli;
+namespace OpenBackupManager.Daemon;
 
 // Stops the host when Windows is about to end the process: its console closing, or the user signing out or shutting
 // down. Windows ends it as soon as each of these has been handled, so this waits for the host to stop first. The host

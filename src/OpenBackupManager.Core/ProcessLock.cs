@@ -2,8 +2,8 @@ namespace OpenBackupManager.Core;
 
 /// <summary>
 /// A lock only one process at a time can hold for each home, such as the engine's. The OS releases it if the process
-/// dies, so a crash never leaves it held. A named mutex on Windows, and an flock on a file in the state folder elsewhere,
-/// which is the same in every session, whatever its environment
+/// dies, so a crash never leaves it held. Either way it covers every session: a global named mutex on Windows, and an
+/// flock on a file in the state folder elsewhere, which is the same whatever the session's environment
 /// </summary>
 public sealed class ProcessLock : IDisposable
 {
@@ -16,7 +16,18 @@ public sealed class ProcessLock : IDisposable
     {
         if (OperatingSystem.IsWindows())
         {
-            var mutex = new Mutex(false, $"{AppHome.InstanceKey(paths.State)}-{name}");
+            Mutex mutex;
+            try
+            {
+                // Global, so a second engine in another session, such as over SSH, finds it too
+                mutex = new Mutex(false, $@"Global\{AppHome.InstanceKey(paths.State)}-{name}");
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // It exists, but was made elevated or by another user, whose mutexes this process can't open
+                return null;
+            }
+
             try
             {
                 if (!mutex.WaitOne(0))

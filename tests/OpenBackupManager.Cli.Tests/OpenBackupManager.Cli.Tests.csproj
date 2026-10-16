@@ -15,9 +15,10 @@
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 
-  <!-- The tests run the built obm, which the reference puts beside them -->
+  <!-- The tests run the built obm and obmd, which the references put beside them -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenBackupManager.Cli\OpenBackupManager.Cli.csproj" />
+    <ProjectReference Include="..\..\src\OpenBackupManager.Daemon\OpenBackupManager.Daemon.csproj" />
   </ItemGroup>
 
 </Project>

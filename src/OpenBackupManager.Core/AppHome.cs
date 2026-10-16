@@ -25,6 +25,19 @@ public static class AppHome
     public static string WindowsDefault(bool installed, string localAppData) =>
         installed ? InstalledHome(localAppData) : Path.Combine(localAppData, "OpenBackupManager-Dev");
 
+    // For obm and obmd: --home, then OBM_HOME, then the OS's usual folders. On Windows that's the same home the tray app
+    // picks, so a dev build of obm works with a dev build of the app
+    public static AppPaths CommandLinePaths(string? argument, Func<bool> installed)
+    {
+        var home = Chosen(argument, Environment.GetEnvironmentVariable("OBM_HOME"));
+        if (home is null && OperatingSystem.IsWindows())
+        {
+            home = WindowsDefault(installed(), Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+        }
+
+        return home is null ? AppPaths.ForThisOS() : AppPaths.InHome(home);
+    }
+
     // Only the installed app's own home starts at login without being asked, not dev builds or other homes. The app
     // passes its home on when it restarts, so this goes by the folder rather than how it was chosen
     public static bool StartsAtLoginByDefault(string home, bool installed, string localAppData) =>

@@ -6,15 +6,15 @@ public class DaemonTests
 {
     private const string Started = "started, process";
 
-    private readonly List<Obm> _running = [];
+    private readonly List<Tool> _running = [];
     private readonly List<string> _homes = [];
 
     [TearDown]
     public void TearDown()
     {
-        foreach (var obm in _running)
+        foreach (var daemon in _running)
         {
-            obm.Dispose();
+            daemon.Dispose();
         }
 
         foreach (var home in _homes)
@@ -45,7 +45,7 @@ public class DaemonTests
         var first = Daemon(home);
         first.WaitFor(Started);
 
-        var (exitCode, output) = Obm.Run("daemon", "--home", home);
+        var (exitCode, output) = Tool.Run("obmd", "--home", home);
 
         using (Assert.EnterMultipleScope())
         {
@@ -81,26 +81,41 @@ public class DaemonTests
     [Platform(Exclude = "Win")]
     public void Stops_WhenAsked(string signal)
     {
-        var obm = Daemon(NewHome());
-        obm.WaitFor(Started);
+        var daemon = Daemon(NewHome());
+        daemon.WaitFor(Started);
 
-        using (var kill = Process.Start("kill", ["-" + signal, obm.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)]))
+        using (var kill = Process.Start("kill", ["-" + signal, daemon.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)]))
         {
             kill.WaitForExit();
         }
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(obm.WaitForExit(), Is.Zero);
-            Assert.That(obm.Output, Does.Contain("Engine stopped"));
+            Assert.That(daemon.WaitForExit(), Is.Zero);
+            Assert.That(daemon.Output, Does.Contain("Engine stopped"));
         }
     }
 
-    private Obm Daemon(string home)
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void AHomeTooLongForItsSocket_SaysWhy()
     {
-        var obm = Obm.Start("daemon", "--home", home);
-        _running.Add(obm);
-        return obm;
+        var home = NewHome(new string('x', 120));
+
+        var (exitCode, output) = Tool.Run("obmd", "--home", home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Does.Contain("obmd: The engine's socket").And.Contain("--home"));
+        }
+    }
+
+    private Tool Daemon(string home)
+    {
+        var daemon = Tool.Start("obmd", "--home", home);
+        _running.Add(daemon);
+        return daemon;
     }
 
     // Read while the engine still has it open
@@ -116,9 +131,9 @@ public class DaemonTests
         return log.ReadToEnd();
     }
 
-    private string NewHome()
+    private string NewHome(string suffix = "")
     {
-        var home = Path.Combine(Path.GetTempPath(), "obm-tests-" + Guid.NewGuid().ToString("N")[..8]);
+        var home = Path.Combine(Path.GetTempPath(), "obm-tests-" + Guid.NewGuid().ToString("N")[..8] + suffix);
         _homes.Add(home);
         return home;
     }

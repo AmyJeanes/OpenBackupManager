@@ -4,15 +4,16 @@ namespace OpenBackupManager.Cli.Tests;
 
 public class VersionTests
 {
-    [Test]
-    public void Version_IsTheBuildsVersion()
+    [TestCase("obm")]
+    [TestCase("obmd")]
+    public void Version_IsTheBuildsVersion(string tool)
     {
-        var (exitCode, output) = Obm.Run("--version");
+        var (exitCode, output) = Tool.Run(tool, "--version");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(exitCode, Is.Zero);
-            Assert.That(output.Trim(), Is.EqualTo(typeof(Daemon).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion));
+            Assert.That(output.Trim(), Is.EqualTo(typeof(Status).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion));
         }
     }
 }

@@ -43,6 +43,10 @@ public class AppHomeTests
     public void WindowsDefault_NotInstalled_UsesAFolderOfItsOwn() =>
         Assert.That(AppHome.WindowsDefault(installed: false, LocalAppData), Is.EqualTo(@"C:\Users\Test\AppData\Local\OpenBackupManager-Dev"));
 
+    [Test]
+    public void CommandLinePaths_Argument_KeepsEverythingThere() =>
+        Assert.That(AppHome.CommandLinePaths(HomeA, installed: () => false), Is.EqualTo(AppPaths.InHome(HomeA)));
+
     [TestCase(@"C:\Users\Test\AppData\Local\OpenBackupManager")]
     [TestCase(@"c:\users\test\appdata\local\openbackupmanager\")]
     [Platform("Win")]
