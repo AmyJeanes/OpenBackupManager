@@ -7,18 +7,19 @@ internal static class FlyoutPlacement
 {
     // In device-independent pixels
     public const int Width = 320;
-    public const int Height = 140;
+    public const int MinHeight = 140;
     public const int Gap = 12;
     public const int SlideDistance = 25;
 
-    // At the display's scaling, where 1 is 100%
-    public static (SizeInt32 Size, PointInt32 Position, PointInt32 SlideFrom) Place(RectInt32 screen, RectInt32 work, RectInt32 icon, double scale)
+    // At the display's scaling, where 1 is 100%. Taller than MinHeight when its content needs it
+    public static (SizeInt32 Size, PointInt32 Position, PointInt32 SlideFrom) Place(
+        RectInt32 screen, RectInt32 work, RectInt32 icon, double scale, double contentHeight = MinHeight)
     {
-        var size = new SizeInt32(Scaled(Width), Scaled(Height));
+        var size = new SizeInt32(Scaled(Width), Scaled(Math.Max(Math.Ceiling(contentHeight), MinHeight)));
         var (position, slideFrom) = Place(screen, work, icon, size, Scaled(Gap), Scaled(SlideDistance));
         return (size, position, slideFrom);
 
-        int Scaled(int dips) => (int)(dips * scale);
+        int Scaled(double dips) => (int)(dips * scale);
     }
 
     // Centred on the tray icon. From the taskbar it sits just clear of the taskbar, and from the hidden icons popup

@@ -92,6 +92,12 @@
   <data name="Status_EngineUnreachable" xml:space="preserve">
     <value>Can't reach the engine</value>
   </data>
+  <data name="Status_EngineAnotherUserOrAdmin" xml:space="preserve">
+    <value>Another user or an administrator started the engine for this home, so the app can't use it.</value>
+  </data>
+  <data name="Status_EngineAnotherVersion" xml:space="preserve">
+    <value>Another version of the engine is still running. Signing out and back in restarts it.</value>
+  </data>
   <data name="Status_SyncNow" xml:space="preserve">
     <value>Sync now</value>
   </data>

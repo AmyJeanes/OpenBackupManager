@@ -51,7 +51,10 @@ public sealed class EngineClient : IDisposable
         catch (UnauthorizedAccessException e)
         {
             await pipe.DisposeAsync();
-            throw new EngineException("The engine running for this home was started by another user or as administrator, so it can't be reached from here", e);
+            throw new EngineException(
+                EngineProblem.AnotherUserOrAdmin,
+                "The engine running for this home was started by another user or as administrator, so it can't be reached from here",
+                e);
         }
         catch
         {
@@ -137,7 +140,9 @@ public sealed class EngineClient : IDisposable
             var response = answer.Task.IsCompleted ? await answer.Task : throw new EngineException("The engine closed the connection");
             if (response.Error is { } error)
             {
-                throw new EngineException(error.Message);
+                throw error.Code == RpcError.ProtocolMismatch
+                    ? new EngineException(EngineProblem.AnotherVersion, error.Message)
+                    : new EngineException(error.Message);
             }
 
             return response.Result is { } result && result.Deserialize(resultType) is { } value

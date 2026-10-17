@@ -14,6 +14,7 @@
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
@@ -29,8 +30,16 @@
       Style="{StaticResource SubtitleTextBlockStyle}"
       Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
 
-    <StackPanel
+    <TextBlock
+      x:Name="Detail"
       Grid.Row="2"
+      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+      Style="{StaticResource CaptionTextBlockStyle}"
+      Text="{x:Bind ViewModel.Detail, Mode=OneWay}"
+      TextWrapping="Wrap" />
+
+    <StackPanel
+      Grid.Row="3"
       HorizontalAlignment="Right"
       VerticalAlignment="Bottom"
       Orientation="Horizontal"

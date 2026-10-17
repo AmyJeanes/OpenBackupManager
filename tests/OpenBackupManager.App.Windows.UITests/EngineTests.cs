@@ -1,5 +1,10 @@
 using System.Diagnostics;
+using System.IO.Pipes;
+using System.Text;
+using System.Text.Json;
 using FlaUI.Core.Tools;
+using OpenBackupManager.Core;
+using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
@@ -71,10 +76,105 @@ public sealed class EngineTests : AppTests
         WaitUntilConnected();
     }
 
+    [Test]
+    public void AnEngineOfAnotherVersion_IsExplained()
+    {
+        using (var engine = Engine())
+        {
+            Quit();
+            Assert.That(engine.WaitForExit(Timeout), Is.True);
+        }
+
+        using var another = new AnotherVersion(Home);
+        LaunchAgain();
+
+        Retry.WhileFalse(() => Text("StatusText") == "Can't reach the engine", Timeout, ignoreException: true);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Text("StatusText"), Is.EqualTo("Can't reach the engine"));
+            Assert.That(Text("Detail"), Is.EqualTo("Another version of the engine is still running. Signing out and back in restarts it."));
+        }
+    }
+
     // The engine the app started, once it's connected
     private Process Engine()
     {
         WaitUntilConnected();
         return Process.GetProcessById(EngineStatus()!.ProcessId);
+    }
+
+    private string? Text(string id) => LaunchFlyout.FindFirstDescendant(c => c.ByAutomationId(id))?.Name;
+
+    // Answers hello as an engine of another protocol does, until disposed
+    private sealed class AnotherVersion : IDisposable
+    {
+        private readonly string _name;
+        private readonly CancellationTokenSource _stopping = new();
+        private readonly Task _answering;
+
+        public AnotherVersion(string home)
+        {
+            _name = EngineSocket.Name(AppPaths.InHome(home));
+            _answering = Task.Run(() => AnswerAsync(_stopping.Token));
+        }
+
+        public void Dispose()
+        {
+            _stopping.Cancel();
+            try
+            {
+                _answering.GetAwaiter().GetResult();
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            _stopping.Dispose();
+        }
+
+        private async Task AnswerAsync(CancellationToken cancellationToken)
+        {
+            // The next is waiting before one is answered, so the app never finds none and starts an engine
+            var next = Listen();
+            try
+            {
+                while (true)
+                {
+                    await next.WaitForConnectionAsync(cancellationToken);
+                    await using var pipe = next;
+                    next = Listen();
+                    await RefuseAsync(pipe, cancellationToken);
+                }
+            }
+            finally
+            {
+                await next.DisposeAsync();
+            }
+        }
+
+        private static async Task RefuseAsync(NamedPipeServerStream pipe, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var reader = new StreamReader(pipe, new UTF8Encoding(false), leaveOpen: true);
+                if (await reader.ReadLineAsync(cancellationToken) is not { } line)
+                {
+                    return;
+                }
+
+                using var hello = JsonDocument.Parse(line);
+                var id = hello.RootElement.GetProperty("id").GetRawText();
+                await pipe.WriteAsync(
+                    Encoding.UTF8.GetBytes($$$"""{"jsonrpc":"2.0","id":{{{id}}},"error":{"code":{{{RpcError.ProtocolMismatch}}},"message":"Another version"}}""" + "\n"),
+                    cancellationToken);
+            }
+            catch (IOException)
+            {
+            }
+        }
+
+        private NamedPipeServerStream Listen() =>
+            new(_name, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
     }
 }

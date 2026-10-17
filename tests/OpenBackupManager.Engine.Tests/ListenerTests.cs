@@ -165,6 +165,24 @@ public class ListenerTests
         }
     }
 
+    // The message is the engine's, in English, for obm. The app words it itself from the problem
+    [Test]
+    public async Task AnEngineOfAnotherProtocol_IsAnotherVersion()
+    {
+        Directory.CreateDirectory(EngineSocket.Folder(_home));
+        using var engine = new NamedPipeServerStream(EngineSocket.Name(_home), PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var refusing = RefuseAsync(engine, "The engine running is version 9.9.9");
+
+        var e = await Assert.ThrowsAsync<EngineException>(() => ConnectAsync());
+        await refusing;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(e.Problem, Is.EqualTo(EngineProblem.AnotherVersion));
+            Assert.That(e.Message, Is.EqualTo("The engine running is version 9.9.9"));
+        }
+    }
+
     [Test]
     public async Task AnythingBeforeHello_IsRefused()
     {
@@ -301,6 +319,17 @@ public class ListenerTests
 
     private async Task<EngineClient> ConnectAsync() =>
         await EngineClient.ConnectAsync(_home, Timeout, CancellationToken.None) ?? throw new AssertionException("The engine isn't running");
+
+    // As an engine of another protocol answers hello
+    private static async Task RefuseAsync(NamedPipeServerStream pipe, string message)
+    {
+        await pipe.WaitForConnectionAsync();
+        using var reader = new StreamReader(pipe, new UTF8Encoding(false), leaveOpen: true);
+        using var hello = JsonDocument.Parse(await reader.ReadLineAsync() ?? throw new AssertionException("The client sent nothing"));
+        var id = hello.RootElement.GetProperty("id").GetRawText();
+        await pipe.WriteAsync(Encoding.UTF8.GetBytes(
+            $$$"""{"jsonrpc":"2.0","id":{{{id}}},"error":{"code":{{{RpcError.ProtocolMismatch}}},"message":"{{{message}}}"}}""" + "\n"));
+    }
 
     private async Task<Raw> RawAsync()
     {

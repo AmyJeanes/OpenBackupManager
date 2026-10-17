@@ -40,7 +40,8 @@ public sealed record RpcError(int Code, string Message)
     public const int MethodNotFound = -32601;
     public const int InvalidParams = -32602;
 
-    // Ours, from the range JSON-RPC leaves for servers
+    // Ours, from the range JSON-RPC leaves for servers. The app words some itself, so a code keeps its meaning,
+    // `hello` and this reply keep their shape in every version, as they're how two different versions find out
     public const int ProtocolMismatch = -32000;
     public const int HelloFirst = -32001;
 }

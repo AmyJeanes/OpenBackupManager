@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using OpenBackupManager.ViewModels;
+using Windows.Foundation;
 using Windows.Graphics;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -26,6 +27,7 @@ public sealed partial class StatusFlyout : Window
     private PointInt32 _slideFrom;
     private SizeInt32 _size;
     private long _slideStart;
+    private bool _sliding;
     private bool _drawn;
     private bool _showWhenDrawn;
 
@@ -51,6 +53,14 @@ public sealed partial class StatusFlyout : Window
         Slide(0);
         AppWindow.Resize(_size);
         AppWindow.Changed += OnAppWindowChanged;
+        // The reason under the status can come or go while it's open, as just after the app starts
+        Detail.SizeChanged += (_, e) =>
+        {
+            if (e.NewSize.Height != e.PreviousSize.Height)
+            {
+                Refit();
+            }
+        };
         NativeMethods.Cloak(this.GetWindowHandle(), true);
         AppWindow.Show(false);
         var ui = SynchronizationContext.Current!;
@@ -92,6 +102,7 @@ public sealed partial class StatusFlyout : Window
         {
             _slideStart = 0;
             Slide(1);
+            _sliding = true;
             CompositionTarget.Rendering += OnRendering;
         }
         else
@@ -131,6 +142,7 @@ public sealed partial class StatusFlyout : Window
         Slide(Math.Pow(1 - progress, 3));
         if (progress >= 1)
         {
+            _sliding = false;
             CompositionTarget.Rendering -= OnRendering;
         }
     }
@@ -141,6 +153,7 @@ public sealed partial class StatusFlyout : Window
 
     private void HideFlyout()
     {
+        _sliding = false;
         CompositionTarget.Rendering -= OnRendering;
         NativeMethods.Cloak(this.GetWindowHandle(), true);
         _hiddenAt = Environment.TickCount64;
@@ -172,13 +185,36 @@ public sealed partial class StatusFlyout : Window
         Root.Background = new SolidColorBrush(colour) { Opacity = opacity };
     }
 
+    // A slide picks up the new position in its next frame
+    private void Refit()
+    {
+        PlaceNearTray();
+        AppWindow.Resize(_size);
+        if (!_sliding)
+        {
+            Slide(0);
+        }
+    }
+
     private void PlaceNearTray()
     {
         var icon = NativeMethods.TrayIconBounds(_trayIconId)
             ?? FlyoutPlacement.NotificationAreaCorner(DisplayArea.Primary.OuterBounds, DisplayArea.Primary.WorkArea);
         var display = DisplayArea.GetFromPoint(FlyoutPlacement.Centre(icon), DisplayAreaFallback.Primary);
         // The icon's display, which can have different scaling from the one the flyout was last on
-        (_size, _position, _slideFrom) = FlyoutPlacement.Place(display.OuterBounds, display.WorkArea, icon, NativeMethods.Scale(display));
+        (_size, _position, _slideFrom) = FlyoutPlacement.Place(display.OuterBounds, display.WorkArea, icon, NativeMethods.Scale(display), ContentHeight());
+    }
+
+    // As tall as the status needs, such as when it says why the engine can't be reached, plus the window's frame
+    private double ContentHeight()
+    {
+        if (Root.XamlRoot is not { } root)
+        {
+            return FlyoutPlacement.MinHeight;
+        }
+
+        Root.Measure(new Size(Root.ActualWidth, double.PositiveInfinity));
+        return Root.DesiredSize.Height + ((AppWindow.Size.Height - AppWindow.ClientSize.Height) / root.RasterizationScale);
     }
 
     // Windows' blur of whatever is behind the window

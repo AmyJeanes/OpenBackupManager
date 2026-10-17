@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.ViewModels;
 
@@ -16,14 +17,26 @@ public sealed partial class StatusViewModel(AppInfo app, IAppActions actions) : 
 
     // Until it's connected, that's what the status says rather than how syncing is going
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(Detail))]
     public partial EngineState Engine { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Detail))]
+    public partial EngineProblem? Problem { get; set; }
 
     public string StatusText => Engine switch
     {
         EngineState.Starting => Strings.Status_EngineStarting,
         EngineState.Unreachable => Strings.Status_EngineUnreachable,
         _ => SyncText,
+    };
+
+    // Under the status, for the problems someone can do something about
+    public string Detail => Engine != EngineState.Unreachable ? "" : Problem switch
+    {
+        EngineProblem.AnotherUserOrAdmin => Strings.Status_EngineAnotherUserOrAdmin,
+        EngineProblem.AnotherVersion => Strings.Status_EngineAnotherVersion,
+        _ => "",
     };
 
     private string SyncText => State switch

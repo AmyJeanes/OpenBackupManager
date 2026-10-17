@@ -90,7 +90,19 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
         var retry = FirstRetry;
         while (true)
         {
-            if (await ConnectOrStartAsync(cancellationToken) is { } engine)
+            EngineClient? engine = null;
+            EngineProblem? problem = null;
+            try
+            {
+                engine = await ConnectOrStartAsync(cancellationToken);
+            }
+            catch (EngineException e)
+            {
+                LogCantReach(e);
+                problem = e.Problem;
+            }
+
+            if (engine is not null)
             {
                 var connected = _time.GetUtcNow();
                 _engine = engine;
@@ -108,7 +120,7 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
                 }
             }
 
-            Show(EngineState.Unreachable);
+            Show(EngineState.Unreachable, problem);
             await Task.Delay(retry, _time, cancellationToken);
             retry = TimeSpan.FromTicks(Math.Min(retry.Ticks * 2, LongestRetry.Ticks));
         }
@@ -116,39 +128,31 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
 
     private async Task<EngineClient?> ConnectOrStartAsync(CancellationToken cancellationToken)
     {
-        try
+        if (await EngineClient.ConnectAsync(_paths, ConnectTimeout, cancellationToken) is { } running)
         {
-            if (await EngineClient.ConnectAsync(_paths, ConnectTimeout, cancellationToken) is { } running)
+            return running;
+        }
+
+        Show(EngineState.Starting);
+        using var started = StartEngine();
+        var until = _time.GetUtcNow() + StartTimeout;
+        while (_time.GetUtcNow() < until)
+        {
+            if (await EngineClient.ConnectAsync(_paths, ConnectTimeout, cancellationToken) is { } engine)
             {
-                return running;
+                return engine;
             }
 
-            Show(EngineState.Starting);
-            using var started = StartEngine();
-            var until = _time.GetUtcNow() + StartTimeout;
-            while (_time.GetUtcNow() < until)
+            // Exited during startup: another engine took the lock first, which one more try finds, or it can't run
+            if (started.HasExited)
             {
-                if (await EngineClient.ConnectAsync(_paths, ConnectTimeout, cancellationToken) is { } engine)
-                {
-                    return engine;
-                }
-
-                // Exited during startup: another engine took the lock first, which one more try finds, or it can't run
-                if (started.HasExited)
-                {
-                    LogExited(started.ExitCode);
-                    return await EngineClient.ConnectAsync(_paths, ConnectTimeout, cancellationToken);
-                }
+                LogExited(started.ExitCode);
+                return await EngineClient.ConnectAsync(_paths, ConnectTimeout, cancellationToken);
             }
+        }
 
-            LogDidntStart(StartTimeout);
-            return null;
-        }
-        catch (EngineException e)
-        {
-            LogCantReach(e);
-            return null;
-        }
+        LogDidntStart(StartTimeout);
+        return null;
     }
 
     // Through the shell, so it inherits none of the app's handles, which would keep whatever started the app waiting
@@ -164,7 +168,13 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
         })!;
     }
 
-    private void Show(EngineState state) => _ui.Post(_ => _status.Engine = state, null);
+    private void Show(EngineState state, EngineProblem? problem = null) => _ui.Post(
+        _ =>
+        {
+            _status.Problem = problem;
+            _status.Engine = state;
+        },
+        null);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Starting the engine, {Path}")]
     private partial void LogStarting(string path);

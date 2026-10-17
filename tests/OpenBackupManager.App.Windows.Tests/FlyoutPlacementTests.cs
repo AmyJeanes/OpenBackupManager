@@ -138,6 +138,22 @@ public class FlyoutPlacementTests
         }
     }
 
+    [Test]
+    public void TallerContent_GrowsIt_AwayFromTheTaskbar()
+    {
+        var (size, position, _) = FlyoutPlacement.Place(Screen, TaskbarBottom, Icon(1500, 1040), 1, 180.5);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(size, Is.EqualTo(new SizeInt32(FlyoutPlacement.Width, 181)));
+            Assert.That(position.Y, Is.EqualTo(TaskbarBottom.Height - Gap - 181));
+        }
+    }
+
+    [Test]
+    public void ShorterContent_KeepsItsSmallestHeight() =>
+        Assert.That(FlyoutPlacement.Place(Screen, TaskbarBottom, Icon(1500, 1040), 1, 60).Size.Height, Is.EqualTo(FlyoutPlacement.MinHeight));
+
     // A 32 x 32 icon with its top-left corner at the point
     private static RectInt32 Icon(int x, int y) => new(x, y, 32, 32);
 

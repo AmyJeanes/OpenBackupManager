@@ -1,3 +1,5 @@
+using OpenBackupManager.Core.Protocol;
+
 namespace OpenBackupManager.ViewModels.Tests;
 
 [SetUICulture("en-GB")]
@@ -41,7 +43,31 @@ public class StatusViewModelTests
 
         status.Engine = EngineState.Connected;
 
-        Assert.That(changed, Is.EquivalentTo([nameof(StatusViewModel.Engine), nameof(StatusViewModel.StatusText)]));
+        Assert.That(changed, Is.EquivalentTo([nameof(StatusViewModel.Engine), nameof(StatusViewModel.StatusText), nameof(StatusViewModel.Detail)]));
+    }
+
+    [TestCase(EngineProblem.AnotherUserOrAdmin, "Another user or an administrator started the engine for this home, so the app can't use it.")]
+    [TestCase(EngineProblem.AnotherVersion, "Another version of the engine is still running. Signing out and back in restarts it.")]
+    [TestCase(EngineProblem.Other, "")]
+    [TestCase(null, "")]
+    public void Detail_SaysWhyTheEngineCantBeReached(EngineProblem? problem, string detail) =>
+        Assert.That(new StatusViewModel(App, new FakeActions()) { Engine = EngineState.Unreachable, Problem = problem }.Detail, Is.EqualTo(detail));
+
+    [TestCase(EngineState.Starting)]
+    [TestCase(EngineState.Connected)]
+    public void Detail_IsEmpty_UnlessTheEngineCantBeReached(EngineState engine) =>
+        Assert.That(new StatusViewModel(App, new FakeActions()) { Engine = engine, Problem = EngineProblem.AnotherVersion }.Detail, Is.Empty);
+
+    [Test]
+    public void ChangingTheProblem_ChangesTheDetail()
+    {
+        var status = new StatusViewModel(App, new FakeActions());
+        var changed = new List<string?>();
+        status.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        status.Problem = EngineProblem.AnotherVersion;
+
+        Assert.That(changed, Is.EquivalentTo([nameof(StatusViewModel.Problem), nameof(StatusViewModel.Detail)]));
     }
 
     [Test]
