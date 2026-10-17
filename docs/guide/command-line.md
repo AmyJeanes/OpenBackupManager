@@ -20,7 +20,7 @@ The Windows app starts the engine itself when it isn't running, and stops it whe
 
 You don't need administrator or root rights for Open Backup Manager. It backs up your own folders, so run `obm` and `obmd` as yourself, from a normal terminal.
 
-**On Windows,** if you start `obmd` in a terminal opened with "Run as administrator", it stops and asks you to use a normal terminal instead. Running as administrator, the engine would be out of reach of the tray app, and of `obm` in a normal terminal. `obm` itself works fine as administrator.
+**On Windows,** if you start `obmd` in a terminal opened with "Run as administrator", it stops and asks you to use a normal terminal instead. Running as administrator, the engine would be out of reach of the tray app, and of `obm` in a normal terminal. `obm` itself works fine as administrator. If you start the Open Backup Manager app with "Run as administrator", it starts itself again normally when possible or exits with a message if it can't.
 
 When Windows only gives you administrator rights, such as over SSH, with the built-in Administrator account, or with UAC turned off, `obmd` runs as normal.
 

@@ -6,3 +6,13 @@ CredWrite
 GetCurrentProcessExplicitAppUserModelID
 RegisterApplicationRestart
 WIN32_ERROR
+AllowSetForegroundWindow
+ASFW_ANY
+GetShellWindow
+GetWindowThreadProcessId
+OpenProcess
+OpenProcessToken
+ShellWindowFindWindowOptions
+ShellWindowTypeConstants
+SID_STopLevelBrowser
+_SVGIO

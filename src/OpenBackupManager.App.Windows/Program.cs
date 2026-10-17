@@ -26,6 +26,9 @@ public static class Program
 {
     private const string AtLoginArgument = "--at-login";
 
+    // Marks a copy started again without admin rights
+    private const string RestartedArgument = "--restarted";
+
     // Held until the app ends, as only one copy for each home may start and stop its engine
     private static ProcessLock? _instanceLock;
 
@@ -68,6 +71,17 @@ public static class Program
         StartedAtLogin = args.Contains(AtLoginArgument);
         Home = AppHome.Chosen(HomeArgument(args), Environment.GetEnvironmentVariable("OBM_HOME"))
             ?? AppHome.WindowsDefault(Installed, LocalAppData);
+        // Before taking the lock, which the copy started again needs
+        if (RunningAs.AdministratorWithNormalTokenToo())
+        {
+            if (!StartAgainWithoutAdmin(args, Home, DesktopShell.TryStart))
+            {
+                ShowMessage(Strings.Launch_RunningAsAdministrator);
+            }
+
+            return;
+        }
+
         // Global, unlike AppInstance, so it covers every session. Taken on this thread, which runs until the app ends,
         // as a mutex belongs to the thread that took it
         var instanceKey = AppHome.InstanceKey(Home);
@@ -77,7 +91,7 @@ public static class Program
             // Off the UI thread, as Microsoft's single-instance guidance does, so the UI thread never blocks on the handover
             if (!Task.Run(() => HandOverToRunningCopy(instanceKey, StartedAtLogin)).Result && !StartedAtLogin)
             {
-                ShowRunningElsewhere();
+                ShowMessage(Strings.Launch_RunningElsewhere);
             }
 
             return;
@@ -193,9 +207,23 @@ public static class Program
         return true;
     }
 
-    private static void ShowRunningElsewhere() => PInvoke.MessageBox(
+    // As administrator, the engine the app starts refuses to run, and Windows doesn't show the app's notifications. A
+    // copy started again with admin rights, as when Explorer has them too, explains rather than starting yet another
+    internal static bool StartAgainWithoutAdmin(string[] args, string home, Func<string, string, bool> start)
+    {
+        if (args.Contains(RestartedArgument))
+        {
+            return false;
+        }
+
+        var arguments = $"--home \"{home}\" {RestartedArgument}";
+        return start(Environment.ProcessPath!, args.Contains(AtLoginArgument) ? $"{arguments} {AtLoginArgument}" : arguments);
+    }
+
+    // {0} in the message is the app's name
+    private static void ShowMessage(string message) => PInvoke.MessageBox(
         HWND.Null,
-        Text.Format(Strings.Launch_RunningElsewhere, AppName),
+        Text.Format(message, AppName),
         AppName,
         MESSAGEBOX_STYLE.MB_OK | MESSAGEBOX_STYLE.MB_ICONINFORMATION);
 }

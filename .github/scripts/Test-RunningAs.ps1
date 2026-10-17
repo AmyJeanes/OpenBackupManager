@@ -1,17 +1,21 @@
 <#
 .SYNOPSIS
-Checks obm and obmd run as the user with their normal rights. It makes a throwaway admin account on Windows and uses
-sudo on macOS and Linux, so it only runs on CI, after the build.
+Checks obm, obmd and the tray app run as the user with their normal rights. It makes a throwaway admin account on
+Windows and uses sudo on macOS and Linux, so it only runs on CI, after the build.
 
 On Windows, obmd refuses to start as administrator when Windows has a normal token it could use instead, and runs
-when the admin token is the only one, as over SSH. On macOS and Linux, obm and obmd refuse sudo, but run as real root.
+when the admin token is the only one, as over SSH. The tray app starts again without admin rights, or explains when it
+can't. On macOS and Linux, obm and obmd refuse sudo, but run as real root.
 
 Each check adds a PASS or FAIL line to the results, which are printed at the end.
 
 .PARAMETER AsLimitedUser
 Runs the throwaway account's checks. Test-Windows starts this script again with it, as that account.
+
+.PARAMETER AsAdministrator
+Runs the tray app's check. Test-AsLimitedUser starts this script again with it, as administrator.
 #>
-param([switch]$AsLimitedUser)
+param([switch]$AsLimitedUser, [switch]$AsAdministrator)
 
 $ErrorActionPreference = 'Stop'
 
@@ -19,14 +23,30 @@ $dir = if ($IsWindows) { 'C:\running-as' } else { "$env:RUNNER_TEMP/running-as" 
 $exe = if ($IsWindows) { '.exe' } else { '' }
 $obm = Join-Path $dir 'bin' "obm$exe"
 $obmd = Join-Path $dir 'bin' "obmd$exe"
+$trayApp = Join-Path $dir 'app' 'OpenBackupManager.App.Windows.exe'
 $results = Join-Path $dir 'results.txt'
 $limitedResults = Join-Path $dir 'limited-results.txt'
+$administratorResults = Join-Path $dir 'administrator-results.txt'
 
 # Helpers
 
 function Add-Result([string]$name, [bool]$passed, [string]$details) {
-    $file = if ($AsLimitedUser) { $limitedResults } else { $results }
+    $file = if ($AsLimitedUser) { $limitedResults } elseif ($AsAdministrator) { $administratorResults } else { $results }
     Add-Content $file ($passed ? "PASS $name" : "FAIL $name`n$details")
+}
+
+# Adds the results of this script started again, once it's finished. Not Start-Process -Wait, which would wait for any
+# engine it left running too
+function Add-ResultsOf([string]$name, [Diagnostics.Process]$process, [string]$file) {
+    if (-not $process.WaitForExit(180000)) {
+        Add-Result $name $false 'They were still running after 3 minutes'
+    }
+    elseif (-not (Test-Path $file)) {
+        Add-Result $name $false 'They never ran'
+    }
+    if (Test-Path $file) {
+        Get-Content $file | ForEach-Object { Add-Content ($AsLimitedUser ? $limitedResults : $results) $_ }
+    }
 }
 
 # Runs it to the end, or for 30 seconds at most
@@ -90,18 +110,9 @@ function Test-Windows {
     Add-LocalGroupMember Administrators $user
     Start-Service seclogon # Start-Process -Credential needs it
 
-    # Not Start-Process -Wait, which would wait for any engine it left running too
     $script = Join-Path $dir (Split-Path $PSCommandPath -Leaf)
     $limited = Start-Process pwsh -Credential ([pscredential]::new($user, $password)) -LoadUserProfile -WorkingDirectory $dir -ArgumentList '-NoProfile', '-File', $script, '-AsLimitedUser' -PassThru
-    if (-not $limited.WaitForExit(180000)) {
-        Add-Result 'the throwaway account''s checks' $false 'They were still running after 3 minutes'
-    }
-    elseif (-not (Test-Path $limitedResults)) {
-        Add-Result 'the throwaway account''s checks' $false 'They never ran'
-    }
-    if (Test-Path $limitedResults) {
-        Add-Content $results (Get-Content $limitedResults)
-    }
+    Add-ResultsOf 'the throwaway account''s checks' $limited $limitedResults
 
     if (Get-Service sshd -ErrorAction Ignore) {
         Test-OverSsh $user
@@ -120,6 +131,46 @@ function Test-AsLimitedUser {
     Stop-Process -Id $engine.Id
 
     Test-Elevated 'obmd refuses to run as administrator' 1 'running as administrator' $obmd '--home', "$dir\home-b"
+
+    # As administrator too, so it can read the tray app's message
+    $elevated = Start-Process pwsh -Verb RunAs -ArgumentList '-NoProfile', '-File', $PSCommandPath, '-AsAdministrator' -PassThru
+    Add-ResultsOf 'the tray app''s check' $elevated $administratorResults
+}
+
+# A UI Automation condition, such as the elements of a process, or with a name
+function New-Condition([string]$property, $value) {
+    [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::"${property}Property", $value)
+}
+
+# The tray app starts again through the desktop's Explorer, which here runs as the runner's account rather than this
+# one, so it explains instead
+function Test-TrayAppAsAdministrator {
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $app = Start-Process $trayApp -ArgumentList '--home', "$dir\home-e" -PassThru
+    $ofApp = New-Condition ProcessId $app.Id
+    $deadline = (Get-Date).AddSeconds(30)
+    do {
+        Start-Sleep -Milliseconds 200
+        $message = [Windows.Automation.AutomationElement]::RootElement.FindFirst('Children', $ofApp)
+    } until ($message -or $app.HasExited -or (Get-Date) -gt $deadline)
+
+    # PowerShell's UI Automation can't load its support for Windows' own controls, so the message's text and button
+    # only have their names and windows. The button is pressed by sending it what a click does
+    $text = $message ? ($message.FindAll('Descendants', [Windows.Automation.Condition]::TrueCondition).Current.Name -join "`n") : $null
+    Add-Result 'the tray app explains it can''t run as administrator' ("$text".Contains('running as administrator')) "Its message: $text"
+    if ($message) {
+        $ok = $message.FindFirst('Descendants', (New-Condition Name 'OK')).Current.NativeWindowHandle
+        Add-Type -Namespace Win32 -Name Window -MemberDefinition '[DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);'
+        [Win32.Window]::PostMessage($ok, 0xF5, 0, 0) | Out-Null # BM_CLICK
+    }
+
+    $exited = $app.WaitForExit(30000)
+    Add-Result 'the tray app exits after explaining' $exited 'It was still running after 30 seconds'
+    if (-not $exited) {
+        $app.Kill()
+    }
+    $left = Get-Process 'OpenBackupManager.App.Windows', 'obmd' -ErrorAction Ignore
+    Add-Result 'the tray app started no other copy and no engine' (-not $left) ($left | Format-Table Id, Name, StartTime | Out-String)
 }
 
 # Over SSH, an admin only gets an admin token. Only the x64 runner has OpenSSH Server
@@ -175,6 +226,16 @@ if ($AsLimitedUser) {
     exit
 }
 
+if ($AsAdministrator) {
+    try {
+        Test-TrayAppAsAdministrator
+    }
+    catch {
+        Add-Result 'the tray app''s check ran to the end' $false $_
+    }
+    exit
+}
+
 if ($env:GITHUB_ACTIONS -ne 'true') {
     throw 'This makes an admin account or uses sudo, so it only runs on CI'
 }
@@ -182,6 +243,11 @@ if ($env:GITHUB_ACTIONS -ne 'true') {
 New-Item (Join-Path $dir 'bin') -ItemType Directory -Force | Out-Null
 $source = Join-Path $PSScriptRoot '../../src'
 Copy-Item "$source/OpenBackupManager.Cli/bin/Debug/net10.0/*", "$source/OpenBackupManager.Daemon/bin/Debug/net10.0/*" (Join-Path $dir 'bin') -Recurse -Force
+if ($IsWindows) {
+    # Built for the runner's own runtime, such as win-arm64
+    New-Item (Join-Path $dir 'app') -ItemType Directory -Force | Out-Null
+    Copy-Item "$source/OpenBackupManager.App.Windows/bin/Debug/net10.0-windows*/win-*/*" (Join-Path $dir 'app') -Recurse -Force
+}
 
 try {
     if ($IsWindows) {

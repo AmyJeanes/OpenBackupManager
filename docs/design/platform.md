@@ -10,6 +10,7 @@ What each OS does its own way sits behind interfaces in Core's `OpenBackupManage
 - `IStartAtLogin` starts the app when the user signs in. Each app decides whether it should, and turns it on or off.
 - `RunKey` does it with an entry in the user's `Run` key, `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, named from the home folder's key like the secrets, so each copy has its own. `RemoveFor` removes every entry that starts a given exe, whatever its home, for uninstalling.
 - `CredentialManager` keeps them as generic credentials in Windows' Credential Manager, where Windows encrypts them for the user and keeps them to this computer. Each is named `OpenBackupManager-<key>/<name>`, where the key is made from the home folder's path, the same as the single-instance lock's, so the installed app, dev builds and test homes never see each other's. A secret can be up to 1,280 characters. The entries show in Control Panel's Credential Manager, under Windows Credentials.
+- `DesktopShell` starts a program through the desktop's Explorer, so it runs with the user's normal rights, which the Windows app needs when it was started as administrator (see [Windows app](windows-app.md)). Only Windows has this, so it has no interface in Core.
 
 ## Why
 
