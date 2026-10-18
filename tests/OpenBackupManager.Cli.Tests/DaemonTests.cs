@@ -137,8 +137,9 @@ public class DaemonTests
 
         using (Assert.EnterMultipleScope())
         {
-            // .NET's exception code on Windows, SIGABRT elsewhere
-            Assert.That(exitCode, Is.EqualTo(OperatingSystem.IsWindows() ? unchecked((int)0xE0434352) : 134));
+            // On Windows, .NET's exception code, or the fail-fast code NativeAOT ends with. SIGABRT elsewhere
+            var crashed = !OperatingSystem.IsWindows() ? 134 : Tool.Published is null ? unchecked((int)0xE0434352) : unchecked((int)0xC0000409);
+            Assert.That(exitCode, Is.EqualTo(crashed));
             Assert.That(
                 Report(home),
                 Does.StartWith("obmd closed unexpectedly")

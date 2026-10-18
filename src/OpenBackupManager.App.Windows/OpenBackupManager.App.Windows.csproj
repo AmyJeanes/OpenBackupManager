@@ -10,6 +10,7 @@
     <!-- Without it, publishing leaves out the app's compiled XAML resources, and the published app can't start -->
     <EnableMsixTooling>true</EnableMsixTooling>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PublishAot>true</PublishAot>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <!-- The name Windows shows for the exe, such as in Startup apps and Task Manager -->
     <AssemblyTitle>$(Product)</AssemblyTitle>
@@ -33,6 +34,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" />
     <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
     <PackageReference Include="Microsoft.Windows.CsWin32" />
+    <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.Extensions.Hosting" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Velopack" />

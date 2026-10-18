@@ -35,17 +35,7 @@ if ($Reset -and (Test-Path $Feed)) {
     Remove-Item $Feed -Recurse -Force
 }
 
-$publishArgs = @(
-    'publish', (Join-Path $root 'src/OpenBackupManager.App.Windows')
-    '--configuration', 'Release'
-    '--runtime', $Runtime
-    '--self-contained'
-    "-p:Version=$Version"
-    '--output', $publish
-    '--nologo'
-)
-dotnet @publishArgs
-if ($LASTEXITCODE) { throw 'Publishing failed' }
+& (Join-Path $PSScriptRoot 'Publish-App.ps1') -Output $publish -Runtime $Runtime -Version $Version
 
 $packArgs = @(
     'vpk', 'pack'

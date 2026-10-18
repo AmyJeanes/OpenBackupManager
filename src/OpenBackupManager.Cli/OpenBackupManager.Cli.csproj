@@ -5,6 +5,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>obm</AssemblyName>
     <RootNamespace>OpenBackupManager.Cli</RootNamespace>
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>

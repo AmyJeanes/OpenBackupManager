@@ -23,8 +23,11 @@ public abstract class AppTests
     // The app's Tray.IconId
     private const uint TrayIconId = 1;
 
-    private static readonly string BuiltAppPath =
-        typeof(AppTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Single(a => a.Key == "AppPath").Value!;
+    // OBM_TEST_PUBLISHED is a folder from tools/Publish-App.ps1, which CI tests instead of the build, as it's what ships.
+    // In full, as Windows keeps the tray icon's settings under the exe's path with only backslashes
+    private static readonly string BuiltAppPath = Environment.GetEnvironmentVariable("OBM_TEST_PUBLISHED") is { Length: > 0 } published
+        ? Path.GetFullPath(Path.Combine(published, "OpenBackupManager.App.Windows.exe"))
+        : typeof(AppTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Single(a => a.Key == "AppPath").Value!;
 
     private UIA3Automation _automation = null!;
 

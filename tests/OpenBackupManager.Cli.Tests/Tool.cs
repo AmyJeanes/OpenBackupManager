@@ -17,6 +17,9 @@ internal sealed class Tool : IDisposable
         _process = process;
     }
 
+    // A folder from tools/Publish-App.ps1, which CI tests instead of the build, as it's what ships
+    public static string? Published { get; } = Environment.GetEnvironmentVariable("OBM_TEST_PUBLISHED") is { Length: > 0 } published ? published : null;
+
     public int Id => _process.Id;
 
     public bool HasExited => _process.HasExited;
@@ -35,7 +38,11 @@ internal sealed class Tool : IDisposable
 
     public static Tool Start(string name, params string[] args)
     {
-        var start = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? name + ".exe" : name), args)
+        var file = OperatingSystem.IsWindows() ? name + ".exe" : name;
+        var path = Published is null ? Path.Combine(AppContext.BaseDirectory, file)
+            : name == "obm" ? Path.Combine(Published, "bin", file)
+            : Path.Combine(Published, file);
+        var start = new ProcessStartInfo(path, args)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,

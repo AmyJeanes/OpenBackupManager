@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
 Checks obm, obmd and the tray app run as the user with their normal rights. It makes a throwaway admin account on
-Windows and uses sudo on macOS and Linux, so it only runs on CI, after the build.
+Windows and uses sudo on macOS and Linux, so it only runs on CI, on what tools/Publish-App.ps1 published to the folder
+in OBM_TEST_PUBLISHED.
 
 On Windows, obmd refuses to start as administrator when Windows has a normal token it could use instead, and runs
 when the admin token is the only one, as over SSH. The tray app starts again without admin rights, or explains when it
@@ -22,8 +23,8 @@ $ErrorActionPreference = 'Stop'
 $dir = if ($IsWindows) { 'C:\running-as' } else { "$env:RUNNER_TEMP/running-as" }
 $exe = if ($IsWindows) { '.exe' } else { '' }
 $obm = Join-Path $dir 'bin' "obm$exe"
-$obmd = Join-Path $dir 'bin' "obmd$exe"
-$trayApp = Join-Path $dir 'app' 'OpenBackupManager.App.Windows.exe'
+$obmd = Join-Path $dir "obmd$exe"
+$trayApp = Join-Path $dir 'OpenBackupManager.App.Windows.exe'
 $results = Join-Path $dir 'results.txt'
 $limitedResults = Join-Path $dir 'limited-results.txt'
 $administratorResults = Join-Path $dir 'administrator-results.txt'
@@ -197,14 +198,13 @@ function Test-OverSsh([string]$user) {
 # macOS and Linux
 
 function Test-MacAndLinux {
-    # sudo clears DOTNET_ROOT, which obm and obmd need to find .NET where setup-dotnet put it
-    $sudo = '-n', 'env', "DOTNET_ROOT=$env:DOTNET_ROOT"
+    $sudo = @('-n')
     Test-Tool 'obmd refuses sudo' 1 'without sudo' sudo ($sudo + $obmd, '--home', "$dir/home-a")
     Test-Tool 'obm refuses sudo' 1 'without sudo' sudo ($sudo + $obm, 'status', '--home', "$dir/home-a")
     Test-Tool 'obm --version still works under sudo' 0 '' sudo ($sudo + $obm, '--version')
 
     # Real root, as with a root login or su -, has none of sudo's variables, so sudo without them stands in for it
-    $root = '-n', 'env', '-u', 'SUDO_UID', '-u', 'SUDO_GID', '-u', 'SUDO_USER', '-u', 'SUDO_COMMAND', "DOTNET_ROOT=$env:DOTNET_ROOT"
+    $root = '-n', 'env', '-u', 'SUDO_UID', '-u', 'SUDO_GID', '-u', 'SUDO_USER', '-u', 'SUDO_COMMAND'
     $engine = Start-Engine 'obmd runs as real root' sudo ($root + $obmd, '--home', "$dir/home-b")
     $status = Invoke-Tool sudo ($root + $obm, 'status', '--home', "$dir/home-b")
     Add-Result 'obm reaches it as real root' ($status.ExitCode -eq 0) "exit $($status.ExitCode): $($status.Output)"
@@ -240,14 +240,8 @@ if ($env:GITHUB_ACTIONS -ne 'true') {
     throw 'This makes an admin account or uses sudo, so it only runs on CI'
 }
 
-New-Item (Join-Path $dir 'bin') -ItemType Directory -Force | Out-Null
-$source = Join-Path $PSScriptRoot '../../src'
-Copy-Item "$source/OpenBackupManager.Cli/bin/Debug/net10.0/*", "$source/OpenBackupManager.Daemon/bin/Debug/net10.0/*" (Join-Path $dir 'bin') -Recurse -Force
-if ($IsWindows) {
-    # Built for the runner's own runtime, such as win-arm64
-    New-Item (Join-Path $dir 'app') -ItemType Directory -Force | Out-Null
-    Copy-Item "$source/OpenBackupManager.App.Windows/bin/Debug/net10.0-windows*/win-*/*" (Join-Path $dir 'app') -Recurse -Force
-}
+New-Item $dir -ItemType Directory -Force | Out-Null
+Copy-Item (Join-Path $env:OBM_TEST_PUBLISHED '*') $dir -Recurse -Force
 
 try {
     if ($IsWindows) {
