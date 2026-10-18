@@ -59,8 +59,9 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         _quitting = true;
         LogQuitting();
         _host.Services.GetRequiredService<CrashReports>().Stopped();
-        await _host.Services.GetRequiredService<EngineConnection>().QuitAsync();
-        _host.Services.GetRequiredService<Updater>().UpdateOnExit();
+        var updater = _host.Services.GetRequiredService<Updater>();
+        await _host.Services.GetRequiredService<EngineConnection>().QuitAsync(updating: updater.UpdateReady);
+        updater.UpdateOnExit();
         Exit();
     }
 
@@ -74,16 +75,19 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         SynchronizationContext.Current!.Post(_ => Exit(), null);
     }
 
-    public void RestartToUpdate()
+    // Async, as the engine is stopped first, which it waits for
+    public async void RestartToUpdate()
     {
         var updater = _host.Services.GetRequiredService<Updater>();
-        if (!updater.UpdateReady)
+        if (!updater.UpdateReady || _quitting)
         {
             return;
         }
 
+        _quitting = true;
         LogRestartingToUpdate(updater.ReadyVersion);
         _host.Services.GetRequiredService<CrashReports>().Stopped();
+        await _host.Services.GetRequiredService<EngineConnection>().QuitAsync(updating: true);
         _host.Dispose();
         updater.RestartToUpdate();
     }

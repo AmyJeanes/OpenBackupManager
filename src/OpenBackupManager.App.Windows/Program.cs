@@ -41,18 +41,29 @@ public static class Program
 
     private static string LocalAppData => Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 
+    // Holds only obm, so installing puts nothing else on PATH
+    private static string CommandLineFolder => Path.Combine(AppContext.BaseDirectory, "bin");
+
+    private static string HookHome => AppHome.Chosen(null, Environment.GetEnvironmentVariable("OBM_HOME")) ?? AppHome.WindowsDefault(true, LocalAppData);
+
     // Windows starts the app with this at login, when it stays in the tray rather than opening its flyout
     internal static bool StartedAtLogin { get; private set; }
 
     [STAThread]
     private static void Main(string[] args)
     {
-        // Velopack's installer runs the app with hook arguments, which are handled here and then exit
+        // Velopack's installer runs the app with hook arguments, which are handled here and then exit. After the hook
+        // before an update, it ends whatever runs from the install folder, so the hook stops the engine first, though
+        // only the one for the home this copy uses without --home, as hooks get no arguments. Uninstalling ends it
+        // before its hook runs
         VelopackApp.Build()
+            .OnAfterInstallFastCallback(_ => UserPath.Add(CommandLineFolder))
+            .OnBeforeUpdateFastCallback(_ => EngineConnection.StopFor(HookHome))
             .OnBeforeUninstallFastCallback(_ =>
             {
                 WindowsNotifier.Unregister();
                 RunKey.RemoveFor(Environment.ProcessPath!);
+                UserPath.Remove(CommandLineFolder);
             })
             .Run();
         WinRT.ComWrappersSupport.InitializeComWrappers();

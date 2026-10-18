@@ -16,3 +16,6 @@ ShellWindowFindWindowOptions
 ShellWindowTypeConstants
 SID_STopLevelBrowser
 _SVGIO
+SendMessageTimeout
+WM_SETTINGCHANGE
+HWND_BROADCAST

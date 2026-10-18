@@ -4,6 +4,8 @@ using FlaUI.Core.Definitions;
 using FlaUI.Core.Exceptions;
 using FlaUI.Core.Tools;
 using Microsoft.Win32;
+using OpenBackupManager.Core;
+using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
@@ -20,6 +22,9 @@ public sealed class InstallTests : AppTests
     private static readonly TimeSpan InstallTimeout = TimeSpan.FromMinutes(2);
 
     private const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenBackupManager.App";
+
+    // Holds only obm, which installing puts on PATH
+    private static readonly string CommandLineFolder = Path.Combine(InstallFolder, "current", "bin");
 
     private string _releases = "";
     private string _feed = "";
@@ -43,6 +48,7 @@ public sealed class InstallTests : AppTests
     [OneTimeTearDown]
     public void CleanUp()
     {
+        Environment.SetEnvironmentVariable("OBM_HOME", null);
         try
         {
             if (KeyExists(UninstallKey))
@@ -61,6 +67,16 @@ public sealed class InstallTests : AppTests
     {
         // Only the installed app's own home starts at login without asking, and the test's home is another
         File.WriteAllText(Path.Combine(Home, "config.toml"), "version = 1\nstart-at-login = true\n");
+        // Velopack runs its hooks without --home, so they stop the engine for this home, as the app's copies inherit it
+        Environment.SetEnvironmentVariable("OBM_HOME", Home);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(UserPathEntries(), Does.Contain(CommandLineFolder));
+            Assert.That(Directory.GetFiles(CommandLineFolder).Select(Path.GetFileName), Is.EqualTo((string[])["obm.exe"]));
+            Assert.That(Obm("--version"), Does.StartWith("0.0.1+"));
+        }
+
+        var engine = EngineOf("0.0.1");
         ChooseFromTrayMenu("About");
         var about = WaitForWindow("About " + AppName);
         Assert.That(Text(about, "VersionText"), Is.EqualTo("Version 0.0.1 (test updates)"));
@@ -74,6 +90,7 @@ public sealed class InstallTests : AppTests
         Directory.Move(away, _feed);
         AddToFeed("0.0.2");
         CheckForUpdates(about, "Version 0.0.2 is ready to install");
+        var stops = EngineStops();
         var restarted = DateTime.Now;
         var restart = UpdateButton(about, "Restart to update");
         try
@@ -86,6 +103,8 @@ public sealed class InstallTests : AppTests
         }
 
         WaitForRestartAfterUpdate(restarted);
+        CheckEngineStoppedFirst(engine, stops, "0.0.2");
+        Assert.That(Obm("status"), Does.Contain("Version: 0.0.2+"));
 
         FindNotification("Update installed", "Version 0.0.2 is now installed");
         ClearNotifications();
@@ -95,22 +114,29 @@ public sealed class InstallTests : AppTests
         LaunchAgain();
         FindNotification("Update available", "Version 0.0.3 is ready to install");
         ClearNotifications();
+        engine = EngineOf("0.0.2");
+        stops = EngineStops();
         Quit();
         Assert.That(Retry.WhileTrue(IsUpdaterRunning, Timeout).Result, Is.True, "The update should install after Quit");
 
         LaunchAgain();
+        CheckEngineStoppedFirst(engine, stops, "0.0.3");
         FindNotification("Update installed", "Version 0.0.3 is now installed");
         ClearNotifications();
         Quit();
 
         AddToFeed("0.0.4");
         LaunchAgain();
+        engine = EngineOf("0.0.3");
         FindNotification("Update available", "Version 0.0.4 is ready to install");
         ClearNotifications();
+        // Its engine keeps running, until Velopack's hook stops it as the next start installs the update
         EndApp();
+        stops = EngineStops();
         var started = DateTime.Now;
         StartAgain();
         WaitForRestartAfterUpdate(started);
+        CheckEngineStoppedFirst(engine, stops, "0.0.4");
         FindNotification("Update installed", "Version 0.0.4 is now installed");
         CloseNotificationCentre();
         Quit();
@@ -122,9 +148,13 @@ public sealed class InstallTests : AppTests
             Assert.That(RunEntries(), Does.Contain($"\"{AppPath}\" --home \"{Home}\" --at-login"));
         }
 
+        using var byHand = StartEngineByHand();
+        Assert.That(Retry.WhileFalse(() => EngineStatus()?.ProcessId == byHand.Id, Timeout, ignoreException: true).Result, Is.True);
         Uninstall();
         Assert.Multiple(() =>
         {
+            Assert.That(byHand.HasExited, Is.True, "Uninstalling should end the engine");
+            Assert.That(UserPathEntries(), Does.Not.Contain(CommandLineFolder), "obm should be taken off PATH");
             Assert.That(Retry.WhileTrue(() => Directory.Exists(InstallFolder), Timeout).Result, Is.True, "The install folder should be removed");
             Assert.That(KeyExists(UninstallKey), Is.False);
             Assert.That(registrations.Where(KeyExists), Is.Empty, "The notification registration should be removed");
@@ -136,6 +166,52 @@ public sealed class InstallTests : AppTests
                 "The app's notifications should be cleared");
         });
         CloseNotificationCentre();
+    }
+
+    // The engine the app started, once it has, as the given version
+    private StatusResult EngineOf(string version)
+    {
+        StatusResult? status = null;
+        Assert.That(
+            Retry.WhileFalse(() => (status = EngineStatus())?.Version.StartsWith(version + "+", StringComparison.Ordinal) is true, Timeout, ignoreException: true).Result,
+            Is.True,
+            $"The engine should be running {version}, not {status?.Version}");
+        return status!;
+    }
+
+    // Installing ends whatever runs from the install folder, so the engine should stop first, which only a clean stop
+    // logs, and the app should start the new version's once it's back
+    private void CheckEngineStoppedFirst(StatusResult engine, int stopsBefore, string version)
+    {
+        var next = EngineOf(version);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(next.ProcessId, Is.Not.EqualTo(engine.ProcessId));
+            Assert.That(EngineStops(), Is.EqualTo(stopsBefore + 1), $"The {engine.Version} engine should stop before {version} installs");
+        }
+    }
+
+    private int EngineStops() =>
+        Directory.GetFiles(AppPaths.InHome(Home).Logs, "engine-*.log").Sum(log =>
+        {
+            // Shared, as a running engine has it open
+            using var reader = new StreamReader(new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+            return reader.ReadToEnd().Split('\n').Count(line => line.Contains("Engine stopped", StringComparison.Ordinal));
+        });
+
+    // The installed obm, as a terminal would start it from PATH
+    private static string Obm(string arguments)
+    {
+        using var obm = Process.Start(new ProcessStartInfo(Path.Combine(CommandLineFolder, "obm.exe"), arguments) { RedirectStandardOutput = true })!;
+        var output = obm.StandardOutput.ReadToEnd();
+        obm.WaitForExit();
+        return output;
+    }
+
+    private static string[] UserPathEntries()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey("Environment")!;
+        return (key.GetValue("Path", "", RegistryValueOptions.DoNotExpandEnvironmentNames) as string ?? "").Split(';');
     }
 
     // Puts a version in the feed the installed app checks

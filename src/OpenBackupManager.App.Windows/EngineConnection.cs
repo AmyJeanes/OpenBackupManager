@@ -34,8 +34,9 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
 
     public void Start() => _running = Task.Run(() => KeepConnectedAsync(_stopping.Token));
 
-    // Stops trying to connect, and stops the engine if the app started it, as Quit does
-    public async Task QuitAsync()
+    // Stops trying to connect, and stops the engine if the app started it, as Quit does. Before an update installs, it
+    // stops it however it was started, as installing would end it anyway
+    public async Task QuitAsync(bool updating = false)
     {
         await StopConnectingAsync();
         if (_engine is not { } engine)
@@ -47,16 +48,13 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
         {
             using var timeout = new CancellationTokenSource(StopTimeout);
             var status = await engine.StatusAsync(timeout.Token);
-            if (!status.StartedByApp)
+            if (!status.StartedByApp && !updating)
             {
                 LogLeftRunning();
                 return;
             }
 
-            // Until it exits it holds its lock, so a copy started straight after would find it still running
-            using var process = Process.GetProcessById(status.ProcessId);
-            await engine.StopAsync(timeout.Token);
-            await process.WaitForExitAsync(timeout.Token);
+            await StopAsync(engine, status.ProcessId, timeout.Token);
             LogStopped();
         }
         catch (OperationCanceledException)
@@ -69,11 +67,37 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
         }
     }
 
+    // For Velopack's hooks, as it ends whatever runs from the install folder after them. They have 15 seconds
+    public static void StopFor(string home)
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            using var engine = EngineClient.ConnectAsync(AppPaths.InHome(home), ConnectTimeout, timeout.Token).GetAwaiter().GetResult();
+            if (engine is not null)
+            {
+                StopAsync(engine, engine.StatusAsync(timeout.Token).GetAwaiter().GetResult().ProcessId, timeout.Token).GetAwaiter().GetResult();
+            }
+        }
+        catch (Exception e) when (e is OperationCanceledException or EngineException or ArgumentException)
+        {
+            // Then Velopack ends it
+        }
+    }
+
     public void Dispose()
     {
         _stopping.Cancel();
         _engine?.Dispose();
         _stopping.Dispose();
+    }
+
+    // Until it exits it holds its lock, so a copy started straight after would find it still running
+    private static async Task StopAsync(EngineClient engine, int processId, CancellationToken cancellationToken)
+    {
+        using var process = Process.GetProcessById(processId);
+        await engine.StopAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
     }
 
     private async Task StopConnectingAsync()
@@ -198,7 +222,7 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
     [LoggerMessage(Level = LogLevel.Warning, Message = "Can't reach the engine")]
     private partial void LogCantReach(Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Stopped the engine, which the app started")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Stopped the engine")]
     private partial void LogStopped();
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Left the engine running, as the app didn't start it")]
