@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
+using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Tools;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
@@ -74,6 +75,21 @@ public sealed class EngineTests : AppTests
 
         Assert.That(Retry.WhileFalse(() => EngineStatus() is { } status && status.ProcessId != first.Id, Timeout, ignoreException: true).Result, Is.True);
         WaitUntilConnected();
+    }
+
+    // The engine writes its report as it crashes, and the app shows it once it has started another and reached it
+    [Test]
+    public void AnEngineCrash_IsShown_OnceTheAppReachesTheEngineAgain()
+    {
+        using (var engine = EngineClient.ConnectAsync(AppPaths.InHome(Home), Timeout, CancellationToken.None).GetAwaiter().GetResult()!)
+        {
+            engine.CrashAsync(CrashParams.OnAnotherThread, CancellationToken.None).GetAwaiter().GetResult();
+        }
+
+        var crash = WaitForWindow(AppName + "'s engine stopped unexpectedly");
+        var report = crash.FindFirstDescendant(c => c.ByAutomationId("ReportText"))!.AsTextBox().Text;
+        Assert.That(report, Does.StartWith("obmd closed unexpectedly at").And.Contain("System.InvalidOperationException: Test crash on another thread"));
+        crash.Close();
     }
 
     [Test]

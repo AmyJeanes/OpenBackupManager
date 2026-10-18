@@ -129,7 +129,7 @@ public static class Program
                 return new ConfigWatcher(file);
             })
             .AddSingleton<ConfigNotices>()
-            .AddSingleton(services => new CrashReports(paths, services.GetRequiredService<TimeProvider>(), "app-*.log"))
+            .AddSingleton(services => new CrashReports(paths, services.GetRequiredService<TimeProvider>(), CrashReports.App))
             .AddSingleton<CrashCapture>()
             // App opens the crash window through AppActions itself, which view models never need
             .AddSingleton<AppActions>()

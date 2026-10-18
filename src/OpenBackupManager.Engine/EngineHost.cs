@@ -17,6 +17,8 @@ public static class EngineHost
             .AddSingleton(paths)
             .AddSingleton(new EngineOptions(startedByApp))
             .AddSingleton(TimeProvider.System)
+            .AddSingleton(services => new CrashReports(paths, services.GetRequiredService<TimeProvider>(), CrashReports.Engine))
+            .AddSingleton<CrashCapture>()
             .AddSingleton<Listener>()
             .AddHostedService<EngineService>()
             .AddSerilog(log => log

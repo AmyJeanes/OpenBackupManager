@@ -18,7 +18,7 @@ public class CrashReportsTests
         _logs = Path.Combine(_home, "logs");
         _time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 14, 16, 30, 0, TimeSpan.Zero));
         _time.SetLocalTimeZone(TimeZoneInfo.Utc);
-        _reports = new CrashReports(AppPaths.InHome(_home), _time, "app-*.log");
+        _reports = new CrashReports(AppPaths.InHome(_home), _time, CrashReports.App);
     }
 
     [TearDown]
@@ -99,13 +99,65 @@ public class CrashReportsTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(_reports.TakeNew(), Is.EqualTo(newest));
+            Assert.That(_reports.TakeNew(), Is.EqualTo(new CrashReport(CrashReports.App, newest)));
             Assert.That(_reports.TakeNew(), Is.Null);
         }
 
         _time.Advance(TimeSpan.FromSeconds(1));
         var next = File.ReadAllText(_reports.Write("Open Backup Manager", run, "Third"));
-        Assert.That(_reports.TakeNew(), Is.EqualTo(next));
+        Assert.That(_reports.TakeNew()?.Text, Is.EqualTo(next));
+    }
+
+    [Test]
+    public void TakeNew_SaysWhichProgramsReportItIs()
+    {
+        var engine = Engine();
+        engine.Start(300, RunStarted, "1.2.3");
+        var report = File.ReadAllText(engine.Write("obmd", engine.Current!, "Something broke"));
+
+        Assert.That(_reports.TakeNew(), Is.EqualTo(new CrashReport(CrashReports.Engine, report)));
+    }
+
+    [Test]
+    public void TheEnginesReport_HasTheEndOfItsOwnLog()
+    {
+        var engine = Engine();
+        engine.Start(300, RunStarted, "1.2.3");
+        // The app's written to more recently
+        Log("engine-20261014.log", DateTime.UtcNow.AddMinutes(-1), "The engine's log");
+        Log("app-20261014.log", DateTime.UtcNow, "The app's log");
+
+        var report = File.ReadAllText(engine.Write("obmd", engine.Current!, "Something broke"));
+
+        Assert.That(report, Does.StartWith("obmd closed unexpectedly").And.Contain("The engine's log").And.Not.Contain("The app's log"));
+    }
+
+    [Test]
+    public void TheAppAndTheEngine_KeepTheirOwnRunningFiles()
+    {
+        var engine = Engine();
+        _reports.Start(100, RunStarted, "1.2.3");
+        engine.Start(300, RunStarted, "1.2.3");
+        _reports.Stopped();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_reports.Start(200, RunStarted, "1.2.3"), Is.Null);
+            Assert.That(engine.Start(400, RunStarted, "1.2.3")?.ProcessId, Is.EqualTo(300));
+        }
+    }
+
+    // Started just now, so nothing can be recorded about it. On macOS and Linux there's nothing to look in
+    [Test]
+    public void WriteRecorded_WritesNothing_WhenNothingWasRecorded()
+    {
+        var run = new Run(Environment.ProcessId, DateTimeOffset.Now, "1.2.3", null, 0);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_reports.WriteRecorded("Open Backup Manager", run), Is.False);
+            Assert.That(Directory.Exists(Path.Combine(_home, "crashes")), Is.False);
+        }
     }
 
     [Test]
@@ -133,10 +185,12 @@ public class CrashReportsTests
     [Test]
     public void Start_IgnoresARunningFileItDidntWrite()
     {
-        File.WriteAllText(Path.Combine(_home, "running"), "not a process");
+        File.WriteAllText(Path.Combine(_home, "app.running"), "not a process");
 
         Assert.That(_reports.Start(200, RunStarted, "1.2.3"), Is.Null);
     }
+
+    private CrashReports Engine() => new(AppPaths.InHome(_home), _time, CrashReports.Engine);
 
     private Run Start()
     {

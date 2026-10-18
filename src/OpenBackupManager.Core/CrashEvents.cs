@@ -1,11 +1,13 @@
 using System.Diagnostics.Eventing.Reader;
 using System.Globalization;
+using System.Runtime.Versioning;
 
-namespace OpenBackupManager.Platform.Windows;
+namespace OpenBackupManager.Core;
 
 // What Windows and .NET recorded in the Application event log when a process crashed or was ended while it wasn't
-// responding. They record crashes the app can't see itself, such as one inside Windows' own code
-public static class CrashEvents
+// responding. They record crashes a program can't see itself, such as one inside Windows' own code
+[SupportedOSPlatform("windows")]
+internal static class CrashEvents
 {
     // Windows reuses process IDs, so only events from after the process started count. Windows' own entries can be
     // turned off, as they are on GitHub's runners, so .NET's entry will do on its own
@@ -84,4 +86,4 @@ public static class CrashEvents
     };
 }
 
-public sealed record CrashEvent(DateTimeOffset Time, string Text);
+internal sealed record CrashEvent(DateTimeOffset Time, string Text);

@@ -5,7 +5,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using OpenBackupManager.Core;
 using OpenBackupManager.Platform.Windows;
-using OpenBackupManager.ViewModels;
 
 namespace OpenBackupManager.App.Windows;
 
@@ -37,12 +36,24 @@ public sealed partial class App : Application
         // Created here because they need the UI thread. The updater starts checking as it's created
         _ = _services.GetRequiredService<Updater>();
         var tray = _services.GetRequiredService<Tray>();
-        _services.GetRequiredService<EngineConnection>().Start();
+        var crashes = _services.GetRequiredService<CrashReports>();
+        var actions = _services.GetRequiredService<AppActions>();
+        var engine = _services.GetRequiredService<EngineConnection>();
+        // An engine that crashed while the app was running has a report by the time the app reaches it again, written
+        // as it crashed, or by the engine started after it from what Windows recorded
+        engine.Connected += (_, _) =>
+        {
+            if (crashes.TakeNew() is { } report)
+            {
+                actions.ShowCrash(report);
+            }
+        };
+        engine.Start();
         _ = _services.GetRequiredService<SessionEnd>();
         _ = _services.GetRequiredService<ConfigNotices>();
-        if (_services.GetRequiredService<CrashReports>().TakeNew() is { } crash)
+        if (crashes.TakeNew() is { } crash)
         {
-            _services.GetRequiredService<AppActions>().ShowCrash(crash);
+            actions.ShowCrash(crash);
         }
         else if (!WindowsNotifier.StartedByClick && !Program.StartedAtLogin)
         {
@@ -57,7 +68,6 @@ public sealed partial class App : Application
         // dev builds, since closing the terminal also closes an attached app
         if (!Program.Installed && NativeMethods.AttachToParentConsole())
         {
-            var actions = _services.GetRequiredService<IAppActions>();
             Console.CancelKeyPress += (_, e) =>
             {
                 e.Cancel = true;

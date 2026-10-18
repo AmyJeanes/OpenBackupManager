@@ -15,6 +15,9 @@ public static class EngineProtocol
     public const string Status = "status";
     public const string Stop = "stop";
 
+    // Only in debug builds, for testing crash reports
+    public const string Crash = "crash";
+
     public static byte[] Line<T>(T message, JsonTypeInfo<T> type) => [.. JsonSerializer.SerializeToUtf8Bytes(message, type), (byte)'\n'];
 }
 
@@ -56,6 +59,17 @@ public sealed record StatusResult(string Version, int ProcessId, DateTimeOffset 
 // The engine replies, then stops, closing every connection
 public sealed record StopResult;
 
+// The engine replies, then crashes as it's asked
+public sealed record CrashParams(string How)
+{
+    public const string OnAnotherThread = "on-another-thread";
+
+    // Skips .NET's handlers, as a crash inside Windows' own code would
+    public const string FailFast = "fail-fast";
+}
+
+public sealed record CrashResult;
+
 // Nullable annotations are kept to, so a message missing what it needs isn't read
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -69,4 +83,6 @@ public sealed record StopResult;
 [JsonSerializable(typeof(HelloResult))]
 [JsonSerializable(typeof(StatusResult))]
 [JsonSerializable(typeof(StopResult))]
+[JsonSerializable(typeof(CrashParams))]
+[JsonSerializable(typeof(CrashResult))]
 public sealed partial class ProtocolJson : JsonSerializerContext;

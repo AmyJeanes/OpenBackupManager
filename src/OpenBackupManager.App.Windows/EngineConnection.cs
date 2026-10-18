@@ -29,6 +29,9 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
     private Task? _running;
     private volatile EngineClient? _engine;
 
+    // On the UI thread, each time it connects
+    public event EventHandler? Connected;
+
     public void Start() => _running = Task.Run(() => KeepConnectedAsync(_stopping.Token));
 
     // Stops trying to connect, and stops the engine if the app started it, as Quit does
@@ -108,6 +111,7 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
                 _engine = engine;
                 Show(EngineState.Connected);
                 LogConnected();
+                _ui.Post(_ => Connected?.Invoke(this, EventArgs.Empty), null);
 
                 // Left open on cancelling, for QuitAsync to use
                 await engine.Closed.WaitAsync(cancellationToken);

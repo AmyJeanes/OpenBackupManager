@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.CsWin32" />
-    <PackageReference Include="System.Diagnostics.EventLog" />
   </ItemGroup>
 
   <ItemGroup>
