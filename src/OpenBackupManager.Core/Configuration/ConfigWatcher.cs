@@ -6,15 +6,20 @@ namespace OpenBackupManager.Core.Configuration;
 /// </summary>
 public sealed class ConfigWatcher : IDisposable
 {
+    // How long the file has to be left alone before it's read, so a save in progress isn't read half written
+    private static readonly TimeSpan SettleTime = TimeSpan.FromMilliseconds(250);
+
     private readonly ConfigFile _file;
     private readonly List<FileSystemWatcher> _watchers = [];
     private readonly Lock _lock = new();
+    private readonly Timer _settled;
     private string? _text;
     private bool _disposed;
 
     public ConfigWatcher(ConfigFile file)
     {
         _file = file;
+        _settled = new Timer(_ => Reload());
         var folder = Path.GetDirectoryName(file.Path)!;
         Directory.CreateDirectory(folder);
         _text = ReadText();
@@ -85,6 +90,8 @@ public sealed class ConfigWatcher : IDisposable
         {
             _disposed = true;
         }
+
+        _settled.Dispose();
     }
 
     // Where the file really is, if it or its folder is a link
@@ -113,16 +120,28 @@ public sealed class ConfigWatcher : IDisposable
         {
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
         };
-        watcher.Changed += (_, _) => Reload();
-        watcher.Created += (_, _) => Reload();
-        watcher.Deleted += (_, _) => Reload();
+        watcher.Changed += (_, _) => ReloadSoon();
+        watcher.Created += (_, _) => ReloadSoon();
+        watcher.Deleted += (_, _) => ReloadSoon();
         // Editors often save to another file and rename it over this one
-        watcher.Renamed += (_, _) => Reload();
+        watcher.Renamed += (_, _) => ReloadSoon();
         watcher.EnableRaisingEvents = true;
         _watchers.Add(watcher);
     }
 
+    // Each change starts the wait again, as one save raises several
+    private void ReloadSoon()
+    {
+        lock (_lock)
+        {
+            if (!_disposed)
+            {
+                _settled.Change(SettleTime, Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+
     private static ConfigResult Parse(string? text) => text is null ? new ConfigResult(new AppConfig(), []) : ConfigFile.Parse(text);
 
-    private string? ReadText() => File.Exists(_file.Path) ? File.ReadAllText(_file.Path) : null;
+    private string? ReadText() => ConfigFile.ReadText(_file.Path);
 }

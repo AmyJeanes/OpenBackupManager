@@ -44,7 +44,7 @@ public sealed class ConfigFile(string path)
 
     public string Path { get; } = path;
 
-    public ConfigResult Read() => File.Exists(Path) ? Parse(File.ReadAllText(Path)) : new ConfigResult(new AppConfig(), []);
+    public ConfigResult Read() => ReadText(Path) is { } text ? Parse(text) : new ConfigResult(new AppConfig(), []);
 
     // Writes the starting file if there isn't one, so there's something to edit
     public void CreateIfMissing()
@@ -54,6 +54,23 @@ public sealed class ConfigFile(string path)
             Write(DefaultText.ReplaceLineEndings("\n"));
         }
     }
+
+    // Null if there's no file
+    internal static string? ReadText(string path)
+    {
+        try
+        {
+            using var reader = new StreamReader(OpenShared(path));
+            return reader.ReadToEnd();
+        }
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    // Lets others write to or delete the file while it's open, so an editor's save doesn't fail because it's being read
+    internal static FileStream OpenShared(string path) => new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
 
     public static ConfigResult Parse(string text)
     {
@@ -94,7 +111,7 @@ public sealed class ConfigFile(string path)
     // Changes one setting, or removes it when the value is null
     public void Set(string? table, string key, object? value)
     {
-        var text = File.Exists(Path) ? File.ReadAllText(Path) : DefaultText.ReplaceLineEndings("\n");
+        var text = ReadText(Path) ?? DefaultText.ReplaceLineEndings("\n");
         var result = Parse(text);
         if (result.HasErrors)
         {
@@ -274,8 +291,21 @@ public sealed class ConfigFile(string path)
             File.Copy(Path, Path + ".bak", overwrite: true);
         }
 
-        // One rename over the old file, so anything watching it never sees it missing, as it would with File.Replace
-        File.Move(temporary, Path, overwrite: true);
+        // One rename over the old file, so anything watching it never sees it missing, as it would with File.Replace.
+        // Windows refuses it while anything has the file open, even shared, so a read in progress is waited out
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(1);
+        while (true)
+        {
+            try
+            {
+                File.Move(temporary, Path, overwrite: true);
+                return;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException && DateTime.UtcNow < until)
+            {
+                Thread.Sleep(20);
+            }
+        }
     }
 }
 

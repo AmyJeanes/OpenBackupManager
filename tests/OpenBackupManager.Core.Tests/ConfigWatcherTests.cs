@@ -81,6 +81,31 @@ public class ConfigWatcherTests
     }
 
     [Test]
+    public void WaitsForASaveToFinish()
+    {
+        Write("[updates]\nprereleases = false\n");
+        using var watcher = new ConfigWatcher(_file);
+
+        var result = WaitForChange(watcher, () =>
+        {
+            using var stream = new FileStream(_file.Path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            stream.Write("[updates]\nprereleases = tr"u8);
+            stream.Flush();
+            // Windows often reports a write only when it leaves the cache, after the save is done. This change is
+            // reported straight away, so the watcher hears of the file while it's half written
+            File.SetLastWriteTimeUtc(_file.Path, DateTime.UtcNow);
+            Thread.Sleep(50);
+            stream.Write("ue\n"u8);
+        });
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.HasErrors, Is.False);
+            Assert.That(watcher.Config.Updates.Prereleases, Is.True);
+        }
+    }
+
+    [Test]
     public void PicksUpTheAppsOwnChanges()
     {
         _file.CreateIfMissing();

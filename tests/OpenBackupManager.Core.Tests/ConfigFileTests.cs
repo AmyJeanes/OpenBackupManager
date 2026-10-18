@@ -198,6 +198,39 @@ public class ConfigFileTests
     }
 
     [Test]
+    public void Read_WorksWhileAnotherProgramHasTheFileOpenToWrite()
+    {
+        File.WriteAllText(FilePath, "[updates]\nprereleases = true\n");
+        using var editor = new FileStream(FilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+
+        Assert.That(new ConfigFile(FilePath).Read().Config!.Updates.Prereleases, Is.True);
+    }
+
+    [Test]
+    public void AnEditorCanSave_WhileTheFileIsBeingRead()
+    {
+        File.WriteAllText(FilePath, "version = 1\n");
+        using var reading = ConfigFile.OpenShared(FilePath);
+
+        File.WriteAllText(FilePath, "version = 1 # mine\n");
+
+        Assert.That(ConfigFile.ReadText(FilePath), Is.EqualTo("version = 1 # mine\n"));
+    }
+
+    [Test]
+    public void Set_WaitsForAReadToFinish()
+    {
+        File.WriteAllText(FilePath, "version = 1\n");
+        var reading = ConfigFile.OpenShared(FilePath);
+        var readDone = Task.Delay(100).ContinueWith(_ => reading.Dispose(), TaskScheduler.Default);
+
+        new ConfigFile(FilePath).Set("updates", "prereleases", true);
+        readDone.Wait();
+
+        Assert.That(new ConfigFile(FilePath).Read().Config!.Updates.Prereleases, Is.True);
+    }
+
+    [Test]
     public void CreateIfMissing_WritesTheStartingFileOnce()
     {
         var file = new ConfigFile(FilePath);
