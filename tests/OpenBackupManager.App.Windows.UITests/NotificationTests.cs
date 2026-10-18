@@ -4,6 +4,8 @@ using FlaUI.Core.Tools;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
+[Explicit("Takes over the desktop")]
+[Category("Sandbox")]
 public sealed class NotificationTests : AppTests
 {
     private const string TestTitle = "Sync failed";

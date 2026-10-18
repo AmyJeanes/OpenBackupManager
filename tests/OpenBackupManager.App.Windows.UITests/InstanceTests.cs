@@ -6,6 +6,8 @@ namespace OpenBackupManager.App.Windows.UITests;
 
 // A copy in another session, or another exe given the same home, holds the app's lock where AppInstance can't find it,
 // which the test stands in for by taking the lock itself
+[Explicit("Takes over the desktop")]
+[Category("Sandbox")]
 public sealed class InstanceTests : AppTests
 {
     [Test]

@@ -1,6 +1,8 @@
 namespace OpenBackupManager.Platform.Windows.Tests;
 
 // Without admin rights here, so this checks Explorer starts it, which the tray app needs when it has them
+[Explicit("Starts a program through Explorer")]
+[Category("Sandbox")]
 public class DesktopShellTests
 {
     private string _folder = "";

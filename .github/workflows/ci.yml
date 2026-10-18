@@ -53,6 +53,10 @@ jobs:
       - name: Test
         run: dotnet test OpenBackupManager.slnx --no-build --results-directory TestResults --logger trx
 
+      # Tests that take over the desktop or change the system, which only run when picked
+      - name: Test the Sandbox category
+        run: dotnet test OpenBackupManager.slnx --no-build --filter TestCategory=Sandbox --results-directory TestResults --logger trx
+
       # Makes an admin account on Windows and uses sudo elsewhere, so it only runs here
       - name: Test running as administrator and root
         shell: pwsh

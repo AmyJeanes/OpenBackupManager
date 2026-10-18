@@ -122,7 +122,10 @@ public class DaemonTests
         }
     }
 
+#if DEBUG
     [Test]
+    [Explicit("Crashes obmd, which the system records")]
+    [Category("Sandbox")]
     public async Task ACrash_IsReported()
     {
         var home = NewHome();
@@ -130,10 +133,12 @@ public class DaemonTests
         daemon.WaitFor(Started);
 
         await CrashAsync(home, CrashParams.OnAnotherThread);
-        daemon.WaitForExit();
+        var exitCode = daemon.WaitForExit();
 
         using (Assert.EnterMultipleScope())
         {
+            // .NET's exception code on Windows, SIGABRT elsewhere
+            Assert.That(exitCode, Is.EqualTo(OperatingSystem.IsWindows() ? unchecked((int)0xE0434352) : 134));
             Assert.That(
                 Report(home),
                 Does.StartWith("obmd closed unexpectedly")
@@ -145,6 +150,8 @@ public class DaemonTests
 
     // On Windows, from what Windows recorded. macOS and Linux keep no such record, so there it's only logged
     [Test]
+    [Explicit("Crashes obmd, which the system records")]
+    [Category("Sandbox")]
     public async Task ACrashNETNeverSaw_IsFoundAtTheNextStart()
     {
         var home = NewHome();
@@ -165,6 +172,7 @@ public class DaemonTests
             Assert.That(next.Output, Does.Contain("The last run ended without stopping"));
         }
     }
+#endif
 
     [Test]
     public async Task Stopping_LeavesNothingToReport()
@@ -191,11 +199,13 @@ public class DaemonTests
     private static async Task<EngineClient> ConnectAsync(string home) =>
         (await EngineClient.ConnectAsync(AppPaths.InHome(home), TimeSpan.FromSeconds(10), CancellationToken.None))!;
 
+#if DEBUG
     private static async Task CrashAsync(string home, string how)
     {
         using var engine = await ConnectAsync(home);
         await engine.CrashAsync(how, CancellationToken.None);
     }
+#endif
 
     private static string Report(string home) =>
         File.ReadAllText(Directory.GetFiles(Path.Combine(home, "crashes"), "crash-*-engine.txt").Single());

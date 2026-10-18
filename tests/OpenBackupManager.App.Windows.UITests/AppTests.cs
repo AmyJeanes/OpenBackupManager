@@ -40,6 +40,11 @@ public abstract class AppTests
 
     protected virtual string AppName => "Open Backup Manager (dev)";
 
+    // NUnit doesn't inherit Explicit, so a class without it fails here, before it takes over the desktop
+    [OneTimeSetUp]
+    public void CheckItOnlyRunsWhenPicked() =>
+        Assert.That(GetType().IsDefined(typeof(ExplicitAttribute)), Is.True, $"{GetType().Name} needs [Explicit]");
+
     [SetUp]
     public void Launch()
     {

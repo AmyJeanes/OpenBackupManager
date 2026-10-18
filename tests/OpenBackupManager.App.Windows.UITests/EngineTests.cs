@@ -9,6 +9,8 @@ using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
+[Explicit("Takes over the desktop")]
+[Category("Sandbox")]
 public sealed class EngineTests : AppTests
 {
     [Test]
@@ -77,6 +79,7 @@ public sealed class EngineTests : AppTests
         WaitUntilConnected();
     }
 
+#if DEBUG
     // The engine writes its report as it crashes, and the app shows it once it has started another and reached it
     [Test]
     public void AnEngineCrash_IsShown_OnceTheAppReachesTheEngineAgain()
@@ -91,6 +94,7 @@ public sealed class EngineTests : AppTests
         Assert.That(report, Does.StartWith("obmd closed unexpectedly at").And.Contain("System.InvalidOperationException: Test crash on another thread"));
         crash.Close();
     }
+#endif
 
     [Test]
     public void AnEngineOfAnotherVersion_IsExplained()

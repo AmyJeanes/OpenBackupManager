@@ -3,6 +3,8 @@ using Windows.Win32;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
+[Explicit("Takes over the desktop")]
+[Category("Sandbox")]
 public sealed class TrayTests : AppTests
 {
     [Test]

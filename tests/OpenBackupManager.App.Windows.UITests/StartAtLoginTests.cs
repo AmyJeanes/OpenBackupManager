@@ -3,6 +3,8 @@ using Microsoft.Win32;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
+[Explicit("Takes over the desktop")]
+[Category("Sandbox")]
 public sealed class StartAtLoginTests : AppTests
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";

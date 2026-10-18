@@ -28,6 +28,7 @@ dotnet format style OpenBackupManager.slnx --severity info
 dotnet format analyzers OpenBackupManager.slnx
 ```
 
+- `dotnet test` is safe to run on your own computer. Tests that take over the desktop or change the system, such as the Windows UI tests, the Credential Manager tests and those that crash `obmd`, are in the `Sandbox` category and only run when picked. CI runs them with `dotnet test OpenBackupManager.slnx --filter TestCategory=Sandbox`; to run them yourself, use Windows Sandbox or a computer you don't mind them using. A new test like that needs both `[Explicit]` and `[Category("Sandbox")]` on its class or method, since NUnit only runs an explicit test when the filter picks the class or method that has the attribute.
 - On macOS and Linux, the solution leaves out the Windows-only projects, which have `.Windows` in their names, because WinUI only builds on Windows.
 - The first build downloads rclone and checks its signature, so it needs internet access. After that it's cached; see [Bundled rclone](docs/design/rclone-bundling.md).
 - Run `git config core.hooksPath .githooks` once per clone. The hooks then format staged C# files and turn AI tools' `Co-authored-by` trailers into `Assisted-by`.

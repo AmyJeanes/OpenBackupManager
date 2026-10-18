@@ -4,6 +4,8 @@ using Windows.Win32.System.Recovery;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
+[Explicit("Takes over the desktop")]
+[Category("Sandbox")]
 public sealed class CrashTests : AppTests
 {
     // A crash that fails fast runs no handler, so its report comes from what Windows recorded

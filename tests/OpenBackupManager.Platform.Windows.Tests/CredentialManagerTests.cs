@@ -2,6 +2,8 @@ using OpenBackupManager.Core;
 
 namespace OpenBackupManager.Platform.Windows.Tests;
 
+[Explicit("Uses the real Credential Manager")]
+[Category("Sandbox")]
 public class CredentialManagerTests
 {
     private readonly List<(CredentialManager Store, string Name)> _saved = [];
