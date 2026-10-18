@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
@@ -26,8 +27,9 @@ command.SetAction((parseResult, cancellationToken) => RunAsync(
     cancellationToken));
 
 // The host handles Ctrl+C and SIGTERM itself. System.CommandLine's own handling would end the process if stopping took
-// over 2 seconds, so it's turned off
-return await command.Parse(args).InvokeAsync(new InvocationConfiguration { ProcessTerminationTimeout = null });
+// over 2 seconds, so it's turned off. Its error handler too, which would print an error and exit rather than let it
+// crash, so it's reported
+return await command.Parse(args).InvokeAsync(new InvocationConfiguration { ProcessTerminationTimeout = null, EnableDefaultExceptionHandler = false });
 
 static async Task<int> RunAsync(AppPaths paths, bool startedByApp, CancellationToken cancellationToken)
 {
@@ -51,6 +53,8 @@ static async Task<int> RunAsync(AppPaths paths, bool startedByApp, CancellationT
     }
 
     using var host = EngineHost.Build(paths, startedByApp);
+    var crashes = host.Services.GetRequiredService<CrashCapture>();
+    crashes.Start();
     using var shutdownHandler = OperatingSystem.IsWindows() ? new WindowsShutdownHandler(host) : null;
     try
     {
@@ -58,10 +62,13 @@ static async Task<int> RunAsync(AppPaths paths, bool startedByApp, CancellationT
     }
     catch (EngineException e)
     {
+        crashes.Stopped();
         await Console.Error.WriteLineAsync("obmd: " + e.Message);
         return 1;
     }
 
+    // Before the shutdown handler lets Windows end the process
+    crashes.Stopped();
     return 0;
 }
 

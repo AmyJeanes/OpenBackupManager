@@ -49,6 +49,9 @@ internal sealed class Connection(Func<StatusResult> status)
             EngineProtocol.Hello => Hello(id, request.Params),
             EngineProtocol.Status => Result(id, status(), ProtocolJson.Default.StatusResult),
             EngineProtocol.Stop => Stop(id),
+#if DEBUG
+            EngineProtocol.Crash => Crash(id, request.Params),
+#endif
             _ => Error(id, RpcError.MethodNotFound, $"There's no method called {method}"),
         };
     }
@@ -88,6 +91,25 @@ internal sealed class Connection(Func<StatusResult> status)
         Stopping = Closing = true;
         return Result(id, new StopResult(), ProtocolJson.Default.StopResult);
     }
+
+#if DEBUG
+    // A moment after replying, so the reply reaches the test first
+    private static RpcResponse Crash(JsonElement id, JsonElement? parameters)
+    {
+        var how = parameters?.Deserialize(ProtocolJson.Default.CrashParams)?.How;
+        new Thread(() =>
+        {
+            Thread.Sleep(200);
+            if (how == CrashParams.FailFast)
+            {
+                Environment.FailFast("Test crash that fails fast");
+            }
+
+            throw new InvalidOperationException("Test crash on another thread");
+        }).Start();
+        return Result(id, new CrashResult(), ProtocolJson.Default.CrashResult);
+    }
+#endif
 
     private static RpcResponse Result<T>(JsonElement id, T result, JsonTypeInfo<T> type) =>
         new("2.0", id, JsonSerializer.SerializeToElement(result, type), null);

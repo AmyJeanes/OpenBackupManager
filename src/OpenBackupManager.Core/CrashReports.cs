@@ -5,17 +5,22 @@ using System.Text;
 namespace OpenBackupManager.Core;
 
 /// <summary>
-/// Reports of the app closing unexpectedly, in the state folder's crashes folder. Each is plain English text, so it
-/// can be read and shared as it is. A running file in the state folder notes the copy that's running, so the next
-/// start can tell when a run ended without quitting or writing a report, as one that crashed outside .NET does
+/// Reports of the app or the engine closing unexpectedly, in the state folder's crashes folder, where the app shows
+/// both. Each is plain English text, so it can be read and shared as it is. A running file in the state folder notes
+/// the copy that's running, so the next start can tell when a run ended without stopping or writing a report, as one
+/// that crashed outside .NET does
 /// </summary>
-/// <param name="logPattern">The app's own log files in the logs folder, such as app-*.log</param>
-public sealed class CrashReports(AppPaths paths, TimeProvider time, string logPattern)
+/// <param name="name">Which program's: app or engine, which its log files and running file are named after</param>
+public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
 {
+    public const string App = "app";
+    public const string Engine = "engine";
+
     private const int Kept = 10;
     private const int LogLines = 100;
     private const string ShownFile = "shown";
-    private const string RunningFile = "running";
+
+    private string RunningFile => Path.Combine(paths.State, name + ".running");
 
     public string Folder => Path.Combine(paths.State, "crashes");
 
@@ -26,25 +31,24 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string logPa
     // with a report. Called before the run logs anything
     public Run? Start(int processId, DateTimeOffset started, string version)
     {
-        var file = Path.Combine(paths.State, RunningFile);
-        var previous = File.Exists(file) ? Run.Parse(File.ReadAllLines(file)) : null;
+        var previous = File.Exists(RunningFile) ? Run.Parse(File.ReadAllLines(RunningFile)) : null;
         var log = NewestLog();
         Current = new Run(processId, started, version, log?.Name, log?.Length ?? 0);
         Directory.CreateDirectory(paths.State);
-        File.WriteAllLines(file, Current.Lines());
+        File.WriteAllLines(RunningFile, Current.Lines());
         return previous;
     }
 
-    // When the app quits as it should, or has written a report as it crashes
-    public void Stopped() => File.Delete(Path.Combine(paths.State, RunningFile));
+    // When it stops as it should, or has written a report as it crashes
+    public void Stopped() => File.Delete(RunningFile);
 
     // Writes a report on a run that closed unexpectedly, with the end of its own log. closedAt is only needed for a
     // run that closed before now
-    public string Write(string app, Run run, string details, DateTimeOffset? closedAt = null)
+    public string Write(string program, Run run, string details, DateTimeOffset? closedAt = null)
     {
         var when = closedAt ?? time.GetLocalNow();
         var report = new StringBuilder()
-            .AppendLine(CultureInfo.InvariantCulture, $"{app} closed unexpectedly at {when:yyyy-MM-dd HH:mm:ss zzz}")
+            .AppendLine(CultureInfo.InvariantCulture, $"{program} closed unexpectedly at {when:yyyy-MM-dd HH:mm:ss zzz}")
             .AppendLine()
             .AppendLine(CultureInfo.InvariantCulture, $"Version: {run.Version}")
             .AppendLine(CultureInfo.InvariantCulture, $"OS: {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture})")
@@ -57,7 +61,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string logPa
 
         Directory.CreateDirectory(Folder);
         // Named by when they're written, so they sort oldest first
-        var file = Path.Combine(Folder, $"crash-{time.GetLocalNow():yyyyMMdd-HHmmss-fff}.txt");
+        var file = Path.Combine(Folder, $"crash-{time.GetLocalNow():yyyyMMdd-HHmmss-fff}-{name}.txt");
         File.WriteAllText(file, report.ToString());
         foreach (var old in Reports().SkipLast(Kept))
         {
@@ -67,8 +71,22 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string logPa
         return file;
     }
 
+    // For a run that didn't stop, from what Windows recorded, which catches crashes .NET never sees. False if there's
+    // nothing, and always on macOS and Linux. Throws EventLogException or UnauthorizedAccessException if the event log
+    // can't be read, as over SSH
+    public bool WriteRecorded(string program, Run run)
+    {
+        if (!OperatingSystem.IsWindows() || CrashEvents.Find(Path.GetFileName(Environment.ProcessPath!), run.ProcessId, run.Started) is not { } recorded)
+        {
+            return false;
+        }
+
+        Write(program, run, "Windows recorded this:" + Environment.NewLine + recorded.Text, recorded.Time);
+        return true;
+    }
+
     // The newest report written since this was last asked, so each crash is shown once
-    public string? TakeNew()
+    public CrashReport? TakeNew()
     {
         var shownFile = Path.Combine(Folder, ShownFile);
         var shown = File.Exists(shownFile) ? File.ReadAllText(shownFile).Trim() : "";
@@ -79,7 +97,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string logPa
         }
 
         File.WriteAllText(shownFile, Path.GetFileName(newest));
-        return File.ReadAllText(newest);
+        return new CrashReport(Path.GetFileNameWithoutExtension(newest).EndsWith("-" + Engine, StringComparison.Ordinal) ? Engine : App, File.ReadAllText(newest));
     }
 
     private IEnumerable<string> Reports() =>
@@ -87,10 +105,10 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string logPa
 
     // The one written to last, since a day's file can carry on in another once it's 10 MB
     private FileInfo? NewestLog() =>
-        Directory.Exists(paths.Logs) ? new DirectoryInfo(paths.Logs).GetFiles(logPattern).MaxBy(f => f.LastWriteTimeUtc) : null;
+        Directory.Exists(paths.Logs) ? new DirectoryInfo(paths.Logs).GetFiles(name + "-*.log").MaxBy(f => f.LastWriteTimeUtc) : null;
 
     // The run's last lines, from where its log started, or the whole newest file if the run started another. Read while
-    // the app may still be writing it
+    // it may still be writing it
     private string RecentLog(Run run)
     {
         var log = NewestLog();
@@ -120,7 +138,10 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string logPa
     }
 }
 
-// A run of the app, and where its log started: the newest log file and how long it was then
+// The report, and which program's it is: app or engine
+public sealed record CrashReport(string Name, string Text);
+
+// A run of the app or the engine, and where its log started: the newest log file and how long it was then
 public sealed record Run(int ProcessId, DateTimeOffset Started, string Version, string? LogFile, long LogLength)
 {
     internal IEnumerable<string> Lines() =>
@@ -132,7 +153,7 @@ public sealed record Run(int ProcessId, DateTimeOffset Started, string Version, 
         LogLength.ToString(CultureInfo.InvariantCulture),
     ];
 
-    // Null if the file isn't one the app wrote
+    // Null if the file isn't one it wrote
     internal static Run? Parse(string[] lines) =>
         lines.Length == 5
         && int.TryParse(lines[0], CultureInfo.InvariantCulture, out var processId)

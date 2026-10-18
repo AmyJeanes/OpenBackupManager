@@ -173,6 +173,10 @@
     <value>{0} closed unexpectedly</value>
     <comment>{0} is the app's name</comment>
   </data>
+  <data name="Crash_EngineTitle" xml:space="preserve">
+    <value>{0}'s engine stopped unexpectedly</value>
+    <comment>{0} is the app's name. The engine is the part that runs in the background and does the backing up</comment>
+  </data>
   <data name="Crash_Text" xml:space="preserve">
     <value>This report says what went wrong. If you report the problem on GitHub, include it so it can be fixed.</value>
   </data>

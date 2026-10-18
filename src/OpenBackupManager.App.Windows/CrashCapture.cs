@@ -3,7 +3,6 @@ using System.Diagnostics.Eventing.Reader;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
-using OpenBackupManager.Platform.Windows;
 using OpenBackupManager.ViewModels;
 
 namespace OpenBackupManager.App.Windows;
@@ -33,10 +32,10 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
             return;
         }
 
-        CrashEvent? recorded;
+        bool recorded;
         try
         {
-            recorded = CrashEvents.Find(Path.GetFileName(Environment.ProcessPath!), previous.ProcessId, previous.Started);
+            recorded = reports.WriteRecorded(app.Name, previous);
         }
         catch (Exception e) when (e is EventLogException or UnauthorizedAccessException)
         {
@@ -44,15 +43,15 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
             return;
         }
 
-        if (recorded is null)
+        if (recorded)
+        {
+            LogFoundCrash();
+        }
+        else
         {
             // As when the app was ended from Task Manager or the power went, which aren't crashes
             LogEndedWithoutQuitting();
-            return;
         }
-
-        reports.Write(app.Name, previous, "Windows recorded this:" + Environment.NewLine + recorded.Text, recorded.Time);
-        LogFoundCrash();
     }
 
     public void Capture(Exception error)

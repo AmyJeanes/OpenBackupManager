@@ -42,7 +42,7 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         Show(_about);
     }
 
-    public void ShowCrash(string report)
+    public void ShowCrash(CrashReport report)
     {
         var window = new CrashWindow(new CrashViewModel(_host.Services.GetRequiredService<AppInfo>(), report));
         Show(window);

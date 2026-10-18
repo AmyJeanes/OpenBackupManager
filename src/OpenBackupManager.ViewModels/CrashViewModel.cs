@@ -1,9 +1,11 @@
+using OpenBackupManager.Core;
+
 namespace OpenBackupManager.ViewModels;
 
-// The window shown at the next start after the app closed unexpectedly
-public sealed class CrashViewModel(AppInfo app, string report)
+// The window shown once the app or its engine has closed unexpectedly
+public sealed class CrashViewModel(AppInfo app, CrashReport report)
 {
-    public string Title { get; } = Text.Format(Strings.Crash_Title, app.Name);
+    public string Title { get; } = Text.Format(report.Name == CrashReports.Engine ? Strings.Crash_EngineTitle : Strings.Crash_Title, app.Name);
 
-    public string Report { get; } = report;
+    public string Report { get; } = report.Text;
 }

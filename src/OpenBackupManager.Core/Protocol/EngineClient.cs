@@ -91,6 +91,12 @@ public sealed class EngineClient : IDisposable
         await Closed.WaitAsync(cancellationToken);
     }
 
+#if DEBUG
+    // Only debug builds of the engine have it
+    public Task CrashAsync(string how, CancellationToken cancellationToken) =>
+        CallAsync(EngineProtocol.Crash, JsonSerializer.SerializeToElement(new CrashParams(how), ProtocolJson.Default.CrashParams), ProtocolJson.Default.CrashResult, cancellationToken);
+#endif
+
     public void Dispose()
     {
         _pipe.Dispose();

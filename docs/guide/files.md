@@ -10,11 +10,11 @@ Everything the app keeps about this device, such as its settings and logs, is it
 | --- | --- | --- | --- |
 | Settings | `%LocalAppData%\OpenBackupManager\` | `~/.config/openbackupmanager/` | `~/.config/openbackupmanager/` |
 | Logs | `%LocalAppData%\OpenBackupManager\logs\` | `~/Library/Logs/OpenBackupManager/` | `~/.local/state/openbackupmanager/logs/` |
-| Crash reports | `%LocalAppData%\OpenBackupManager\crashes\` | Not yet | Not yet |
+| Crash reports | `%LocalAppData%\OpenBackupManager\crashes\` | `~/Library/Application Support/OpenBackupManager/crashes/` | `~/.local/state/openbackupmanager/crashes/` |
 
 - **Settings:** `config.toml`, this device's settings, and `config.toml.bak`, the version before the app last changed it. See [Settings file](config.md).
 - **Logs:** a file for each day, described below.
-- **Crash reports:** what went wrong when the app closed unexpectedly, described below. Only the Windows app writes them so far.
+- **Crash reports:** what went wrong when the app or its engine closed unexpectedly, described below.
 
 The Windows app also keeps `last-version` in its data folder: the version that last ran, so it can say when it's been updated.
 
@@ -33,9 +33,9 @@ The app writes what it does to a log: starting up, checking for and installing u
 
 ## Crash reports
 
-If the Windows app closes unexpectedly, it writes a report to its crash reports folder: what went wrong, the app's version, the Windows version and the end of the log. Some crashes stop the app before it can write anything, so the next time it starts, it looks for what Windows recorded about them in Event Viewer and writes the report then. Either way, the next start shows the report, which you can copy into a bug report. Only the newest 10 are kept.
+If the Windows app or the engine, `obmd`, closes unexpectedly, it writes a report to the crash reports folder: what went wrong, its version, the OS version and the end of its log. Some crashes stop it before it can write anything, so on Windows, the next time it starts, it looks for what Windows recorded about them in Event Viewer and writes the report then. The Windows app shows each report once, which you can copy into a bug report: its own the next time it starts, and the engine's once it has started the engine again. Only the newest 10 are kept.
 
-Windows also starts the app again after a crash, as long as it had been running for at least a minute.
+Windows also starts the app again after a crash, as long as it had been running for at least a minute, and the app starts the engine again whenever it stops.
 
 ## The app itself
 

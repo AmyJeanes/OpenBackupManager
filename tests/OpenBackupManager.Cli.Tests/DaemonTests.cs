@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using OpenBackupManager.Core;
+using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Cli.Tests;
 
@@ -119,6 +121,84 @@ public class DaemonTests
             Assert.That(output, Does.Contain("obmd: The engine's socket").And.Contain("--home"));
         }
     }
+
+    [Test]
+    public async Task ACrash_IsReported()
+    {
+        var home = NewHome();
+        var daemon = Daemon(home);
+        daemon.WaitFor(Started);
+
+        await CrashAsync(home, CrashParams.OnAnotherThread);
+        daemon.WaitForExit();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                Report(home),
+                Does.StartWith("obmd closed unexpectedly")
+                    .And.Contain("System.InvalidOperationException: Test crash on another thread")
+                    .And.Contain(Started));
+            Assert.That(File.Exists(Path.Combine(home, "engine.running")), Is.False);
+        }
+    }
+
+    // On Windows, from what Windows recorded. macOS and Linux keep no such record, so there it's only logged
+    [Test]
+    public async Task ACrashNETNeverSaw_IsFoundAtTheNextStart()
+    {
+        var home = NewHome();
+        var crashed = Daemon(home);
+        crashed.WaitFor(Started);
+        await CrashAsync(home, CrashParams.FailFast);
+        crashed.WaitForExit();
+
+        var next = Daemon(home);
+        next.WaitFor(Started);
+
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.That(Report(home), Does.StartWith("obmd closed unexpectedly").And.Contain("Windows recorded this").And.Contain("Test crash that fails fast"));
+        }
+        else
+        {
+            Assert.That(next.Output, Does.Contain("The last run ended without stopping"));
+        }
+    }
+
+    [Test]
+    public async Task Stopping_LeavesNothingToReport()
+    {
+        var home = NewHome();
+        var stopped = Daemon(home);
+        stopped.WaitFor(Started);
+        using (var engine = await ConnectAsync(home))
+        {
+            await engine.StopAsync(CancellationToken.None);
+        }
+
+        stopped.WaitForExit();
+        var next = Daemon(home);
+        next.WaitFor(Started);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(next.Output, Does.Not.Contain("The last run"));
+            Assert.That(Directory.Exists(Path.Combine(home, "crashes")), Is.False);
+        }
+    }
+
+    private static async Task<EngineClient> ConnectAsync(string home) =>
+        (await EngineClient.ConnectAsync(AppPaths.InHome(home), TimeSpan.FromSeconds(10), CancellationToken.None))!;
+
+    private static async Task CrashAsync(string home, string how)
+    {
+        using var engine = await ConnectAsync(home);
+        await engine.CrashAsync(how, CancellationToken.None);
+    }
+
+    private static string Report(string home) =>
+        File.ReadAllText(Directory.GetFiles(Path.Combine(home, "crashes"), "crash-*-engine.txt").Single());
 
     private Tool Daemon(string home, params string[] options)
     {
