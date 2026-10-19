@@ -85,6 +85,11 @@ public sealed partial class AboutViewModel : ObservableObject
             return ReadyText();
         }
 
+        if (!_updater.ChecksAutomatically)
+        {
+            return Strings.About_AutomaticChecksOff;
+        }
+
         if (_updater.LastChecked is not { } lastChecked)
         {
             return Strings.About_NotChecked;

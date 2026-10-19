@@ -23,6 +23,17 @@ public static class Settings
         {
             Summary = "How the app keeps itself up to date.",
         },
+        new("updates.automatic", SettingKind.Boolean)
+        {
+            WorksOn = Os.Windows,
+            Summary = "Checks for updates when the app starts and every few hours, and downloads them ready to install.",
+            Values = "`true`, or `false` to only check when you ask",
+            Default = "`true`",
+            DefaultInFull = "`true`",
+            Example = "false",
+            Notes = "While it's off, **Check for updates** in About still checks straight away. Turning it back on checks "
+                + "straight away too.",
+        },
         new("updates.prereleases", SettingKind.Boolean)
         {
             WorksOn = Os.Windows,

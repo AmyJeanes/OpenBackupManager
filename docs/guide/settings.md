@@ -37,6 +37,7 @@ Each setting goes at the top of the file, or under its section's line, such as `
 | Setting | Default | Works on |
 | --- | --- | --- |
 | [`start-at-login`](#start-at-login) | `true` when installed | Windows |
+| [`updates.automatic`](#updates.automatic) | `true` | Windows |
 | [`updates.prereleases`](#updates.prereleases) | Follows what's installed | Windows |
 
 ### `start-at-login` {#start-at-login}
@@ -64,6 +65,29 @@ You can also turn it off in Windows' Settings > Apps > Startup, or Task Manager'
 ### `[updates]` {#updates}
 
 How the app keeps itself up to date.
+
+#### `automatic` {#updates.automatic}
+
+<span class="obm-badge" title="Works on" markdown>:fontawesome-brands-windows: Windows only</span>
+
+Checks for updates when the app starts and every few hours, and downloads them ready to install.
+
+<div class="obm-facts" markdown>
+
+Values
+:   `true`, or `false` to only check when you ask
+
+Default
+:   `true`
+
+</div>
+
+```toml
+[updates]
+automatic = false
+```
+
+While it's off, **Check for updates** in About still checks straight away. Turning it back on checks straight away too.
 
 #### `prereleases` {#updates.prereleases}
 

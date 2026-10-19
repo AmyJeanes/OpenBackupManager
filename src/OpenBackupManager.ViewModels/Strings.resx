@@ -32,6 +32,9 @@
   <data name="About_UpdatesUnavailable" xml:space="preserve">
     <value>Updates are unavailable on dev builds</value>
   </data>
+  <data name="About_AutomaticChecksOff" xml:space="preserve">
+    <value>Automatic update checks are off</value>
+  </data>
   <data name="About_NotChecked" xml:space="preserve">
     <value>Not checked yet</value>
   </data>

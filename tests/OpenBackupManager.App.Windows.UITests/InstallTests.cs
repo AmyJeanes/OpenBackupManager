@@ -126,8 +126,15 @@ public sealed class InstallTests : AppTests
         Quit();
 
         AddToFeed("0.0.4");
+        // Turned off, it doesn't check as it starts, and turned back on, it checks straight away
+        var config = Path.Combine(Home, "config.toml");
+        File.WriteAllText(config, "version = 1\nstart-at-login = true\n\n[updates]\nautomatic = false\n");
         LaunchAgain();
         engine = EngineOf("0.0.3");
+        ChooseFromTrayMenu("About");
+        about = WaitForWindow("About " + AppName);
+        Assert.That(Text(about, "UpdateStatusText"), Is.EqualTo("Automatic update checks are off"));
+        File.WriteAllText(config, "version = 1\nstart-at-login = true\n");
         FindNotification("Update available", "Version 0.0.4 is ready to install");
         ClearNotifications();
         // Its engine keeps running, until Velopack's hook stops it as the next start installs the update

@@ -7,6 +7,9 @@ public interface IUpdater
 
     bool IsTestSource { get; }
 
+    // Off, it only checks when asked
+    bool ChecksAutomatically { get; }
+
     bool UpdateReady { get; }
 
     string? ReadyVersion { get; }

@@ -23,6 +23,7 @@ public sealed partial class Updater : IUpdater, IDisposable
     private readonly Lock _lock = new();
     private volatile UpdateManager _manager;
     private bool _prereleases;
+    private volatile bool _automatic;
     private string? _seenVersion;
     private bool _disposed;
 
@@ -39,12 +40,14 @@ public sealed partial class Updater : IUpdater, IDisposable
         {
             _prereleases = Prereleases(config.Config);
             _manager = FromGitHub(_prereleases);
-            config.Changed += OnConfigChanged;
         }
         else
         {
             _manager = new UpdateManager(source);
         }
+
+        _automatic = config.Config.Updates.Automatic;
+        config.Changed += OnConfigChanged;
 
         if (_manager.IsInstalled)
         {
@@ -62,6 +65,8 @@ public sealed partial class Updater : IUpdater, IDisposable
     public DateTimeOffset? LastChecked { get; private set; }
 
     public bool IsTestSource { get; }
+
+    public bool ChecksAutomatically => _automatic;
 
     // About shows the result, so this doesn't notify
     public Task<UpdateCheckResult> CheckNow(Action<int> downloading) => Check(notify: false, downloading);
@@ -118,15 +123,25 @@ public sealed partial class Updater : IUpdater, IDisposable
         lock (_lock)
         {
             var prereleases = Prereleases(_config.Config);
-            if (prereleases == _prereleases)
+            if (!IsTestSource && prereleases != _prereleases)
             {
-                return;
+                _prereleases = prereleases;
+                // Takes effect from the next check. One already running finishes with the manager it started with
+                _manager = FromGitHub(prereleases);
+                LogPrereleasesChanged(prereleases);
             }
 
-            _prereleases = prereleases;
-            // Takes effect from the next check. One already running finishes with the manager it started with
-            _manager = FromGitHub(prereleases);
-            LogPrereleasesChanged(prereleases);
+            var automatic = _config.Config.Updates.Automatic;
+            if (automatic != _automatic)
+            {
+                _automatic = automatic;
+                LogAutomaticChanged(automatic);
+                // Rather than at the next regular check, which can be hours away
+                if (automatic && _manager.IsInstalled)
+                {
+                    CheckInBackground();
+                }
+            }
         }
     }
 
@@ -144,6 +159,8 @@ public sealed partial class Updater : IUpdater, IDisposable
         }
     }
 
+    private void CheckInBackground() => _ = Check(notify: true, downloading: null);
+
     private async Task CheckRegularly()
     {
         using var timer = new PeriodicTimer(CheckInterval);
@@ -151,7 +168,10 @@ public sealed partial class Updater : IUpdater, IDisposable
         {
             do
             {
-                await Check(notify: true, downloading: null);
+                if (_automatic)
+                {
+                    await Check(notify: true, downloading: null);
+                }
             }
             while (await timer.WaitForNextTickAsync(_stop.Token));
         }
@@ -216,6 +236,9 @@ public sealed partial class Updater : IUpdater, IDisposable
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Updates now include prereleases: {Prereleases}")]
     private partial void LogPrereleasesChanged(bool prereleases);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Checks for updates automatically: {Automatic}")]
+    private partial void LogAutomaticChanged(bool automatic);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Installing version {Version} once the app exits")]
     private partial void LogInstallingOnExit(SemanticVersion version);

@@ -18,6 +18,7 @@ public sealed class ConfigFile(string path)
         # start-at-login = false    # Start the app when you sign in. Left out, it does when installed unless a custom home folder is used
 
         # [updates]
+        # automatic = false    # Only check for updates when you ask, in About
         # prereleases = true    # Get test versions early. Left out, updates follow what's installed
 
         """;

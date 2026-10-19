@@ -20,6 +20,7 @@ nav = [
   { "Files and folders" = "files.md" },
   { "Command line" = "command-line.md" },
   { "Checking a download" = "checking-downloads.md" },
+  { "Privacy" = "privacy.md" },
 ]
 
 [project.theme]

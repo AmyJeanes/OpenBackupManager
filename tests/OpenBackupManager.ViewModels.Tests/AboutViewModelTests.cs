@@ -79,6 +79,24 @@ public class AboutViewModelTests
     [Test]
     public void Status_BeforeTheFirstCheck() => Assert.That(About().UpdateStatus, Is.EqualTo("Not checked yet"));
 
+    [Test]
+    public void Status_WhenAutomaticChecksAreOff()
+    {
+        _updater.ChecksAutomatically = false;
+        _updater.LastChecked = new DateTimeOffset(2026, 10, 13, 9, 30, 0, TimeSpan.Zero);
+
+        Assert.That(About().UpdateStatus, Is.EqualTo("Automatic update checks are off"));
+    }
+
+    [Test]
+    public void Status_ReadyEvenWhenAutomaticChecksAreOff()
+    {
+        _updater.ChecksAutomatically = false;
+        _updater.ReadyVersion = "1.2.4";
+
+        Assert.That(About().UpdateStatus, Is.EqualTo("Version 1.2.4 is ready to install"));
+    }
+
     [TestCase("2026-10-13T09:30:00Z", "Last checked at 09:30")]
     [TestCase("2026-10-12T23:10:00Z", "Last checked yesterday at 23:10")]
     [TestCase("2026-10-01T08:00:00Z", "Last checked on 1 October at 08:00")]
@@ -197,6 +215,8 @@ public class AboutViewModelTests
         public bool CanUpdate { get; set; } = true;
 
         public bool IsTestSource { get; set; }
+
+        public bool ChecksAutomatically { get; set; } = true;
 
         public bool UpdateReady => ReadyVersion is not null;
 

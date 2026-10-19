@@ -21,6 +21,9 @@ public sealed record AppConfig
 
 public sealed record UpdateSettings
 {
+    // Off, it only checks when asked, in About
+    public bool Automatic { get; init; } = true;
+
     // Left out, updates follow what's installed: a prerelease gets prereleases, a stable version only stable ones
     public bool? Prereleases { get; init; }
 }

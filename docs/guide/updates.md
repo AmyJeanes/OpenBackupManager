@@ -6,6 +6,8 @@
 
     When an update's ready, **Restart now** installs it straight away. Otherwise it installs the next time you quit the app, or when it next starts. To check straight away, use **Check for updates** in About.
 
+    To stop it checking by itself, set [`automatic`](settings.md#updates.automatic) to `false`, and it only checks when you use **Check for updates**.
+
 === "macOS"
 
     Nothing updates itself on macOS yet, since there's nothing to download there. To update `obm` and `obmd`, build them again from the latest source.
