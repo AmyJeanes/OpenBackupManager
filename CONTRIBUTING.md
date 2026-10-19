@@ -10,7 +10,7 @@ Open Backup Manager is a cross-platform backup and two-way sync app. Our own syn
 - **Green before review.** Build, tests and format checks pass. CI runs them on every pull request.
 - **Check the Windows app by hand.** Changes to its windows or tray also need the [checks by hand](docs/design/windows-app.md#checking-by-hand), since CI can't see display scaling or effects.
 - **Update the design doc.** Each area of the app has `docs/design/<area>.md` once it's implemented: how it works, why (decisions, rejected alternatives, evidence) and accepted limits that shouldn't be "fixed". Read it before changing that area, and update it in the same pull request. List new docs in [docs/design/README.md](docs/design/README.md).
-- **Update the user guide.** If a change affects what people see or do, update its page in [`docs/guide/`](docs/guide/README.md) in the same pull request.
+- **Update the user guide.** If a change affects what people see or do, update its page in [`docs/guide/`](docs/guide/README.md) in the same pull request. A new page also goes in `nav` in `docs/zensical.toml`, or it's left out of the site's sidebar.
 
 ## Real data stays safe
 
@@ -40,6 +40,21 @@ dotnet format analyzers OpenBackupManager.slnx
 - Don't destructure objects in log messages with `{@value}`. NativeAOT doesn't support it, so it only logs the object's `ToString()`. Log the values you need instead.
 - Package versions live in `Directory.Packages.props`.
 - The Windows UI tests start the app, click and press keys, so leave the mouse and keyboard alone while they run. They move the dev build's tray icon from the hidden icons onto the taskbar, where it stays. The elements they look for need an `x:Name`, which UI Automation reports as the element's ID; `AutomationProperties.AutomationId` is only for elements without one. The install and update test replaces the installed app, so it only runs when picked, as CI does: see [Windows app](docs/design/windows-app.md).
+
+## The user guide's site
+
+The guide in `docs/guide/` is published to [amyjeanes.github.io/OpenBackupManager](https://amyjeanes.github.io/OpenBackupManager/) by [Zensical](https://zensical.org) each time `main` changes. CI builds it on every run, and fails on a broken link or anchor. To preview it as you edit, with Python 3.11 or newer:
+
+```sh
+python -m venv docs/.venv
+docs/.venv/Scripts/pip install --require-hashes -r docs/requirements.txt
+docs/.venv/Scripts/zensical serve -f docs/zensical.toml
+```
+
+Then open http://localhost:8000. On macOS and Linux, it's `docs/.venv/bin` instead of `docs/.venv/Scripts`.
+
+- Pages can use Zensical's [Markdown extras](https://zensical.org/docs/authoring/markdown/), such as [tips and warnings](https://zensical.org/docs/authoring/admonitions/) and [tabs](https://zensical.org/docs/authoring/content-tabs/). GitHub shows them as plain text, so the site is where the guide is read.
+- Zensical and what it needs are locked with hashes in `docs/requirements.txt`. To change them, edit `docs/requirements.in` and run the `pip-compile` command in the lock file's header, from `docs/`, with `pip-tools` installed.
 
 ## Commits
 

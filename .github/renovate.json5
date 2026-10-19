@@ -9,6 +9,18 @@
   "pinDigest": {
     "automerge": true
   },
+  // Updates the docs site's lock file by running pip-compile again, so the hashes stay right
+  "pip-compile": {
+    "managerFilePatterns": ["/^docs/requirements\\.txt$/"],
+    // Weekly, since an update to Zensical itself only moves what it pulls in when it has to
+    "lockFileMaintenance": {
+      "enabled": true,
+      "schedule": ["before 4am on monday"]
+    }
+  },
+  "pip_requirements": {
+    "enabled": false
+  },
   "customManagers": [
     {
       "customType": "regex",
@@ -40,6 +52,11 @@
       // FlaUI releases every 2 to 3 years but is still maintained, so a year without one doesn't mean it's abandoned
       "matchPackageNames": ["FlaUI.*"],
       "abandonmentThreshold": "3 years"
+    },
+    {
+      // Zensical is in alpha, so an update can change how the site looks without failing its build
+      "matchPackageNames": ["zensical"],
+      "automerge": false
     }
   ]
 }

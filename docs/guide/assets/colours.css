@@ -1,0 +1,70 @@
+/* The app icon's blue */
+:root > * {
+  --md-primary-fg-color: #0e70c5;
+  --md-primary-fg-color--light: #3d8fd6;
+  --md-primary-fg-color--dark: #0a589b;
+  --md-accent-fg-color: #1683e0;
+}
+
+/* Lighter in dark mode, so links stay easy to read */
+[data-md-color-scheme="slate"] {
+  --md-typeset-a-color: #6cb2f0;
+  --md-accent-fg-color: #8fc5f5;
+}
+
+/* The "Windows only" and similar marks on settings */
+.md-typeset .obm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.1em 0.7em;
+  border-radius: 1em;
+  font-size: 0.7rem;
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color--light);
+}
+
+/* A setting's Values and Default, as two tight rows with the labels in a column */
+.md-typeset .obm-facts dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25em 1.2em;
+  margin: 0.8em 0;
+}
+
+.md-typeset .obm-facts dt {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .obm-facts dd,
+.md-typeset .obm-facts dd p {
+  margin: 0;
+}
+
+/* Setting names stay code in the page, but without the code background in the sidebar */
+.md-nav code {
+  background: none;
+  padding: 0;
+}
+
+/* Setting names as headings: code, but at the heading's own size so sections and settings stay distinct */
+.md-typeset h3 code {
+  font-size: 0.95em;
+}
+
+.md-typeset h4 code {
+  font-size: 1.1em;
+}
+
+/* A faint line above each section and setting, so one setting's example doesn't run into the next one's name */
+.md-typeset :is(h3, h4):has(> code) {
+  margin-top: 2.2em;
+  padding-top: 1.2em;
+  border-top: 0.05rem solid var(--md-default-fg-color--lightest);
+}
+
+/* A tab's last paragraph keeps its own bottom margin inside the tabs, which doubles the gap to the text after them */
+.md-typeset .tabbed-block > :last-child {
+  margin-bottom: 0;
+}

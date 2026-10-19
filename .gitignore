@@ -480,3 +480,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# User guide
+docs/site/
+docs/.cache/
+docs/.venv/

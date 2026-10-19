@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+<script>
+  // Opens the OS tabs on the reader's own OS until they pick one, which content.tabs.link then remembers
+  if (!__md_get("__tabs")) {
+    var platform = navigator.platform.toLowerCase()
+    var os = /Android|iPhone|iPad/.test(navigator.userAgent) ? null
+      : platform.startsWith("win") ? "Windows"
+      : platform.startsWith("mac") ? "macOS"
+      : platform.startsWith("linux") ? "Linux"
+      : null
+    if (os) __md_set("__tabs", [os])
+  }
+</script>
+{% endblock %}
+
+{% block announce %}
+Open Backup Manager is in early development, and isn't ready to look after real backups yet.
+{% endblock %}
