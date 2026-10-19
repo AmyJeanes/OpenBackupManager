@@ -32,7 +32,7 @@ dotnet format analyzers OpenBackupManager.slnx
 - On macOS and Linux, the solution leaves out the Windows-only projects, which have `.Windows` in their names, because WinUI only builds on Windows.
 - The first build downloads rclone and checks its signature, so it needs internet access. After that it's cached; see [Bundled rclone](docs/design/rclone-bundling.md).
 - `tools/Publish-App.ps1` publishes the programs as they ship, compiled with NativeAOT, which needs a C++ toolchain: Visual Studio's Desktop development with C++ workload on Windows, with its ARM64 build tools for ARM64, Xcode's command line tools on macOS, or clang on Linux. Building and testing don't. CI tests the published programs, which you can do too by publishing with `-Configuration Debug` and setting `OBM_TEST_PUBLISHED` to the folder.
-- Run `git config core.hooksPath .githooks` once per clone. The hooks then format staged C# files and turn AI tools' `Co-authored-by` trailers into `Assisted-by`.
+- Run `git config core.hooksPath .githooks` once per clone. The hooks then format staged C# files, update the user guide's Settings page when the settings change, and turn AI tools' `Co-authored-by` trailers into `Assisted-by`.
 - Style is auto-fixed, so style rules are suggestions. Rules that can't be auto-fixed, such as naming, are warnings, and warnings are errors.
 - Fix warnings rather than suppress them. When suppressing is right, add a comment saying why: a `#pragma` for a one-off case, or `.editorconfig` for a rule that doesn't fit the project.
 - Text people see goes in `src/OpenBackupManager.ViewModels/Strings.resx`, or Core's own `Strings.resx` for what Core tells people, such as problems in `config.toml`, never straight into code or XAML, so it can be translated. Code reads it as `Strings.Key`, with `Text.Format` for placeholders, and XAML binds to it with `{x:Bind res:Strings.Key}`. Logs, diagnostics and `obm`'s and `obmd`'s output stay in English, since only the apps' UI is translated.
@@ -55,6 +55,7 @@ Then open http://localhost:8000. On macOS and Linux, it's `docs/.venv/bin` inste
 
 - Pages can use Zensical's [Markdown extras](https://zensical.org/docs/authoring/markdown/), such as [tips and warnings](https://zensical.org/docs/authoring/admonitions/) and [tabs](https://zensical.org/docs/authoring/content-tabs/). GitHub shows them as plain text, so the site is where the guide is read.
 - Zensical and what it needs are locked with hashes in `docs/requirements.txt`. To change them, edit `docs/requirements.in` and run the `pip-compile` command in the lock file's header, from `docs/`, with `pip-tools` installed.
+- The settings in `docs/guide/settings.md` are made from the list in [`Settings.cs`](src/OpenBackupManager.Core/Configuration/Settings.cs), between the `generated:settings` markers. A new setting goes in that list as well as `AppConfig`, and a test fails until it's in both. Then run `dotnet run --project tools/DocsGen` to update the page, which the pre-commit hook also does. CI fails if the page is out of date.
 
 ## Commits
 

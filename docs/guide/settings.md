@@ -32,6 +32,8 @@ The file is [TOML](https://toml.io): settings are `name = value`, grouped into s
 
 Each setting goes at the top of the file, or under its section's line, such as `[updates]`, as its example shows. Settings work on every OS unless they're marked otherwise.
 
+<!-- generated:settings -->
+
 | Setting | Default | Works on |
 | --- | --- | --- |
 | [`start-at-login`](#start-at-login) | `true` when installed | Windows |
@@ -85,3 +87,5 @@ prereleases = true
 ```
 
 A change takes effect from the next [check for updates](updates.md), which the app makes every few hours, or straight away from **Check for updates** in About.
+
+<!-- /generated:settings -->

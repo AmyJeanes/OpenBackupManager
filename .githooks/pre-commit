@@ -1,6 +1,23 @@
 #!/bin/sh
-# Formats staged C# files with dotnet format before each commit, so style is always fixed
+# Formats staged C# files with dotnet format before each commit, so style is always fixed, and updates the user
+# guide's Settings page when what it's made from is staged
 # Enable once per clone: git config core.hooksPath .githooks
+
+settings=src/OpenBackupManager.Core/Configuration/Settings.cs
+page=docs/guide/settings.md
+if ! git diff --cached --quiet -- $settings tools/DocsGen $page; then
+    # The page is made from the files as they are, so they must be what's being committed
+    partial=$(git diff --name-only -- $settings tools/DocsGen $page)
+    if [ -n "$partial" ]; then
+        echo "pre-commit: these files have unstaged changes, so the settings page can't be updated safely:"
+        echo "$partial"
+        echo "Stage or stash those changes, then commit again"
+        exit 1
+    fi
+
+    dotnet run --project tools/DocsGen || exit 1
+    git add -- $page
+fi
 
 files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cs')
 [ -z "$files" ] && exit 0

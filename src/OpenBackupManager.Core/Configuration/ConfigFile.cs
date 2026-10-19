@@ -22,26 +22,6 @@ public sealed class ConfigFile(string path)
 
         """;
 
-    private enum ValueKind
-    {
-        Boolean,
-        Integer,
-        String,
-    }
-
-    // Every key the file can have, for checking it. Each [[remotes]] entry has the remotes keys
-    private static readonly Dictionary<string, ValueKind> Keys = new()
-    {
-        ["version"] = ValueKind.Integer,
-        ["start-at-login"] = ValueKind.Boolean,
-        ["updates.prereleases"] = ValueKind.Boolean,
-        ["remotes.id"] = ValueKind.String,
-        ["remotes.name"] = ValueKind.String,
-        ["remotes.root"] = ValueKind.String,
-    };
-
-    private static readonly HashSet<string> TableArrays = ["remotes"];
-
     public string Path { get; } = path;
 
     public ConfigResult Read() => ReadText(Path) is { } text ? Parse(text) : new ConfigResult(new AppConfig(), []);
@@ -188,15 +168,16 @@ public sealed class ConfigFile(string path)
         foreach (var table in document.Tables)
         {
             var name = Name(table.Name);
-            if (!Keys.Keys.Any(k => k.StartsWith(name + ".", StringComparison.Ordinal)))
+            if (Settings.Find(name) is not { IsSection: true } section)
             {
                 problems.Add(new ConfigProblem(Line(table), ConfigProblemKind.UnknownSection, IsError: false, name));
                 continue;
             }
 
-            if (TableArrays.Contains(name) != table is TableArraySyntax)
+            var isList = section.Kind == SettingKind.SectionList;
+            if (isList != table is TableArraySyntax)
             {
-                problems.Add(new ConfigProblem(Line(table), TableArrays.Contains(name) ? ConfigProblemKind.ShouldBeTableArray : ConfigProblemKind.ShouldBeTable, IsError: true, name));
+                problems.Add(new ConfigProblem(Line(table), isList ? ConfigProblemKind.ShouldBeTableArray : ConfigProblemKind.ShouldBeTable, IsError: true, name));
                 continue;
             }
 
@@ -222,30 +203,42 @@ public sealed class ConfigFile(string path)
 
     private static void CheckKey(string path, KeyValueSyntax kv, List<ConfigProblem> problems)
     {
-        if (!Keys.TryGetValue(path, out var kind))
+        // Not a setting: which layout the file is in, so a newer one isn't misread
+        if (path == "version")
         {
-            // A known section written as a dotted key or inline table is left to the reader
-            if (!Keys.Keys.Any(k => k.StartsWith(path + ".", StringComparison.Ordinal)))
+            if (kv.Value is not IntegerValueSyntax number)
             {
-                problems.Add(new ConfigProblem(Line(kv), ConfigProblemKind.UnknownSetting, IsError: false, path));
+                problems.Add(new ConfigProblem(Line(kv), ConfigProblemKind.ShouldBeWholeNumber, IsError: true, path));
+            }
+            else if (number.Value < 1)
+            {
+                problems.Add(new ConfigProblem(Line(kv), ConfigProblemKind.VersionTooLow, IsError: true));
             }
 
             return;
         }
 
-        var (matches, expected) = kind switch
+        var setting = Settings.Find(path);
+        if (setting is null)
         {
-            ValueKind.Boolean => (kv.Value is BooleanValueSyntax, ConfigProblemKind.ShouldBeTrueOrFalse),
-            ValueKind.Integer => (kv.Value is IntegerValueSyntax, ConfigProblemKind.ShouldBeWholeNumber),
+            problems.Add(new ConfigProblem(Line(kv), ConfigProblemKind.UnknownSetting, IsError: false, path));
+            return;
+        }
+
+        // A section written as a dotted key or inline table is left to the reader
+        if (setting.IsSection)
+        {
+            return;
+        }
+
+        var (matches, expected) = setting.Kind switch
+        {
+            SettingKind.Boolean => (kv.Value is BooleanValueSyntax, ConfigProblemKind.ShouldBeTrueOrFalse),
             _ => (kv.Value is StringValueSyntax, ConfigProblemKind.ShouldBeText),
         };
         if (!matches)
         {
             problems.Add(new ConfigProblem(Line(kv), expected, IsError: true, path));
-        }
-        else if (path == "version" && kv.Value is IntegerValueSyntax { Value: < 1 })
-        {
-            problems.Add(new ConfigProblem(Line(kv), ConfigProblemKind.VersionTooLow, IsError: true));
         }
     }
 

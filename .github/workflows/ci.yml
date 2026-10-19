@@ -186,6 +186,35 @@ jobs:
       - name: Install Zensical
         run: pip install --require-hashes -r docs/requirements.txt
 
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Write the settings page
+        run: dotnet run --project tools/DocsGen
+
+      - name: Check it's up to date
+        run: |
+          git diff --quiet && exit 0
+          {
+            echo "## The settings page is out of date"
+            echo
+            echo "Run this from the repo root:"
+            echo
+            echo '```sh'
+            echo 'dotnet run --project tools/DocsGen'
+            echo '```'
+            echo
+            echo "To have it updated when you commit, run \`git config core.hooksPath .githooks\` once."
+            echo
+            echo '```diff'
+            git diff
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::docs/guide/settings.md is out of date: the run summary shows the changes and how to fix them"
+          exit 1
+
       - name: Build the user guide's site
         run: zensical build -f docs/zensical.toml --strict
 
