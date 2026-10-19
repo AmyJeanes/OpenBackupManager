@@ -276,12 +276,12 @@ public abstract class AppTests
     {
         // Counted once its icon is on the taskbar
         _ = TrayIcon();
-        var icons = TrayIconCount();
+        var icons = Retry.WhileException(TrayIconCount, Timeout, throwOnTimeout: true).Result;
         ChooseFromTrayMenu("Quit");
         Assert.Multiple(() =>
         {
             Assert.That(WaitForExit(), Is.True);
-            Assert.That(Retry.WhileFalse(() => TrayIconCount() < icons, Timeout).Result, Is.True);
+            Assert.That(Retry.WhileFalse(() => TrayIconCount() < icons, Timeout, ignoreException: true).Result, Is.True);
         });
     }
 
@@ -332,7 +332,8 @@ public abstract class AppTests
 
     private AutomationElement Taskbar() => _automation.GetDesktop().FindFirstChild(c => c.ByClassName("Shell_TrayWnd"))!;
 
-    // Including any left behind by copies that were ended, which stay until the mouse passes over them
+    // Including any left behind by copies that were ended, which stay until the mouse passes over them. An icon that
+    // goes while it's counted throws, so callers try again rather than count it as gone
     private int TrayIconCount() =>
         Taskbar().FindAllDescendants(c => c.ByAutomationId("NotifyItemIcon")).Count(i => i.Name.StartsWith(AppName, StringComparison.Ordinal));
 
