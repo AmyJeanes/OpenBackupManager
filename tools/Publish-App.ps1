@@ -4,7 +4,7 @@ Publishes the Windows app, obmd and obm into one folder, laid out as they're ins
 
 .DESCRIPTION
 Each is compiled ahead of time with NativeAOT. The app and obmd go in the folder, and obm alone in its bin folder, which
-installing adds to PATH. On macOS and Linux, only obmd and obm. CI's release and test jobs and Publish-TestUpdate.ps1
+installing adds to PATH. On macOS and Linux, only obmd and obm. CI's package and test jobs and Publish-TestUpdate.ps1
 publish with it.
 
 .EXAMPLE

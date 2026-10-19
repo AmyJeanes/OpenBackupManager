@@ -170,14 +170,116 @@ jobs:
           echo "::error::Some files aren't formatted: the run summary shows the changes and how to fix them"
           exit 1
 
+  # A tag's release, or an edge build of anything else, which is uploaded to the run. Attests what it builds but can't
+  # change releases, and the release job is the reverse, so neither can do the other's part
+  package:
+    name: Package (${{ matrix.runtime }})
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: [test, install, format]
+    # Each on its own architecture's runner, which has the C++ build tools NativeAOT needs for it
+    runs-on: ${{ matrix.runtime == 'win-arm64' && 'windows-11-arm' || 'windows-latest' }}
+    permissions:
+      contents: read
+      id-token: write # Signs the attestations
+      attestations: write # Stores them
+    strategy:
+      matrix:
+        runtime: [win-x64, win-arm64]
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      RUNTIME: ${{ matrix.runtime }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # The tags and history the version comes from
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # Also checks a tag is safe to release
+      - name: Work out the version
+        shell: pwsh
+        run: |
+          "VERSION=$(./tools/Get-Version.ps1 -Tag $env:TAG)" >> $env:GITHUB_ENV
+          # A version with a '-', such as 0.1.0-alpha.1, is a prerelease
+          if ($env:TAG -like '*-*') { 'PRERELEASE=--pre' >> $env:GITHUB_ENV }
+
+      - name: Publish
+        shell: pwsh
+        run: ./tools/Publish-App.ps1 -Output publish -Runtime $env:RUNTIME -Version $env:VERSION
+
+      # So the update from it to this one can be a small delta
+      - name: Download the previous release
+        if: env.TAG
+        run: >
+          dotnet vpk download github
+          --repoUrl $REPO_URL
+          --token $GH_TOKEN
+          --channel $RUNTIME
+          $PRERELEASE
+          --outputDir releases
+
+      - name: Pack
+        run: >
+          dotnet vpk pack
+          --packId OpenBackupManager.App
+          --packVersion $VERSION
+          --packTitle "Open Backup Manager"
+          --packAuthors "Amy Jeanes"
+          --packDir publish
+          --mainExe OpenBackupManager.App.Windows.exe
+          --icon src/OpenBackupManager.App.Windows/Assets/AppIcon.ico
+          --shortcuts StartMenuRoot
+          --noPortable
+          --runtime $RUNTIME
+          --channel $RUNTIME
+          --outputDir releases
+
+      # Checked with gh attestation verify. Not the previous release, which was only downloaded
+      - name: Attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            publish/OpenBackupManager.App.Windows.exe
+            publish/obmd.exe
+            publish/bin/obm.exe
+            releases/OpenBackupManager.App-${{ env.RUNTIME }}-Setup.exe
+            releases/OpenBackupManager.App-${{ env.VERSION }}-${{ env.RUNTIME }}-*.nupkg
+
+      - name: Upload the edge build
+        if: ${{ !env.TAG }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: OpenBackupManager-edge-${{ env.VERSION }}-${{ matrix.runtime }}
+          path: |
+            releases/OpenBackupManager.App-${{ env.RUNTIME }}-Setup.exe
+            releases/OpenBackupManager.App-${{ env.VERSION }}-${{ env.RUNTIME }}-full.nupkg
+
+      - name: Hand over to the release job
+        if: env.TAG
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: releases-${{ matrix.runtime }}
+          path: releases
+          retention-days: 1
+
   # Each architecture is its own Velopack channel, so an install only updates to its own build. Both go into one
   # draft release, which is published by hand once its notes are written
   release:
     name: Release (${{ matrix.runtime }})
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, install, format]
-    # Each on its own architecture's runner, which has the C++ build tools NativeAOT needs for it
-    runs-on: ${{ matrix.runtime == 'win-arm64' && 'windows-11-arm' || 'windows-latest' }}
+    needs: package
+    runs-on: windows-latest
     permissions:
       contents: write # Creates the draft release
     strategy:
@@ -203,41 +305,14 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
-      - name: Work out the version
-        run: |
-          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
-          # A version with a '-', such as 0.1.0-alpha.1, is a prerelease
-          if [[ $TAG == *-* ]]; then echo "PRERELEASE=--pre" >> "$GITHUB_ENV"; fi
+      - name: Work out whether it's a prerelease
+        run: if [[ $TAG == *-* ]]; then echo "PRERELEASE=--pre" >> "$GITHUB_ENV"; fi
 
-      - name: Publish
-        shell: pwsh
-        run: ./tools/Publish-App.ps1 -Output publish -Runtime $env:RUNTIME -Version $env:VERSION
-
-      # So the update from it to this one can be a small delta
-      - name: Download the previous release
-        run: >
-          dotnet vpk download github
-          --repoUrl $REPO_URL
-          --token $GH_TOKEN
-          --channel $RUNTIME
-          $PRERELEASE
-          --outputDir releases
-
-      - name: Pack
-        run: >
-          dotnet vpk pack
-          --packId OpenBackupManager.App
-          --packVersion $VERSION
-          --packTitle "Open Backup Manager"
-          --packAuthors "Amy Jeanes"
-          --packDir publish
-          --mainExe OpenBackupManager.App.Windows.exe
-          --icon src/OpenBackupManager.App.Windows/Assets/AppIcon.ico
-          --shortcuts StartMenuRoot
-          --noPortable
-          --runtime $RUNTIME
-          --channel $RUNTIME
-          --outputDir releases
+      - name: Download what the package job made
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: releases-${{ matrix.runtime }}
+          path: releases
 
       - name: Upload to the draft release
         run: >
