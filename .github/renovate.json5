@@ -35,6 +35,11 @@
       // rclone's behaviour can change between releases in ways CI doesn't catch yet, so its updates wait for review
       "matchDepNames": ["rclone/rclone"],
       "automerge": false
+    },
+    {
+      // FlaUI releases every 2 to 3 years but is still maintained, so a year without one doesn't mean it's abandoned
+      "matchPackageNames": ["FlaUI.*"],
+      "abandonmentThreshold": "3 years"
     }
   ]
 }
