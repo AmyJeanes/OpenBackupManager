@@ -71,11 +71,13 @@ public sealed class EngineTests : AppTests
     public void AnEngineThatEnds_IsStartedAgain()
     {
         using var first = Engine();
+        var firstStarted = first.StartTime;
 
         first.Kill();
         first.WaitForExit();
 
-        Assert.That(Retry.WhileFalse(() => EngineStatus() is { } status && status.ProcessId != first.Id, Timeout, ignoreException: true).Result, Is.True);
+        // Not by process ID, which Windows can give the new engine straight after the old one ends
+        Assert.That(Retry.WhileFalse(() => EngineStatus() is { } status && status.Started > firstStarted, Timeout, ignoreException: true).Result, Is.True);
         WaitUntilConnected();
     }
 

@@ -193,7 +193,8 @@ public sealed class InstallTests : AppTests
         var next = EngineOf(version);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(next.ProcessId, Is.Not.EqualTo(engine.ProcessId));
+            // Not by process ID, which Windows can give the new engine straight after the old one ends
+            Assert.That(next.Started, Is.GreaterThan(engine.Started), "The app should have started a new engine");
             Assert.That(EngineStops(), Is.EqualTo(stopsBefore + 1), $"The {engine.Version} engine should stop before {version} installs");
         }
     }
