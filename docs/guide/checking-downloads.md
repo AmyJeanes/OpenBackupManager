@@ -8,12 +8,20 @@ Every download is attested by the project's build on GitHub: a signed record of 
     gh attestation verify OpenBackupManager.App-win-x64-Setup.exe --repo AmyJeanes/OpenBackupManager
     ```
 
-    The installed programs can be checked the same way, such as `obm.exe` in `%LocalAppData%\OpenBackupManager.App\current\bin`.
+    On an Arm PC, check `OpenBackupManager.App-win-arm64-Setup.exe` instead. The installed programs can be checked the same way, such as `obm.exe` in `%LocalAppData%\OpenBackupManager.App\current\bin`.
 
 === "macOS"
 
-    There's nothing to download for macOS yet.
+    ```
+    gh attestation verify OpenBackupManager-<version>-osx-arm64.tar.gz --repo AmyJeanes/OpenBackupManager
+    ```
+
+    On an Intel Mac, check `OpenBackupManager-<version>-osx-x64.tar.gz` instead. The programs can be checked the same way once they're unpacked, such as `~/.local/bin/obm`.
 
 === "Linux"
 
-    There's nothing to download for Linux yet.
+    ```
+    gh attestation verify OpenBackupManager-<version>-linux-x64.tar.gz --repo AmyJeanes/OpenBackupManager
+    ```
+
+    On an Arm computer, check `OpenBackupManager-<version>-linux-arm64.tar.gz` instead. The programs can be checked the same way once they're unpacked, such as `~/.local/bin/obm`.

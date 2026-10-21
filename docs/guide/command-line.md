@@ -8,11 +8,11 @@
 
 === "macOS"
 
-    There's nothing to download for macOS yet, so for now you build them from source, as [CONTRIBUTING.md](https://github.com/AmyJeanes/OpenBackupManager/blob/main/CONTRIBUTING.md#build-and-test) describes.
+    Download both and put them on your PATH, as [Getting started](getting-started.md#install-it) describes.
 
 === "Linux"
 
-    There's nothing to download for Linux yet, so for now you build them from source, as [CONTRIBUTING.md](https://github.com/AmyJeanes/OpenBackupManager/blob/main/CONTRIBUTING.md#build-and-test) describes.
+    Download both and put them on your PATH, as [Getting started](getting-started.md#install-it) describes.
 
 ## Commands
 

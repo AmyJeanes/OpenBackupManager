@@ -3,7 +3,7 @@
 Packs a version of the Windows app into a local update feed, for trying installs and updates without a release.
 
 .DESCRIPTION
-Publishes and packs the app as CI's package job does. See docs/design/windows-app.md#trying-updates-locally.
+Publishes and packs the app as CI's package-windows job does. See docs/design/windows-app.md#trying-updates-locally.
 
 .EXAMPLE
 ./tools/Publish-TestUpdate.ps1 -Version 0.0.1-local -Reset -Install

@@ -66,7 +66,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 - **Accepted limit: a crash before the app has set up its crash handling isn't reported,** such as one while it's choosing its home or building its services. Windows' entry is in the event log, and the restart only applies to a copy that has run for a minute anyway.
 - **A crash closes the app rather than carrying on.** After an error nothing expected, what the app holds can't be trusted, so it closes and Windows starts it again cleanly. Windows doesn't restart it after an update or a restart of Windows, which aren't crashes.
 - **Edge builds are numbered as MinVer numbers untagged builds,** so an installed one updates to whatever release comes next, alpha and beta included, and edge builds sort in commit order. The few lines are written out in `Get-Version.ps1` rather than using MinVer itself, which would change every local build's version and needs the whole history in every CI job.
-- **Packing and releasing are separate jobs.** The package job can sign attestations but not change releases, and the release job the reverse, so a problem in either can't do the other's part.
+- **Packing and releasing are separate jobs.** The package jobs can sign attestations but not change releases, and the release job the reverse, so a problem in either can't do the other's part.
 - **Windows are destroyed when closed, not hidden,** so the app stays small while it sits in the tray.
 - **The tray icon and flyout follow the taskbar's theme, not the app's.** Windows lets the taskbar (Windows mode) and apps (app mode) differ, and both belong to the taskbar. Windows' own tray flyouts and EarTrumpet's do the same.
 - **The flyout uses Windows' blur with one colour over it, not WinUI's acrylic.** WinUI's acrylic adds a luminosity layer that turns dark backgrounds solid black or makes light ones too pale. The colours (`#232323` at 77% for dark, `#E3E3E3` at 86% for light) were measured from EarTrumpet's flyout over black and white, which reads well on any background.
@@ -102,11 +102,11 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 - For changes to crash handling, a hang: open About, choose Crash > Hang from the tray menu, close About, and choose Close the program on Windows' prompt. The next start should show a report from what Windows recorded. A UI test can't, since the prompt is Windows' own and GitHub's runners keep no record of hangs.
 - For changes to starting at login, signing out and in again with it on: the app should be in the tray with no flyout, and turning it off in Settings > Apps > Startup should keep it from starting, even after the app has started again since.
 - For changes to starting as administrator, a dev build started with Run as administrator: Task Manager's Details tab should show one copy, with No under Elevated (add the column from its header), and the flyout should open and take focus, the engine connect and the test notification show. Windows Sandbox can't, as its account only has admin rights.
-- For changes to installing or updating, a build packed as in CI's package job: a dev build running alongside the installed copy, installing it again over a running copy with `--silent`, and uninstalling it from Settings > Apps.
+- For changes to installing or updating, a build packed as in CI's package-windows job: a dev build running alongside the installed copy, installing it again over a running copy with `--silent`, and uninstalling it from Settings > Apps.
 
 ### Trying updates locally
 
-`tools/Publish-TestUpdate.ps1` packs versions into a local feed in the temp folder, the same way as CI's package job. With `-Install`, it also writes the installed copy's `update-source` file, so it checks that feed however it's started, until it's uninstalled.
+`tools/Publish-TestUpdate.ps1` packs versions into a local feed in the temp folder, the same way as CI's package-windows job. With `-Install`, it also writes the installed copy's `update-source` file, so it checks that feed however it's started, until it's uninstalled.
 
 1. `./tools/Publish-TestUpdate.ps1 -Version 0.0.1-local -Reset -Install` starts a new feed with that version, installs it and starts it. About shows (test updates) after the version.
 2. In About, Check for updates should say it's up to date.
@@ -118,7 +118,7 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 ## Releasing
 
 1. Push a tag such as `v0.1.0`, or `v0.1.0-alpha.1` for a prerelease, following [Versions](#versions).
-2. CI's package job checks the tag, then builds x64 and ARM64, packs each with Velopack and attests them. The release job uploads them to a draft release called `Release v0.1.0`, marked as a prerelease if the version has a `-`.
+2. CI's package-windows job checks the tag, then builds x64 and ARM64, packs each with Velopack and attests them, and the package-macos and package-linux jobs do the same for the macOS and Linux tarballs of `obm` and `obmd` (see [Engine and command line](engine.md)). Once all of them have finished, the release job uploads everything to a draft release called `Release v0.1.0`, marked as a prerelease if the version has a `-`.
 3. Write the notes and publish the draft. Installed copies only see published releases, so nobody updates until then.
 
 The repository makes published releases immutable, so a broken release is replaced by a new version, never patched, and a release job can only be re-run before publishing.
@@ -135,8 +135,8 @@ A release's version comes from its tag alone, so nothing in the repository is bu
 
 ### Edge builds
 
-Every push to `main`, and CI run by hand on any branch, packs both architectures as for a release and uploads Setup.exe and the full package to the run, as `OpenBackupManager-edge-<version>-<runtime>`. After `v0.1.0`, edge builds are `0.1.1-alpha.0.<commits since it>`, and after `v0.1.0-beta.2`, `0.1.0-beta.2.<commits since it>`. So an installed edge build sorts after the release it follows and before any that can come next, which it then updates to.
+Every push to `main`, and CI run by hand on any branch, packs both architectures as for a release and uploads Setup.exe and the full package, and the macOS and Linux tarballs, to the run as `OpenBackupManager-edge-<version>-<runtime>`. After `v0.1.0`, edge builds are `0.1.1-alpha.0.<commits since it>`, and after `v0.1.0-beta.2`, `0.1.0-beta.2.<commits since it>`. So an installed edge build sorts after the release it follows and before any that can come next, which it then updates to.
 
 ### Attestations
 
-The package job attests the three exes, Setup.exe and this version's packages, but not the previous release it downloads for the delta. Anyone can check a file was built by this workflow, and from which commit, with `gh attestation verify <file> --repo AmyJeanes/OpenBackupManager`.
+The package-windows job attests the three exes, Setup.exe and this version's packages, but not the previous release it downloads for the delta. The package-macos and package-linux jobs attest each tarball and the `obm` and `obmd` in it. Anyone can check a file was built by this workflow, and from which commit, with `gh attestation verify <file> --repo AmyJeanes/OpenBackupManager`.

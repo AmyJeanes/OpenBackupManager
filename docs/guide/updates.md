@@ -10,11 +10,11 @@
 
 === "macOS"
 
-    Nothing updates itself on macOS yet, since there's nothing to download there. To update `obm` and `obmd`, build them again from the latest source.
+    Nothing updates itself on macOS yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again.
 
 === "Linux"
 
-    Nothing updates itself on Linux yet, since there's nothing to download there. To update `obm` and `obmd`, build them again from the latest source.
+    Nothing updates itself on Linux yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again.
 
 ## Test versions
 
@@ -26,8 +26,8 @@ Test versions, also called prereleases, come out before each release so new thin
 
 === "macOS"
 
-    There are no test versions for macOS yet.
+    Test versions are on the [releases page](https://github.com/AmyJeanes/OpenBackupManager/releases) too, marked Pre-release. Nothing picks them for you, so download whichever you want.
 
 === "Linux"
 
-    There are no test versions for Linux yet.
+    Test versions are on the [releases page](https://github.com/AmyJeanes/OpenBackupManager/releases) too, marked Pre-release. Nothing picks them for you, so download whichever you want.

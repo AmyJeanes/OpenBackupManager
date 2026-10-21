@@ -27,6 +27,13 @@
       "description": "The rclone release bundled with the app",
       "managerFilePatterns": ["/^rclone\\.version$/"],
       "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+(?<currentValue>v\\S+)"]
+    },
+    {
+      "customType": "regex",
+      "description": "Container images CI runs with docker run, pinned by digest",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.yml$/"],
+      "matchStrings": ["(?<depName>[a-z0-9][a-z0-9./_-]*):(?<currentValue>[A-Za-z0-9][A-Za-z0-9._-]*)@(?<currentDigest>sha256:[a-f0-9]{64})"],
+      "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [
@@ -52,6 +59,12 @@
       // FlaUI releases every 2 to 3 years but is still maintained, so a year without one doesn't mean it's abandoned
       "matchPackageNames": ["FlaUI.*"],
       "abandonmentThreshold": "3 years"
+    },
+    {
+      // The oldest distros the Linux downloads are checked on, so only their digests update
+      "matchDepNames": ["debian", "registry.access.redhat.com/ubi9/ubi-minimal"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     },
     {
       // Zensical is in alpha, so an update can change how the site looks without failing its build

@@ -19,7 +19,11 @@ param(
     # Debug for the tests, which crash the app and the engine through debug-only menus and methods
     [string]$Configuration = 'Release',
 
-    [string]$Version = '0.0.0'
+    [string]$Version = '0.0.0',
+
+    # Linux only: links against an older system's libraries in this folder, so the programs also run on older distros.
+    # .NET's cross-build images have them in /crossrootfs/<architecture>
+    [string]$SysRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -36,6 +40,9 @@ function Publish($project, $folder) {
         '--output', $folder
         '--nologo'
     )
+    if ($SysRoot) {
+        $publishArgs += "-p:SysRoot=$SysRoot", '-p:LinkerFlavor=lld'
+    }
     dotnet @publishArgs
     if ($LASTEXITCODE) { throw "Publishing $project failed" }
 }

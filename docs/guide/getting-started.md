@@ -16,11 +16,61 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
 === "macOS"
 
-    There's nothing to download for macOS yet, and the app comes later. The command line, `obm`, and its engine, `obmd`, already run on macOS, but for now you build them from source, as [CONTRIBUTING.md](https://github.com/AmyJeanes/OpenBackupManager/blob/main/CONTRIBUTING.md#build-and-test) describes.
+    There's no app for macOS yet, but the command line, `obm`, and its engine, `obmd`, are ready to download.
+
+    1. Download `OpenBackupManager-<version>-osx-arm64.tar.gz` from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), or `OpenBackupManager-<version>-osx-x64.tar.gz` for an Intel Mac.
+    2. Unpack them into a folder on your PATH, such as `~/.local/bin`:
+
+        ```
+        mkdir -p ~/.local/bin
+        tar -xzf ~/Downloads/OpenBackupManager-<version>-osx-arm64.tar.gz -C ~/.local/bin obm obmd
+        ```
+
+        On an Intel Mac, unpack `OpenBackupManager-<version>-osx-x64.tar.gz` instead. If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` and open a new terminal.
+
+    3. Start the engine with `obmd`. See [The engine](command-line.md#the-engine).
+
+    !!! warning "If macOS won't open them"
+
+        A browser marks what it downloads as quarantined, and macOS won't run a quarantined program that isn't signed by Apple, which these aren't yet. If it says it can't check `obm` or `obmd` for malicious software, remove the quarantine:
+
+        ```
+        xattr -d com.apple.quarantine ~/.local/bin/obm ~/.local/bin/obmd
+        ```
+
+        Downloading with `curl` instead leaves nothing to remove:
+
+        ```
+        curl -L -o ~/Downloads/OpenBackupManager-<version>-osx-arm64.tar.gz https://github.com/AmyJeanes/OpenBackupManager/releases/download/v<version>/OpenBackupManager-<version>-osx-arm64.tar.gz
+        ```
+
+        On an Intel Mac, use `osx-x64` in both places.
+
+    !!! tip "Check it first"
+
+        You can check a download came from the project's build unchanged before you run it. See [Checking a download](checking-downloads.md).
 
 === "Linux"
 
-    There's nothing to download for Linux yet, and the app comes later. The command line, `obm`, and its engine, `obmd`, already run on Linux, but for now you build them from source, as [CONTRIBUTING.md](https://github.com/AmyJeanes/OpenBackupManager/blob/main/CONTRIBUTING.md#build-and-test) describes.
+    There's no app for Linux yet, but the command line, `obm`, and its engine, `obmd`, are ready to download.
+
+    1. Download `OpenBackupManager-<version>-linux-x64.tar.gz` from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), or `OpenBackupManager-<version>-linux-arm64.tar.gz` for an Arm computer, such as a Raspberry Pi with a 64-bit system.
+    2. Unpack them into a folder on your PATH, such as `~/.local/bin`:
+
+        ```
+        mkdir -p ~/.local/bin
+        tar -xzf ~/Downloads/OpenBackupManager-<version>-linux-x64.tar.gz -C ~/.local/bin obm obmd
+        ```
+
+        On an Arm computer, unpack `OpenBackupManager-<version>-linux-arm64.tar.gz` instead. If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and open a new terminal.
+
+    3. Start the engine with `obmd`. See [The engine](command-line.md#the-engine).
+
+    They need ICU, a library for text in every language, which desktop distros already have. On a minimal or server install, add it with your package manager, such as `sudo apt install libicu72` on Debian 12 or `sudo dnf install libicu` on Fedora and RHEL. Each build is checked on Debian 12 and RHEL 9, and should run on anything newer.
+
+    !!! tip "Check it first"
+
+        You can check a download came from the project's build unchanged before you run it. See [Checking a download](checking-downloads.md).
 
 ## Where your settings are
 

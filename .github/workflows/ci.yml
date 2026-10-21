@@ -226,7 +226,7 @@ jobs:
 
   # A tag's release, or an edge build of anything else, which is uploaded to the run. Attests what it builds but can't
   # change releases, and the release job is the reverse, so neither can do the other's part
-  package:
+  package-windows:
     name: Package (${{ matrix.runtime }})
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     needs: [test, install, format]
@@ -327,19 +327,201 @@ jobs:
           path: releases
           retention-days: 1
 
-  # Each architecture is its own Velopack channel, so an install only updates to its own build. Both go into one
-  # draft release, which is published by hand once its notes are written
+  # obm and obmd as tarballs, since there's no app on macOS or Linux yet for Velopack to pack
+  package-macos:
+    name: Package (${{ matrix.runtime }})
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: [test, install, format]
+    # Each on its own architecture's runner, so each is run where it was built
+    runs-on: ${{ matrix.runtime == 'osx-x64' && 'macos-26-intel' || 'macos-latest' }}
+    permissions:
+      contents: read
+      id-token: write # Signs the attestations
+      attestations: write # Stores them
+    strategy:
+      matrix:
+        runtime: [osx-x64, osx-arm64]
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      RUNTIME: ${{ matrix.runtime }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # The tags and history the version comes from
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      # Also checks a tag is safe to release
+      - name: Work out the version
+        shell: pwsh
+        run: '"VERSION=$(./tools/Get-Version.ps1 -Tag $env:TAG)" >> $env:GITHUB_ENV'
+
+      - name: Publish
+        shell: pwsh
+        run: ./tools/Publish-App.ps1 -Output publish -Runtime $env:RUNTIME -Version $env:VERSION
+
+      - name: Pack
+        shell: pwsh
+        run: ./tools/Pack-Tarball.ps1 -Publish publish -Runtime $env:RUNTIME -Version $env:VERSION
+
+      # The checks below run what's in the tarball, as it's unpacked
+      - name: Unpack it
+        run: |
+          mkdir unpacked
+          tar -xzvf "OpenBackupManager-$VERSION-$RUNTIME.tar.gz" -C unpacked
+          ls -l unpacked
+
+      - name: Check it runs
+        run: sh .github/scripts/test-tarball.sh unpacked
+
+      # Checked with gh attestation verify, as are the programs once unpacked, since they're the same files
+      - name: Attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            publish/obmd
+            publish/bin/obm
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+
+      - name: Upload the edge build
+        if: ${{ !env.TAG }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: OpenBackupManager-edge-${{ env.VERSION }}-${{ matrix.runtime }}
+          path: OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+
+      - name: Hand over to the release job
+        if: env.TAG
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tarball-${{ matrix.runtime }}
+          path: OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+          retention-days: 1
+
+  package-linux:
+    name: Package (${{ matrix.runtime }})
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: [test, install, format]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Signs the attestations
+      attestations: write # Stores them
+    strategy:
+      matrix:
+        include:
+          # Built in .NET's cross-build images, against an older distro's libraries, so they run on older distros too.
+          # The images run on x64 whatever they build for, and the Arm64 build is checked through QEMU
+          - runtime: linux-x64
+            platform: linux/amd64
+            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-amd64@sha256:825fdca697eabeb0404e07a9d2c08edf2f89dfb39d161efb002fca7ca7484de2
+            sysroot: /crossrootfs/x64
+          - runtime: linux-arm64
+            platform: linux/arm64
+            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-arm64@sha256:41bb007ad2c28b3a058bc0e5e706466a66460f563eebb60db9f9c445b09d3e73
+            sysroot: /crossrootfs/arm64
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      RUNTIME: ${{ matrix.runtime }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # The tags and history the version comes from
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      # Also checks a tag is safe to release
+      - name: Work out the version
+        shell: pwsh
+        run: '"VERSION=$(./tools/Get-Version.ps1 -Tag $env:TAG)" >> $env:GITHUB_ENV'
+
+      # With the runner's .NET and PowerShell lent to it, so it builds with the SDK global.json names
+      - name: Publish in the cross-build image
+        run: >
+          docker run --rm
+          --volume "$PWD:/source" --workdir /source
+          --volume "$DOTNET_ROOT:/usr/share/dotnet:ro"
+          --volume "$(dirname "$(readlink -f "$(command -v pwsh)")"):/opt/pwsh:ro"
+          --env PATH=/usr/share/dotnet:/opt/pwsh:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+          --env DOTNET_NOLOGO=true
+          ${{ matrix.cross-image }}
+          pwsh ./tools/Publish-App.ps1 -Output publish -Runtime $RUNTIME -Version $VERSION -SysRoot ${{ matrix.sysroot }}
+
+      - name: Pack
+        shell: pwsh
+        run: ./tools/Pack-Tarball.ps1 -Publish publish -Runtime $env:RUNTIME -Version $env:VERSION
+
+      # The checks below run what's in the tarball, as it's unpacked
+      - name: Unpack it
+        run: |
+          mkdir unpacked
+          tar -xzvf "OpenBackupManager-$VERSION-$RUNTIME.tar.gz" -C unpacked
+          ls -l unpacked
+
+      # QEMU, so this x64 runner can run the Arm64 build in containers
+      - name: Let Docker run Arm64
+        if: matrix.platform == 'linux/arm64'
+        run: docker run --rm --privileged tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 --install arm64
+
+      # The oldest distros the guide names. Their slim images leave out ICU, which .NET needs on Linux and desktop
+      # distros have, so it's installed first
+      - name: Check it runs on older distros
+        env:
+          DEBIAN: debian:12-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+          RHEL: registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:c4c285d42941ebb2bd4da878479008e1e4536bb599aad1dbe568f89de9053661
+        run: |
+          check() {
+              docker run --rm --platform ${{ matrix.platform }} --volume "$PWD:/source:ro" --workdir /source "$1" \
+                  sh -c "$2 && sh .github/scripts/test-tarball.sh unpacked"
+          }
+          check "$DEBIAN" 'apt-get update -qq && apt-get install -qq -y --no-install-recommends libicu72 > /dev/null'
+          check "$RHEL" 'microdnf install -y libicu > /dev/null'
+
+      # Checked with gh attestation verify, as are the programs once unpacked, since they're the same files
+      - name: Attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            publish/obmd
+            publish/bin/obm
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+
+      - name: Upload the edge build
+        if: ${{ !env.TAG }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: OpenBackupManager-edge-${{ env.VERSION }}-${{ matrix.runtime }}
+          path: OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+
+      - name: Hand over to the release job
+        if: env.TAG
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tarball-${{ matrix.runtime }}
+          path: OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+          retention-days: 1
+
+  # Everything the package jobs made goes into one draft release, which is published by hand once its notes are written.
+  # The only job that can change releases, and it waits for every build, so a draft never has only some of them
   release:
-    name: Release (${{ matrix.runtime }})
+    name: Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    needs: [package-windows, package-macos, package-linux]
     runs-on: windows-latest
     permissions:
       contents: write # Creates the draft release
-    strategy:
-      max-parallel: 1 # One at a time, so the second adds to the draft the first created
-      matrix:
-        runtime: [win-x64, win-arm64]
     defaults:
       run:
         shell: bash
@@ -347,7 +529,6 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO_URL: ${{ github.server_url }}/${{ github.repository }}
       TAG: ${{ github.ref_name }}
-      RUNTIME: ${{ matrix.runtime }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -362,23 +543,30 @@ jobs:
       - name: Work out whether it's a prerelease
         run: if [[ $TAG == *-* ]]; then echo "PRERELEASE=--pre" >> "$GITHUB_ENV"; fi
 
-      - name: Download what the package job made
+      # Each Windows architecture's packages into a folder of its own, and the tarballs together
+      - name: Download what the package jobs made
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: releases-${{ matrix.runtime }}
-          path: releases
+          path: built
 
-      - name: Upload to the draft release
-        run: >
-          dotnet vpk upload github
-          --repoUrl $REPO_URL
-          --token $GH_TOKEN
-          --channel $RUNTIME
-          $PRERELEASE
-          --tag $TAG
-          --releaseName "Release $TAG"
-          --merge
-          --outputDir releases
+      # Each architecture is its own Velopack channel, so an install only updates to its own build. The first upload
+      # creates the draft, and the second adds to it
+      - name: Upload the Windows packages
+        run: |
+          for runtime in win-x64 win-arm64; do
+              dotnet vpk upload github \
+                  --repoUrl "$REPO_URL" \
+                  --token "$GH_TOKEN" \
+                  --channel $runtime \
+                  $PRERELEASE \
+                  --tag "$TAG" \
+                  --releaseName "Release $TAG" \
+                  --merge \
+                  --outputDir "built/releases-$runtime"
+          done
+
+      - name: Upload the macOS and Linux tarballs
+        run: gh release upload "$TAG" built/tarball-*/*.tar.gz --repo "$GITHUB_REPOSITORY"
 
   all-checks:
     name: All checks
