@@ -57,7 +57,7 @@ internal sealed partial class Listener(
 
     public void Dispose() => _stopping.Dispose();
 
-    private StatusResult Status() => new(AppVersion.Current, Environment.ProcessId, _started, paths.Config, paths.State, options.StartedByApp);
+    private StatusResult Status() => new(AppVersion.Current, Environment.ProcessId, _started, paths.Config, paths.State, options.StartedBy);
 
     // .NET leaves the socket's permissions to the umask, so a private folder keeps other users from reaching it at all
     [UnsupportedOSPlatform("windows")]

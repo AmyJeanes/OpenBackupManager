@@ -9,7 +9,7 @@ namespace OpenBackupManager.Core.Protocol;
 public static class EngineProtocol
 {
     // Goes up when a change would be misread by the other side
-    public const int Version = 1;
+    public const int Version = 2;
 
     public const string Hello = "hello";
     public const string Status = "status";
@@ -55,8 +55,23 @@ public sealed record HelloParams(int Protocol, string Version);
 
 public sealed record HelloResult(int Protocol, string Version);
 
-// StartedByApp says whether Quit in the tray app stops it
-public sealed record StatusResult(string Version, int ProcessId, DateTimeOffset Started, string Config, string State, bool StartedByApp);
+public sealed record StatusResult(string Version, int ProcessId, DateTimeOffset Started, string Config, string State, EngineStarter StartedBy);
+
+// Quit in the tray app stops only an engine the app started
+[JsonConverter(typeof(JsonStringEnumConverter<EngineStarter>))]
+public enum EngineStarter
+{
+    // By hand, or by something the user set up themselves, such as Task Scheduler
+    [JsonStringEnumMemberName("other")]
+    Other,
+
+    [JsonStringEnumMemberName("app")]
+    App,
+
+    // By the OS's service manager, from obm service install
+    [JsonStringEnumMemberName("service")]
+    Service,
+}
 
 // The engine replies, then stops, closing every connection
 public sealed record StopResult;

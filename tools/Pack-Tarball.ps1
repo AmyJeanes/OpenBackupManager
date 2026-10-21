@@ -29,7 +29,7 @@ $root = Split-Path $PSScriptRoot
 $program = [IO.UnixFileMode]'UserRead, UserWrite, UserExecute, GroupRead, GroupExecute, OtherRead, OtherExecute'
 $text = [IO.UnixFileMode]'UserRead, UserWrite, GroupRead, OtherRead'
 $entries = @(
-    @{ Name = 'obm'; Path = Join-Path $Publish 'bin/obm'; Mode = $program }
+    @{ Name = 'obm'; Path = Join-Path $Publish 'obm'; Mode = $program }
     @{ Name = 'obmd'; Path = Join-Path $Publish 'obmd'; Mode = $program }
     @{ Name = 'LICENSE'; Path = Join-Path $root 'LICENSE'; Mode = $text }
 )

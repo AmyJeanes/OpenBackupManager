@@ -33,8 +33,18 @@ public class StatusTests
             Assert.That(output, Does.Contain("The engine is running"));
             Assert.That(output, Does.Contain("Version: " + typeof(Status).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion));
             Assert.That(output, Does.Contain("Process: " + daemon.Id.ToString(CultureInfo.InvariantCulture)));
+            Assert.That(output, Does.Contain("Started by: you or another program"));
             Assert.That(output, Does.Contain("Home: " + _home));
         }
+    }
+
+    [Test]
+    public void SaysTheAppStartedIt()
+    {
+        using var daemon = Tool.Start("obmd", "--home", _home, "--started-by", "app");
+        daemon.WaitFor("started, process");
+
+        Assert.That(Tool.Run("obm", "status", "--home", _home).Output, Does.Contain("Started by: the app"));
     }
 
     [Test]

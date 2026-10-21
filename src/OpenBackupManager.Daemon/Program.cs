@@ -13,17 +13,17 @@ var homeOption = new Option<string>("--home")
     HelpName = "folder",
 };
 
-// The tray app starts it with this, so its Quit stops only an engine it started
-var startedByAppOption = new Option<bool>("--started-by-app") { Hidden = true };
+// The tray app starts it with app, so its Quit stops only an engine it started, and obm service install with service
+var startedByOption = new Option<EngineStarter>("--started-by") { Hidden = true };
 
 var command = new RootCommand("Open Backup Manager's engine, in the foreground with no UI. obm and the app talk to it, and one runs for each home")
 {
     homeOption,
-    startedByAppOption,
+    startedByOption,
 };
 command.SetAction((parseResult, cancellationToken) => RunAsync(
     AppHome.CommandLinePaths(parseResult.GetValue(homeOption), Installed),
-    parseResult.GetValue(startedByAppOption),
+    parseResult.GetValue(startedByOption),
     cancellationToken));
 
 // The host handles Ctrl+C and SIGTERM itself. System.CommandLine's own handling would end the process if stopping took
@@ -31,7 +31,7 @@ command.SetAction((parseResult, cancellationToken) => RunAsync(
 // crash, so it's reported
 return await command.Parse(args).InvokeAsync(new InvocationConfiguration { ProcessTerminationTimeout = null, EnableDefaultExceptionHandler = false });
 
-static async Task<int> RunAsync(AppPaths paths, bool startedByApp, CancellationToken cancellationToken)
+static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, CancellationToken cancellationToken)
 {
     if (OperatingSystem.IsWindows() && RunningAs.AdministratorWithNormalTokenToo())
     {
@@ -52,7 +52,7 @@ static async Task<int> RunAsync(AppPaths paths, bool startedByApp, CancellationT
         return 1;
     }
 
-    using var host = EngineHost.Build(paths, startedByApp);
+    using var host = EngineHost.Build(paths, startedBy);
     var crashes = host.Services.GetRequiredService<CrashCapture>();
     crashes.Start();
     using var shutdownHandler = OperatingSystem.IsWindows() ? new WindowsShutdownHandler(host) : null;

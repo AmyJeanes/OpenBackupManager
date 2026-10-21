@@ -10,14 +10,17 @@ internal static class Status
     // Long enough for an engine that's just starting
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
 
-    public static async Task<int> RunAsync(AppPaths paths, CancellationToken cancellationToken)
+    // The service, on macOS and Linux, is only for saying when it should have started the engine
+    public static async Task<int> RunAsync(AppPaths paths, EngineService? service, CancellationToken cancellationToken)
     {
         try
         {
             using var engine = await EngineClient.ConnectAsync(paths, Timeout, cancellationToken);
             if (engine is null)
             {
-                await Console.Error.WriteLineAsync("obm: the engine isn't running");
+                await Console.Error.WriteLineAsync(service is { IsInstalled: true }
+                    ? $"obm: the engine isn't running, though it's installed as a service. {service.HowToCheck} might say why"
+                    : "obm: the engine isn't running");
                 return 1;
             }
 
@@ -26,6 +29,7 @@ internal static class Status
             Console.WriteLine($"  Version: {status.Version}");
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  Process: {status.ProcessId}"));
             Console.WriteLine($"  Up for: {Uptime(DateTimeOffset.UtcNow - status.Started)}");
+            Console.WriteLine("  Started by: " + StartedBy(status.StartedBy));
             if (status.Config == status.State)
             {
                 Console.WriteLine($"  Home: {status.Config}");
@@ -44,6 +48,13 @@ internal static class Status
             return 1;
         }
     }
+
+    private static string StartedBy(EngineStarter starter) => starter switch
+    {
+        EngineStarter.App => "the app, which stops it when you quit",
+        EngineStarter.Service => "its service, from obm service install",
+        _ => "you or another program",
+    };
 
     // Such as 2d 3h 4m 5s, from the first part that isn't zero
     internal static string Uptime(TimeSpan up)

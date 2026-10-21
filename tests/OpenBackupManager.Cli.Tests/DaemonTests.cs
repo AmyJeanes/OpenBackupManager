@@ -57,13 +57,14 @@ public class DaemonTests
         }
     }
 
-    // Only the tray app uses it
-    [Test]
-    public void StartedByApp_Runs_ButIsntListed()
+    // Only the tray app and obm service install use it
+    [TestCase("app")]
+    [TestCase("service")]
+    public void StartedBy_Runs_ButIsntListed(string startedBy)
     {
-        Daemon(NewHome(), "--started-by-app").WaitFor(Started);
+        Daemon(NewHome(), "--started-by", startedBy).WaitFor(Started);
 
-        Assert.That(Tool.Run("obmd", "--help").Output, Does.Not.Contain("--started-by-app"));
+        Assert.That(Tool.Run("obmd", "--help").Output, Does.Not.Contain("--started-by"));
     }
 
     [Test]

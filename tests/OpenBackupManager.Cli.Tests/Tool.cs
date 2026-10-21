@@ -40,7 +40,7 @@ internal sealed class Tool : IDisposable
     {
         var file = OperatingSystem.IsWindows() ? name + ".exe" : name;
         var path = Published is null ? Path.Combine(AppContext.BaseDirectory, file)
-            : name == "obm" ? Path.Combine(Published, "bin", file)
+            : name == "obm" && OperatingSystem.IsWindows() ? Path.Combine(Published, "bin", file)
             : Path.Combine(Published, file);
         var start = new ProcessStartInfo(path, args)
         {
