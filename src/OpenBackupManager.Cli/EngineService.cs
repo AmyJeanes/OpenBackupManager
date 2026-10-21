@@ -9,7 +9,6 @@ namespace OpenBackupManager.Cli;
 // home has its own, so homes run side by side as they do by hand
 internal abstract class EngineService(string? home, string obmd, Func<string, string?> environment)
 {
-
     // Null for the OS's usual folders
     public string? Home { get; } = home is null ? null : Path.TrimEndingDirectorySeparator(home);
 
@@ -48,7 +47,7 @@ internal abstract class EngineService(string? home, string obmd, Func<string, st
     // A service gets none of the shell's environment, so it's given the folders obm uses here, or the engine would keep
     // its files somewhere else. A home has everything in it
     protected IEnumerable<(string Name, string Value)> Variables(params string[] names) =>
-        Home is not null ? [] : names.Select(name => (name, Environment(name))).Where(variable => !string.IsNullOrEmpty(variable.Item2)).Select(variable => (variable.name, variable.Item2!));
+        Home is not null ? [] : names.Where(name => !string.IsNullOrEmpty(Environment(name))).Select(name => (name, Environment(name)!));
 
     protected static void Run(string program, params string[] arguments)
     {

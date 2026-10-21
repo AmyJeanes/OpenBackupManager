@@ -19,7 +19,9 @@
 | Command | What it does |
 | --- | --- |
 | `obm --version` | Shows the version. |
-| `obm status` | Shows whether the engine is running, and if so its version, process ID, how long it's been up and its data folder. Exits with 1 if it isn't running. |
+| `obm status` | Shows whether the engine is running, and if so its version, process ID, how long it's been up, what started it and its data folder. Exits with 1 if it isn't running. |
+| `obm service install` | macOS and Linux: starts the engine now and whenever you sign in, and again if it fails. See [The engine](#the-engine). |
+| `obm service uninstall` | macOS and Linux: stops the engine, and stops it starting when you sign in. |
 | `obm --help` | Lists the commands, and `obm <command> --help` describes one. |
 
 ## The engine
@@ -28,15 +30,23 @@
 
 === "Windows"
 
-    The app starts the engine itself when it isn't running, and stops it when you quit the app. So `obmd` isn't on your PATH: it's in `%LocalAppData%\OpenBackupManager.App\current`. If you started the engine yourself, such as at sign-in with Task Scheduler, the app uses that one and leaves it running when you quit.
+    The app starts the engine itself when it isn't running, and stops it when you quit the app. So `obmd` isn't on your PATH: it's in `%LocalAppData%\OpenBackupManager.App\current`. If you started the engine yourself, the app uses that one and leaves it running when you quit.
+
+    To run the engine without the app, such as at sign-in, add `obmd` to Task Scheduler, with a trigger of At log on. It runs in a console window, and closing the window stops it. `obm service install` is only for macOS and Linux, since on Windows the app does its job.
 
 === "macOS"
 
-    There's no app yet to start the engine for you, so start `obmd` yourself, such as in a terminal you leave open. Nothing starts it again if it stops.
+    There's no app yet to start the engine for you. `obm service install` starts it now and whenever you sign in, through launchd, and starts it again if it fails. It runs until you sign out, and `obm service uninstall` stops it and takes it off. Or start `obmd` yourself, such as in a terminal you leave open.
+
+    If you've moved `obm` and `obmd` since, run `obm service install` again. With `--home`, each folder gets its own.
 
 === "Linux"
 
-    There's no app yet to start the engine for you, so start `obmd` yourself, such as in a terminal you leave open. Nothing starts it again if it stops.
+    There's no app yet to start the engine for you. `obm service install` starts it now and whenever you sign in, as a systemd user service, and starts it again if it fails. `obm service uninstall` stops it and takes it off. Or start `obmd` yourself, such as in a terminal you leave open.
+
+    The service runs while you're signed in. To keep it running when you're not, as on a server, turn on lingering with `loginctl enable-linger`. `systemctl --user status openbackupmanager` shows how it's doing, and `journalctl --user -u openbackupmanager` what it printed.
+
+    If you've moved `obm` and `obmd` since, run `obm service install` again. With `--home`, each folder gets its own.
 
 ## Running as administrator or root
 
