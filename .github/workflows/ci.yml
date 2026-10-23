@@ -420,7 +420,7 @@ jobs:
           # The images run on x64 whatever they build for, and the Arm64 build is checked through QEMU
           - runtime: linux-x64
             platform: linux/amd64
-            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-amd64@sha256:825fdca697eabeb0404e07a9d2c08edf2f89dfb39d161efb002fca7ca7484de2
+            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-amd64@sha256:c7566e15d7265673e414b7db7a199be0da2178b96ef7ed8b553ee698ff7e2a84
             sysroot: /crossrootfs/x64
           - runtime: linux-arm64
             platform: linux/arm64
