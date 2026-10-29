@@ -480,7 +480,7 @@ jobs:
       - name: Check it runs on older distros
         env:
           DEBIAN: debian:12-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
-          RHEL: registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:6f3a78179e0b30b930a186e7f68a4af52e51bb82406c9653be10bddd624e40f5
+          RHEL: registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:bba2b4bbf0ed15cfe7dd72a1e17ae7d2015a141f306b304e1a2785c41400e39c
         run: |
           check() {
               docker run --rm --platform ${{ matrix.platform }} --volume "$PWD:/source:ro" --workdir /source "$1" \
