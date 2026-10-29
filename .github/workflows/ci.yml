@@ -424,7 +424,7 @@ jobs:
             sysroot: /crossrootfs/x64
           - runtime: linux-arm64
             platform: linux/arm64
-            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-arm64@sha256:b3581941f7fdcff15c8c1235d4017921b6348c0fb92daff73afa334dd5102eb3
+            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-arm64@sha256:4ac620cdea9d178c42b293786065ef19c8df93e4175d49e014fb1ef2f6f58c09
             sysroot: /crossrootfs/arm64
     defaults:
       run:
