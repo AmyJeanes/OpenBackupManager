@@ -10,11 +10,11 @@
 
 === "macOS"
 
-    Nothing updates itself on macOS yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again, or if you used `obm service install`, run it again.
+    Nothing updates itself on macOS yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again. If you used `obm service install`, run it again to restart the engine on the new version.
 
 === "Linux"
 
-    Nothing updates itself on Linux yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again, or if you used `obm service install`, run it again.
+    Nothing updates itself on Linux yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again. If you used `obm service install`, run it again to restart the engine on the new version.
 
 ## Test versions
 
