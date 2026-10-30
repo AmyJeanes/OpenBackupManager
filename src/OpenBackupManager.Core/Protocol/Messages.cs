@@ -8,8 +8,7 @@ namespace OpenBackupManager.Core.Protocol;
 // first, and the engine refuses a client whose protocol isn't its own
 public static class EngineProtocol
 {
-    // Goes up when a change would be misread by the other side, once there are releases people use. Until then,
-    // changes are made in place
+    // Goes up when a change would be misread by the other side
     public const int Version = 1;
 
     public const string Hello = "hello";

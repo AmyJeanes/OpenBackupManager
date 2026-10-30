@@ -14,7 +14,7 @@ var statusCommand = new Command("status", "Show whether the engine is running, a
 statusCommand.SetAction((parseResult, cancellationToken) =>
     RefuseUnderSudo() ?? Status.RunAsync(Paths(parseResult), ServiceFor(parseResult), cancellationToken));
 
-var installCommand = new Command("install", "Start the engine now and whenever you sign in, and again if it fails");
+var installCommand = new Command("install", "Start the engine now and whenever you sign in, and restart if it fails");
 installCommand.SetAction((parseResult, cancellationToken) =>
     RefuseUnderSudo() ?? (ServiceFor(parseResult) is { } service ? Service.InstallAsync(Paths(parseResult), service, cancellationToken) : OnWindows()));
 
