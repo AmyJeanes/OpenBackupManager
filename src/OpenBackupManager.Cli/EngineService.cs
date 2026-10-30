@@ -34,7 +34,7 @@ internal abstract class EngineService(string? home, string obmd, Func<string, st
     {
         var obmd = Path.Combine(AppContext.BaseDirectory, "obmd");
         return OperatingSystem.IsMacOS() ? new LaunchAgent(home, obmd, System.Environment.GetEnvironmentVariable)
-            : OperatingSystem.IsLinux() ? new SystemdService(home, obmd, System.Environment.GetEnvironmentVariable)
+            : OperatingSystem.IsLinux() ? new SystemdService(home, obmd, System.Environment.GetEnvironmentVariable, SystemdService.SystemdEnvironment())
             : null;
     }
 

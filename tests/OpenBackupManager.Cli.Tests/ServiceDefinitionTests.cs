@@ -14,15 +14,18 @@ public class ServiceDefinitionTests
         ["XDG_STATE_HOME"] = "/home/amy/state",
     };
 
+    // systemd's own, with none of the shell's XDG folders
+    private static readonly Dictionary<string, string> Systemd = new() { ["HOME"] = "/home/amy" };
+
     [Test]
     public void Systemd_StartsTheEngine_WithTheShellsFolders()
     {
-        var service = new SystemdService(null, Obmd, Shell.GetValueOrDefault);
+        var service = new SystemdService(null, Obmd, Shell.GetValueOrDefault, Systemd.GetValueOrDefault);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(service.Unit, Is.EqualTo("openbackupmanager.service"));
-            Assert.That(service.File, Is.EqualTo(Path.Combine("/home/amy/dotfiles", "systemd", "user", "openbackupmanager.service")));
+            Assert.That(service.File, Is.EqualTo(Path.Combine("/home/amy", ".config", "systemd", "user", "openbackupmanager.service")));
             Assert.That(Lines(service.Definition()), Does.Contain("ExecStart=\"/opt/obm/obmd\" \"--started-by\" \"service\""));
             Assert.That(Lines(service.Definition()), Does.Contain("Environment=\"XDG_CONFIG_HOME=/home/amy/dotfiles\""));
             Assert.That(Lines(service.Definition()), Does.Contain("Environment=\"XDG_STATE_HOME=/home/amy/state\""));
@@ -36,7 +39,7 @@ public class ServiceDefinitionTests
     [Test]
     public void Systemd_QuotesAHome()
     {
-        var service = new SystemdService(@"/home/amy/100% ""backups"" $HOME\x", Obmd, Shell.GetValueOrDefault);
+        var service = new SystemdService(@"/home/amy/100% ""backups"" $HOME\x", Obmd, Shell.GetValueOrDefault, Systemd.GetValueOrDefault);
 
         using (Assert.EnterMultipleScope())
         {
@@ -48,12 +51,27 @@ public class ServiceDefinitionTests
         }
     }
 
+    // Where systemd will find it, whatever the shell says
     [Test]
-    public void Systemd_WithoutXdgConfigHome_UsesDotConfig()
+    public void Systemd_PutsTheUnit_InSystemdsOwnConfigFolder()
     {
-        var service = new SystemdService(null, Obmd, new Dictionary<string, string> { ["HOME"] = "/home/amy" }.GetValueOrDefault);
+        var systemd = new Dictionary<string, string> { ["XDG_CONFIG_HOME"] = "/home/amy/systemd-config" };
+        var service = new SystemdService(null, Obmd, Shell.GetValueOrDefault, systemd.GetValueOrDefault);
 
-        Assert.That(service.File, Is.EqualTo(Path.Combine("/home/amy", ".config", "systemd", "user", "openbackupmanager.service")));
+        Assert.That(service.File, Is.EqualTo(Path.Combine("/home/amy/systemd-config", "systemd", "user", "openbackupmanager.service")));
+    }
+
+    [Test]
+    public void Systemd_ReadsItsOwnEnvironment()
+    {
+        var variables = SystemdService.ParseEnvironment("HOME=/home/amy\nLANG=en_GB.UTF-8\nXDG_CONFIG_HOME=/home/amy/a=b\n\n");
+
+        Assert.That(variables, Is.EqualTo(new Dictionary<string, string>
+        {
+            ["HOME"] = "/home/amy",
+            ["LANG"] = "en_GB.UTF-8",
+            ["XDG_CONFIG_HOME"] = "/home/amy/a=b",
+        }));
     }
 
     [Test]
@@ -95,7 +113,7 @@ public class ServiceDefinitionTests
     [Test]
     public void EachHome_HasItsOwn()
     {
-        static string Unit(string? home) => new SystemdService(home, Obmd, Shell.GetValueOrDefault).Unit;
+        static string Unit(string? home) => new SystemdService(home, Obmd, Shell.GetValueOrDefault, Systemd.GetValueOrDefault).Unit;
 
         using (Assert.EnterMultipleScope())
         {
