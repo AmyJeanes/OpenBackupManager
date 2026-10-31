@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Protocol;
 using Serilog;
 using Serilog.Events;
 
@@ -9,13 +10,13 @@ namespace OpenBackupManager.Engine;
 
 public static class EngineHost
 {
-    public static IHost Build(AppPaths paths, bool startedByApp = false)
+    public static IHost Build(AppPaths paths, EngineStarter startedBy = EngineStarter.Other)
     {
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         builder.Services
             .AddSingleton(paths)
-            .AddSingleton(new EngineOptions(startedByApp))
+            .AddSingleton(new EngineOptions(startedBy))
             .AddSingleton(TimeProvider.System)
             .AddSingleton(services => new CrashReports(paths, services.GetRequiredService<TimeProvider>(), CrashReports.Engine))
             .AddSingleton<CrashCapture>()

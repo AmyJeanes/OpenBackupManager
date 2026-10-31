@@ -3,9 +3,9 @@
 Publishes the Windows app, obmd and obm into one folder, laid out as they're installed.
 
 .DESCRIPTION
-Each is compiled ahead of time with NativeAOT. The app and obmd go in the folder, and obm alone in its bin folder, which
-installing adds to PATH. On macOS and Linux, only obmd and obm. CI's package and test jobs and Publish-TestUpdate.ps1
-publish with it.
+Each is compiled ahead of time with NativeAOT. On Windows, the app and obmd go in the folder, and obm alone in its bin
+folder, which installing adds to PATH. On macOS and Linux, obm and obmd go side by side, as the tarball has them. CI's
+package and test jobs and Publish-TestUpdate.ps1 publish with it.
 
 .EXAMPLE
 ./tools/Publish-App.ps1 -Output publish -Version 0.1.0
@@ -51,4 +51,4 @@ if ($IsWindows) {
     Publish 'OpenBackupManager.App.Windows' $Output
 }
 Publish 'OpenBackupManager.Daemon' $Output
-Publish 'OpenBackupManager.Cli' (Join-Path $Output 'bin')
+Publish 'OpenBackupManager.Cli' ($IsWindows ? (Join-Path $Output 'bin') : $Output)

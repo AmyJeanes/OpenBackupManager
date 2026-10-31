@@ -48,7 +48,7 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
         {
             using var timeout = new CancellationTokenSource(StopTimeout);
             var status = await engine.StatusAsync(timeout.Token);
-            if (!status.StartedByApp && !updating)
+            if (status.StartedBy != EngineStarter.App && !updating)
             {
                 LogLeftRunning();
                 return;
@@ -189,7 +189,7 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
     {
         var obmd = Path.Combine(AppContext.BaseDirectory, "obmd.exe");
         LogStarting(obmd);
-        return Process.Start(new ProcessStartInfo(obmd, $"--home \"{_home}\" --started-by-app")
+        return Process.Start(new ProcessStartInfo(obmd, $"--home \"{_home}\" --started-by app")
         {
             UseShellExecute = true,
             WindowStyle = ProcessWindowStyle.Hidden,

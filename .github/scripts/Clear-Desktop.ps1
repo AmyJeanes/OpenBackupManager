@@ -50,3 +50,8 @@ do {
 } while ($foreground -in $leftovers + $flyouts -and (Get-Date) -lt $deadline)
 
 Write-Host "In front: $foreground"
+
+# Windows sometimes warns that it made a temporary paging file, from a dialog that can open minutes into the job and
+# take the foreground mid-test, so it's closed whenever it opens until the job ends and the runner stops this
+Start-Process pwsh -WindowStyle Hidden -ArgumentList '-NoProfile', '-Command',
+    'while ($true) { Get-Process SystemPropertiesPerformance -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1 }'

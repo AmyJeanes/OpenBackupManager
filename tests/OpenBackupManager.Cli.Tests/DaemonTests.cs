@@ -57,13 +57,14 @@ public class DaemonTests
         }
     }
 
-    // Only the tray app uses it
-    [Test]
-    public void StartedByApp_Runs_ButIsntListed()
+    // Only the tray app and obm service install use it
+    [TestCase("app")]
+    [TestCase("service")]
+    public void StartedBy_Runs_ButIsntListed(string startedBy)
     {
-        Daemon(NewHome(), "--started-by-app").WaitFor(Started);
+        Daemon(NewHome(), "--started-by", startedBy).WaitFor(Started);
 
-        Assert.That(Tool.Run("obmd", "--help").Output, Does.Not.Contain("--started-by-app"));
+        Assert.That(Tool.Run("obmd", "--help").Output, Does.Not.Contain("--started-by"));
     }
 
     [Test]
@@ -104,6 +105,27 @@ public class DaemonTests
         {
             Assert.That(daemon.WaitForExit(), Is.Zero);
             Assert.That(daemon.Output, Does.Contain("Engine stopped"));
+        }
+    }
+
+    [Test]
+    public void AHomeThatsAFile_SaysWhy()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "obm-tests-" + Guid.NewGuid().ToString("N")[..8]);
+        File.WriteAllText(home, "");
+        try
+        {
+            var (exitCode, output) = Tool.Run("obmd", "--home", home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.Contain("obmd: the engine can't keep its state in " + home));
+            }
+        }
+        finally
+        {
+            File.Delete(home);
         }
     }
 

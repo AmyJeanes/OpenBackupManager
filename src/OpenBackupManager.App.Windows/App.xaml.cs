@@ -39,6 +39,9 @@ public sealed partial class App : Application
         var crashes = _services.GetRequiredService<CrashReports>();
         var actions = _services.GetRequiredService<AppActions>();
         var engine = _services.GetRequiredService<EngineConnection>();
+        // Taken before the engine starts. The engine the last run started is usually still running and reached at once,
+        // and reaching it could otherwise take this report first, before startup gets to showing it
+        var crash = crashes.TakeNew();
         // An engine that crashed while the app was running has a report by the time the app reaches it again, written
         // as it crashed, or by the engine started after it from what Windows recorded
         engine.Connected += (_, _) =>
@@ -51,7 +54,7 @@ public sealed partial class App : Application
         engine.Start();
         _ = _services.GetRequiredService<SessionEnd>();
         _ = _services.GetRequiredService<ConfigNotices>();
-        if (crashes.TakeNew() is { } crash)
+        if (crash is not null)
         {
             actions.ShowCrash(crash);
         }

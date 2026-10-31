@@ -26,13 +26,13 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
         tar -xzf ~/Downloads/OpenBackupManager-<version>-osx-arm64.tar.gz -C ~/.local/bin obm obmd
         ```
 
-        On an Intel Mac, unpack `OpenBackupManager-<version>-osx-x64.tar.gz` instead. If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` and open a new terminal.
+        On an Intel Mac, unpack `OpenBackupManager-<version>-osx-x64.tar.gz` instead. If macOS asks whether Terminal can access your Downloads folder, allow it. If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` and open a new terminal.
 
-    3. Start the engine with `obmd`. See [The engine](command-line.md#the-engine).
+    3. Start the engine with `obm service install`, which keeps it running from when you sign in, or with `obmd` in a terminal. See [The engine](command-line.md#the-engine).
 
     !!! warning "If macOS won't open them"
 
-        A browser marks what it downloads as quarantined, and macOS won't run a quarantined program that isn't signed by Apple, which these aren't yet. If it says it can't check `obm` or `obmd` for malicious software, remove the quarantine:
+        A browser marks what it downloads as quarantined, and macOS won't run a quarantined program that isn't signed by Apple, which these aren't yet. If it says "“obm” Not Opened", as Apple could not verify it's free of malware, remove the quarantine:
 
         ```
         xattr -d com.apple.quarantine ~/.local/bin/obm ~/.local/bin/obmd
@@ -64,7 +64,7 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
         On an Arm computer, unpack `OpenBackupManager-<version>-linux-arm64.tar.gz` instead. If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and open a new terminal.
 
-    3. Start the engine with `obmd`. See [The engine](command-line.md#the-engine).
+    3. Start the engine with `obm service install`, which keeps it running from when you sign in, or with `obmd` in a terminal. See [The engine](command-line.md#the-engine).
 
     They need ICU, a library for text in every language, which desktop distros already have. On a minimal or server install, add it with your package manager, such as `sudo apt install libicu72` on Debian 12 or `sudo dnf install libicu` on Fedora and RHEL. Each build is checked on Debian 12 and RHEL 9, and should run on anything newer.
 
@@ -106,11 +106,11 @@ The engine does the work in the background, and `obm`, the command line, talks t
 
 === "macOS"
 
-    There's no tray app yet, so you start the engine yourself. See [The engine](command-line.md#the-engine).
+    There's no tray app yet, so you start the engine yourself, or have `obm service install` keep it running. See [The engine](command-line.md#the-engine).
 
 === "Linux"
 
-    There's no tray app yet, so you start the engine yourself. See [The engine](command-line.md#the-engine).
+    There's no tray app yet, so you start the engine yourself, or have `obm service install` keep it running. See [The engine](command-line.md#the-engine).
 
 ??? question "Do I need to run it as administrator?"
 

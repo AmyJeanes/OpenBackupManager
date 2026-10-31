@@ -22,7 +22,7 @@ $ErrorActionPreference = 'Stop'
 
 $dir = if ($IsWindows) { 'C:\running-as' } else { "$env:RUNNER_TEMP/running-as" }
 $exe = if ($IsWindows) { '.exe' } else { '' }
-$obm = Join-Path $dir 'bin' "obm$exe"
+$obm = if ($IsWindows) { Join-Path $dir 'bin' 'obm.exe' } else { Join-Path $dir 'obm' }
 $obmd = Join-Path $dir "obmd$exe"
 $trayApp = Join-Path $dir 'OpenBackupManager.App.Windows.exe'
 $results = Join-Path $dir 'results.txt'

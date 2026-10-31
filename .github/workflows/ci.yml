@@ -60,6 +60,15 @@ jobs:
       - name: Test
         run: dotnet test OpenBackupManager.slnx --no-build --results-directory TestResults --logger trx
 
+      # For installing the engine as a systemd user service. The runner has no session of its own, so its systemd only
+      # runs with lingering on
+      - name: Start the runner's own systemd
+        if: runner.os == 'Linux'
+        run: |
+          sudo loginctl enable-linger "$USER"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          XDG_RUNTIME_DIR="/run/user/$(id -u)" timeout 60 systemctl --user is-system-running --wait || true
+
       # Tests that take over the desktop or change the system, which only run when picked
       - name: Test the Sandbox category
         run: dotnet test OpenBackupManager.slnx --no-build --filter TestCategory=Sandbox --results-directory TestResults --logger trx
@@ -386,7 +395,7 @@ jobs:
         with:
           subject-path: |
             publish/obmd
-            publish/bin/obm
+            publish/obm
             OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
 
       - name: Upload the edge build
@@ -495,7 +504,7 @@ jobs:
         with:
           subject-path: |
             publish/obmd
-            publish/bin/obm
+            publish/obm
             OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
 
       - name: Upload the edge build

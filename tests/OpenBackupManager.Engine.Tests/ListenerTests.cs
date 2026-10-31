@@ -50,18 +50,19 @@ public class ListenerTests
             Assert.That(status.Started, Is.InRange(before, DateTimeOffset.UtcNow));
             Assert.That(status.Config, Is.EqualTo(_home.Config));
             Assert.That(status.State, Is.EqualTo(_home.State));
-            Assert.That(status.StartedByApp, Is.False);
+            Assert.That(status.StartedBy, Is.EqualTo(EngineStarter.Other));
         }
     }
 
-    [Test]
-    public async Task Status_SaysTheAppStartedIt()
+    [TestCase(EngineStarter.App)]
+    [TestCase(EngineStarter.Service)]
+    public async Task Status_SaysWhoStartedIt(EngineStarter startedBy)
     {
-        await StartAsync(startedByApp: true);
+        await StartAsync(startedBy);
 
         using var client = await ConnectAsync();
 
-        Assert.That((await client.StatusAsync(CancellationToken.None)).StartedByApp, Is.True);
+        Assert.That((await client.StatusAsync(CancellationToken.None)).StartedBy, Is.EqualTo(startedBy));
     }
 
     [Test]
@@ -311,9 +312,9 @@ public class ListenerTests
         Assert.That(e.Message, Does.Contain("already listening"));
     }
 
-    private async Task StartAsync(bool startedByApp = false)
+    private async Task StartAsync(EngineStarter startedBy = EngineStarter.Other)
     {
-        _engine = EngineHost.Build(_home, startedByApp);
+        _engine = EngineHost.Build(_home, startedBy);
         await _engine.StartAsync();
     }
 

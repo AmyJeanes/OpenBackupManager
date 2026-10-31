@@ -18,7 +18,7 @@ public sealed class EngineTests : AppTests
     {
         WaitUntilConnected();
 
-        Assert.That(EngineStatus()?.StartedByApp, Is.True);
+        Assert.That(EngineStatus()?.StartedBy, Is.EqualTo(EngineStarter.App));
     }
 
     [Test]

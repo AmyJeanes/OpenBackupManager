@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing;
+using System.IO.Compression;
 using System.Reflection;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Capturing;
@@ -60,9 +61,9 @@ public abstract class AppTests
     [TearDown]
     public void Close()
     {
+        var failed = TestContext.CurrentContext.Result.Outcome.Status == TestStatus.Failed;
         try
         {
-            var failed = TestContext.CurrentContext.Result.Outcome.Status == TestStatus.Failed;
             if (failed)
             {
                 AttachScreenshot();
@@ -95,6 +96,11 @@ public abstract class AppTests
             _automation.Dispose();
             // The engine has its log open in the home
             StopEngine();
+            if (failed)
+            {
+                AttachHome();
+            }
+
             Directory.Delete(Home, recursive: true);
         }
     }
@@ -301,12 +307,22 @@ public abstract class AppTests
     // Saved with the test results, so a failure on CI can be seen
     private static void AttachScreenshot()
     {
-        // A test with arguments has them in its name, quotes and all, which a file name can't have
-        var name = string.Concat(TestContext.CurrentContext.Test.Name.Split(Path.GetInvalidFileNameChars()));
-        var path = Path.Combine(Path.GetTempPath(), $"{name}.png");
+        var path = Path.Combine(Path.GetTempPath(), $"{AttachmentName()}.png");
         Capture.Screen().ToFile(path);
         TestContext.AddTestAttachment(path);
     }
+
+    // With its logs and crash reports, so a failure on CI can be followed
+    private void AttachHome()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"{AttachmentName()}-home.zip");
+        File.Delete(path);
+        ZipFile.CreateFromDirectory(Home, path);
+        TestContext.AddTestAttachment(path);
+    }
+
+    // A test with arguments has them in its name, quotes and all, which a file name can't have
+    private static string AttachmentName() => string.Concat(TestContext.CurrentContext.Test.Name.Split(Path.GetInvalidFileNameChars()));
 
     // Windows are cloaked until they're drawn, and the flyout stays open but cloaked while it's hidden
     private Window WaitForWindow(Func<Window, bool> match) =>
