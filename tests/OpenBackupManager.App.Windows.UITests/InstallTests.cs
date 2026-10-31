@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.Exceptions;
 using FlaUI.Core.Tools;
 using Microsoft.Win32;
+using NUnit.Framework.Interfaces;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
 
@@ -28,6 +30,7 @@ public sealed class InstallTests : AppTests
 
     private string _releases = "";
     private string _feed = "";
+    private List<string> _registrations = [];
 
     protected override string AppPath => Path.Combine(InstallFolder, "current", "OpenBackupManager.App.Windows.exe");
 
@@ -60,6 +63,42 @@ public sealed class InstallTests : AppTests
         {
             Directory.Delete(_feed, recursive: true);
         }
+    }
+
+    // What installing and uninstalling left, so a failure on CI can be followed: Velopack's logs, which of the app's
+    // notification registrations remain, and Windows' own store of notifications
+    [TearDown]
+    public void AttachWindowsState()
+    {
+        if (TestContext.CurrentContext.Result.Outcome.Status != TestStatus.Failed)
+        {
+            return;
+        }
+
+        var folder = Directory.CreateTempSubdirectory("obm-install-state-").FullName;
+        var options = new EnumerationOptions { RecurseSubdirectories = true, MaxRecursionDepth = 1, IgnoreInaccessible = true };
+        foreach (var root in new[] { Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Path.GetTempPath() })
+        {
+            foreach (var log in Directory.EnumerateFiles(root, "velopack*.log", options))
+            {
+                CopyOpen(log, Path.Combine(folder, Path.GetFileName(Path.GetDirectoryName(log)) + "-" + Path.GetFileName(log)));
+            }
+        }
+
+        File.WriteAllLines(
+            Path.Combine(folder, "registrations.txt"),
+            _registrations.Select(key => $"{(KeyExists(key) ? "still there" : "removed")}: {key}"));
+        var store = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "Windows", "Notifications");
+        foreach (var file in new[] { "wpndatabase.db", "wpndatabase.db-wal", "wpndatabase.db-shm" })
+        {
+            CopyOpen(Path.Combine(store, file), Path.Combine(folder, file));
+        }
+
+        var path = Path.Combine(Path.GetTempPath(), $"{TestContext.CurrentContext.Test.Name}-windows.zip");
+        File.Delete(path);
+        ZipFile.CreateFromDirectory(folder, path);
+        Directory.Delete(folder, recursive: true);
+        TestContext.AddTestAttachment(path);
     }
 
     [Test]
@@ -149,6 +188,7 @@ public sealed class InstallTests : AppTests
         Quit();
 
         var registrations = NotificationRegistrations().ToList();
+        _registrations = registrations;
         using (Assert.EnterMultipleScope())
         {
             Assert.That(registrations, Is.Not.Empty);
@@ -317,6 +357,21 @@ public sealed class InstallTests : AppTests
         }
 
         Assert.That(process.ExitCode, Is.Zero, $"{Path.GetFileName(path)} should succeed");
+    }
+
+    // Copied while whatever has it open keeps writing, as Windows does its notification store. Skipped if it's not there
+    private static void CopyOpen(string from, string to)
+    {
+        try
+        {
+            using var source = new FileStream(from, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var target = File.Create(to);
+            source.CopyTo(target);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            File.WriteAllText(to + ".error.txt", e.Message);
+        }
     }
 
     private static bool KeyExists(string path)
