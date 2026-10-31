@@ -140,6 +140,36 @@ public class ServiceTests
         }
     }
 
+    // As in most containers, or under WSL with systemd off, where systemctl is there but can't reach systemd
+    [Test]
+    [Platform("Linux")]
+    public void WithoutSystemd_SaysSo_AndLeavesNothingBehind()
+    {
+        var file = EngineService.ForThisOS(_home)!.File;
+        string[] names = ["XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"];
+        var before = names.ToDictionary(name => name, Environment.GetEnvironmentVariable);
+        Environment.SetEnvironmentVariable("XDG_RUNTIME_DIR", Path.Combine(_home, "nowhere"));
+        Environment.SetEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS", null);
+        try
+        {
+            var (exitCode, output) = Tool.Run("obm", "service", "install", "--home", _home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.Contain("systemd can't be reached"));
+                Assert.That(File.Exists(file), Is.False);
+            }
+        }
+        finally
+        {
+            foreach (var (name, value) in before)
+            {
+                Environment.SetEnvironmentVariable(name, value);
+            }
+        }
+    }
+
     [Test]
     public async Task AnEngineStoppedOnPurpose_StaysStopped()
     {

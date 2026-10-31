@@ -49,6 +49,12 @@ internal sealed class SystemdService(string? home, string obmd, Func<string, str
 
     public override void Install()
     {
+        // Checked first, so nothing is left behind that obm status would take for an installed service
+        if (!Reachable)
+        {
+            throw new ServiceException("systemd can't be reached for this user, so the engine can't be installed as a service. Where systemd isn't running, such as in most containers, start obmd yourself instead");
+        }
+
         Directory.CreateDirectory(Path.GetDirectoryName(File)!);
         System.IO.File.WriteAllText(File, Definition());
         Run("systemctl", "--user", "daemon-reload");
@@ -57,11 +63,36 @@ internal sealed class SystemdService(string? home, string obmd, Func<string, str
         Run("systemctl", "--user", "restart", Unit);
     }
 
+    // Without systemd, there's no engine it started to stop
     public override void Uninstall()
     {
-        Run("systemctl", "--user", "disable", "--now", Unit);
+        var reachable = Reachable;
+        if (reachable)
+        {
+            Run("systemctl", "--user", "disable", "--now", Unit);
+        }
+
         System.IO.File.Delete(File);
-        Run("systemctl", "--user", "daemon-reload");
+        if (reachable)
+        {
+            Run("systemctl", "--user", "daemon-reload");
+        }
+    }
+
+    // The user's own systemd, which isn't running in most containers, or under WSL with systemd off
+    private static bool Reachable
+    {
+        get
+        {
+            try
+            {
+                return TryRun("systemctl", "--user", "show-environment").ExitCode == 0;
+            }
+            catch (ServiceException)
+            {
+                return false;
+            }
+        }
     }
 
     // Started again if it crashes or fails, but not once it's stopped on purpose
