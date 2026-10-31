@@ -18,8 +18,9 @@ internal static class Status
             using var engine = await EngineClient.ConnectAsync(paths, Timeout, cancellationToken);
             if (engine is null)
             {
-                await Console.Error.WriteLineAsync(service is { IsInstalled: true }
-                    ? $"obm: the engine isn't running, though it's installed as a service. {service.HowToCheck} might say why"
+                await Console.Error.WriteLineAsync(
+                    service is { SwitchedOff: true } ? $"obm: the engine isn't running, as obmd is switched off in {service.WhereToSwitchOn}. Switching it on there starts it"
+                    : service is { IsInstalled: true } ? $"obm: the engine isn't running, though it's installed as a service. {service.HowToCheck} might say why"
                     : "obm: the engine isn't running");
                 return 1;
             }

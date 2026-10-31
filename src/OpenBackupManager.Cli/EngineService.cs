@@ -25,6 +25,11 @@ internal abstract class EngineService(string? home, string obmd, Func<string, st
     // Whether the service manager has stopped starting an engine that keeps failing. launchd never does
     public virtual bool HasGivenUp => false;
 
+    // Whether the user has switched it off in the OS's settings, which only macOS has, in WhereToSwitchOn
+    public virtual bool SwitchedOff => false;
+
+    public virtual string? WhereToSwitchOn => null;
+
     protected Func<string, string?> Environment { get; } = environment;
 
     // Named from the home's path, so each home's is found again from the same --home

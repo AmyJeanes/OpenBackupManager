@@ -38,6 +38,8 @@
 
     There's no app yet to start the engine for you. `obm service install` starts it now and whenever you sign in, through launchd, and starts it again if it fails. It runs until you sign out, and `obm service uninstall` stops it and takes it off. Or start `obmd` yourself, such as in a terminal you leave open.
 
+    macOS tells you it's added a background item, and lists it as `obmd` under Allow in the Background, in System Settings > General > Login Items & Extensions. Switching it off there stops the engine and keeps it from starting, and switching it on starts it again.
+
     If you've moved `obm` and `obmd` since, run `obm service install` again. With `--home`, each folder gets its own.
 
 === "Linux"

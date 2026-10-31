@@ -31,7 +31,11 @@ internal static class Service
                 throw new ServiceException($"the service didn't start the engine. {service.HowToCheck} might say why");
             }
 
-            if (service is SystemdService && SystemdService.Lingering)
+            if (service.SwitchedOff)
+            {
+                Console.WriteLine($"The engine is running, but won't start when you sign in, as obmd is switched off in {service.WhereToSwitchOn}");
+            }
+            else if (service is SystemdService && SystemdService.Lingering)
             {
                 Console.WriteLine("The engine is running, and starts whenever the computer does");
             }
