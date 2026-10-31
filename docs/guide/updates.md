@@ -10,7 +10,7 @@
 
 === "macOS"
 
-    Nothing updates itself on macOS yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again. If you used `obm service install`, run it again to restart the engine on the new version.
+    Nothing updates itself on macOS yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again. If you downloaded it in a browser, remove the quarantine again first, as each download is quarantined. If you used `obm service install`, run it again to restart the engine on the new version.
 
 === "Linux"
 
