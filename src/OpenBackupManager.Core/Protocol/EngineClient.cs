@@ -57,11 +57,11 @@ public sealed class EngineClient : IDisposable
                 "The engine running for this home was started by another user or as administrator, so it can't be reached from here",
                 e);
         }
-        // On macOS and Linux, when a folder on the way to the socket isn't this user's to open
-        catch (SocketException e) when (e.SocketErrorCode == SocketError.AccessDenied)
+        // On macOS and Linux, when something on the way to the socket isn't a folder this user can open
+        catch (SocketException e)
         {
             await pipe.DisposeAsync();
-            throw new EngineException($"Permission was denied to {EngineSocket.Name(paths)}, so the engine can't be reached", e);
+            throw new EngineException($"Can't open {EngineSocket.Name(paths)} to reach the engine. Check each folder on the way to it is a folder you own", e);
         }
         catch
         {

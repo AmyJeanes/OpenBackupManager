@@ -45,6 +45,17 @@ static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, Cancell
         return 1;
     }
 
+    // Made first so one it can't make is explained, such as when a file has its name, rather than crashing it
+    try
+    {
+        Directory.CreateDirectory(paths.State);
+    }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+    {
+        await Console.Error.WriteLineAsync($"obmd: the engine can't keep its state in {paths.State}. {e.Message}");
+        return 1;
+    }
+
     using var engineLock = ProcessLock.TryTake("engine", paths);
     if (engineLock is null)
     {

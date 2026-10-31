@@ -125,23 +125,18 @@ public class ServiceTests
     [Platform("Linux")]
     public void AnEngineThatCantStart_IsReported_OnceSystemdGivesUp()
     {
-        // Too long for a socket, so the engine exits as it starts, every time
-        var home = Path.Combine(_home, new string('a', 120));
-        try
-        {
-            var watch = Stopwatch.StartNew();
-            var (exitCode, output) = Tool.Run("obm", "service", "install", "--home", home);
+        // Held here, so each engine the service starts finds it taken and exits, without ever listening
+        Directory.CreateDirectory(_home);
+        using var engineLock = new FileStream(Path.Combine(_home, "engine.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        var watch = Stopwatch.StartNew();
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(exitCode, Is.EqualTo(1));
-                Assert.That(output, Does.Contain("didn't start the engine").And.Contain(EngineService.ForThisOS(home)!.HowToCheck));
-                Assert.That(watch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(20)));
-            }
-        }
-        finally
+        var (exitCode, output) = Tool.Run("obm", "service", "install", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
         {
-            Tool.Run("obm", "service", "uninstall", "--home", home);
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Does.Contain("didn't start the engine").And.Contain(EngineService.ForThisOS(_home)!.HowToCheck));
+            Assert.That(watch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(20)));
         }
     }
 

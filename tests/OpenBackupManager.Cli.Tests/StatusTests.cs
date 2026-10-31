@@ -93,13 +93,35 @@ public class StatusTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(exitCode, Is.EqualTo(1));
-                Assert.That(output, Does.Contain("Permission was denied to " + Path.Combine(_home, "run", "engine.sock")));
+                Assert.That(output, Does.Contain("Can't open " + Path.Combine(_home, "run", "engine.sock")));
                 Assert.That(output, Does.Not.Contain("Unhandled exception"));
             }
         }
         finally
         {
             File.SetUnixFileMode(_home, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void AHomeThatsAFile_SaysSo()
+    {
+        File.WriteAllText(_home, "");
+        try
+        {
+            var (exitCode, output) = Tool.Run("obm", "status", "--home", _home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.Contain("Can't open " + Path.Combine(_home, "run", "engine.sock")));
+                Assert.That(output, Does.Not.Contain("Unhandled exception"));
+            }
+        }
+        finally
+        {
+            File.Delete(_home);
         }
     }
 

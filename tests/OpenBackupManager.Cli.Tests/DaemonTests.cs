@@ -109,6 +109,27 @@ public class DaemonTests
     }
 
     [Test]
+    public void AHomeThatsAFile_SaysWhy()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "obm-tests-" + Guid.NewGuid().ToString("N")[..8]);
+        File.WriteAllText(home, "");
+        try
+        {
+            var (exitCode, output) = Tool.Run("obmd", "--home", home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.Contain("obmd: the engine can't keep its state in " + home));
+            }
+        }
+        finally
+        {
+            File.Delete(home);
+        }
+    }
+
+    [Test]
     [Platform(Exclude = "Win")]
     public void AHomeTooLongForItsSocket_SaysWhy()
     {
