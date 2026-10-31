@@ -119,10 +119,79 @@ public class ServiceTests
         }
     }
 
+    [Test]
+    public async Task AnEngineStoppedOnPurpose_StaysStopped()
+    {
+        Assert.That(Tool.Run("obm", "service", "install", "--home", _home).ExitCode, Is.Zero);
+
+        await StopAsync();
+        // Longer than launchd waits between starts
+        await Task.Delay(TimeSpan.FromSeconds(15));
+
+        Assert.That(await StatusAsync(), Is.Null);
+    }
+
+    [Test]
+    public async Task Status_WhenTheServiceIsntRunningTheEngine_SaysWhereToLook()
+    {
+        Assert.That(Tool.Run("obm", "service", "install", "--home", _home).ExitCode, Is.Zero);
+        await StopAsync();
+
+        var (exitCode, output) = Tool.Run("obm", "status", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Does.Contain("installed as a service").And.Contain(EngineService.ForThisOS(_home)!.HowToCheck));
+        }
+    }
+
+    // The usual folders, from XDG folders set only in the shell, which the service doesn't get on its own
+    [Test]
+    public async Task WithoutAHome_TheEngineUsesTheShellsFolders()
+    {
+        string[] names = ["XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"];
+        var before = names.ToDictionary(name => name, Environment.GetEnvironmentVariable);
+        foreach (var name in names)
+        {
+            Environment.SetEnvironmentVariable(name, Path.Combine(_home, name));
+        }
+
+        try
+        {
+            var (exitCode, output) = Tool.Run("obm", "service", "install");
+            var paths = AppPaths.ForThisOS();
+            var status = await StatusAsync(paths);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.Zero, output);
+                Assert.That(File.Exists(EngineService.ForThisOS(null)!.File), Is.True);
+                Assert.That(status?.StartedBy, Is.EqualTo(EngineStarter.Service));
+                Assert.That(status?.Config, Is.EqualTo(paths.Config));
+                Assert.That(status?.State, Is.EqualTo(paths.State));
+            }
+        }
+        finally
+        {
+            Tool.Run("obm", "service", "uninstall");
+            foreach (var (name, value) in before)
+            {
+                Environment.SetEnvironmentVariable(name, value);
+            }
+        }
+    }
+
     // Null if it isn't running
-    private async Task<StatusResult?> StatusAsync()
+    private async Task<StatusResult?> StatusAsync(AppPaths? paths = null)
+    {
+        using var engine = await EngineClient.ConnectAsync(paths ?? AppPaths.InHome(_home), TimeSpan.FromSeconds(2), CancellationToken.None);
+        return engine is null ? null : await engine.StatusAsync(CancellationToken.None);
+    }
+
+    private async Task StopAsync()
     {
         using var engine = await EngineClient.ConnectAsync(AppPaths.InHome(_home), TimeSpan.FromSeconds(2), CancellationToken.None);
-        return engine is null ? null : await engine.StatusAsync(CancellationToken.None);
+        await engine!.StopAsync(CancellationToken.None);
     }
 }
