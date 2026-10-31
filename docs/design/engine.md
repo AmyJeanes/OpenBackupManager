@@ -63,7 +63,7 @@
 - **For now, nothing updates the macOS and Linux downloads.** A new version is downloaded and unpacked over the old one by hand, until `obm update` can do it.
 - **A service runs `obmd` from where it was when it was installed,** so after moving them, `obm service install` has to be run again. Package managers that move them on each update will need theirs to point at a path that stays the same.
 - **The service keeps the `XDG_` folders `obm` saw when it was installed.** It doesn't read the shell's profile, so if they change later, `obm` looks for the engine in the new folders while it runs in the old ones. Running `obm service install` again catches it up.
-- **An engine that fails as it starts is started again every 10 seconds on macOS,** which is launchd's least, for as long as it fails. systemd gives up after 5 tries in 10 seconds, its default, and `systemctl --user status` says so.
+- **An engine that fails as it starts is started again every 10 seconds on macOS,** which is launchd's least, for as long as it fails. systemd gives up after 5 tries in 10 seconds, its default, and `systemctl --user status` says so. `obm service install` waits up to 30 seconds for the engine, but on Linux stops waiting once systemd gives up.
 - **Finding no engine takes a moment.** A client waits up to its timeout, 2 seconds for `obm status`, since an engine may be starting, and a socket left behind by a crash looks the same as one that isn't ready yet.
 
 ## Checking by hand

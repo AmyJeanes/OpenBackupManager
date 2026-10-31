@@ -11,6 +11,9 @@ internal sealed class SystemdService(string? home, string obmd, Func<string, str
 
     public override string HowToCheck => "systemctl --user status " + Unit;
 
+    // After five failed starts in ten seconds, by systemd's defaults
+    public override bool HasGivenUp => TryRun("systemctl", "--user", "is-failed", "--quiet", Unit).ExitCode == 0;
+
     // Off, the engine stops once the user's last session ends, until they sign in again
     public static bool Lingering => System.IO.File.Exists("/var/lib/systemd/linger/" + System.Environment.UserName);
 

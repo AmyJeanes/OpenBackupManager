@@ -26,15 +26,22 @@ internal static class Service
 
             await TakeOverAsync(paths, cancellationToken);
             service.Install();
-            if (!await StartedAsync(paths, cancellationToken))
+            if (!await StartedAsync(paths, service, cancellationToken))
             {
                 throw new ServiceException($"the service didn't start the engine. {service.HowToCheck} might say why");
             }
 
-            Console.WriteLine("The engine is running, and starts whenever you sign in");
-            if (service is SystemdService && !SystemdService.Lingering)
+            if (service is SystemdService && SystemdService.Lingering)
             {
-                Console.WriteLine("It stops once you've signed out everywhere. To keep it running, as on a server, run loginctl enable-linger");
+                Console.WriteLine("The engine is running, and starts whenever the computer does");
+            }
+            else
+            {
+                Console.WriteLine("The engine is running, and starts whenever you sign in");
+                if (service is SystemdService)
+                {
+                    Console.WriteLine("It stops once you've signed out everywhere. To keep it running, as on a server, run loginctl enable-linger");
+                }
             }
 
             return 0;
@@ -100,9 +107,22 @@ internal static class Service
         }
     }
 
-    private static async Task<bool> StartedAsync(AppPaths paths, CancellationToken cancellationToken)
+    // A few seconds at a time, so it can stop waiting once the service manager stops trying
+    private static async Task<bool> StartedAsync(AppPaths paths, EngineService service, CancellationToken cancellationToken)
     {
-        using var engine = await EngineClient.ConnectAsync(paths, StartTimeout, cancellationToken);
-        return engine is not null && (await engine.StatusAsync(cancellationToken)).StartedBy == EngineStarter.Service;
+        var until = DateTime.UtcNow + StartTimeout;
+        while (DateTime.UtcNow < until && !service.HasGivenUp)
+        {
+            using var engine = await EngineClient.ConnectAsync(paths, FindTimeout, cancellationToken);
+            if (engine is not null)
+            {
+                return (await engine.StatusAsync(cancellationToken)).StartedBy == EngineStarter.Service;
+            }
+
+            // Connecting gives up at once on a socket path too long for the OS
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+        }
+
+        return false;
     }
 }

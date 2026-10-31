@@ -22,6 +22,9 @@ internal abstract class EngineService(string? home, string obmd, Func<string, st
     // A command that shows what the service manager knows of it, such as why the engine isn't running
     public abstract string HowToCheck { get; }
 
+    // Whether the service manager has stopped starting an engine that keeps failing. launchd never does
+    public virtual bool HasGivenUp => false;
+
     protected Func<string, string?> Environment { get; } = environment;
 
     // Named from the home's path, so each home's is found again from the same --home

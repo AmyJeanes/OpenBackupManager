@@ -35,7 +35,8 @@ public class ServiceTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(exitCode, Is.Zero, output);
-            Assert.That(output, Does.Contain("starts whenever you sign in"));
+            // CI turns lingering on for its Linux runners
+            Assert.That(output, Does.Contain(OperatingSystem.IsLinux() && SystemdService.Lingering ? "starts whenever the computer does" : "starts whenever you sign in"));
             Assert.That(File.Exists(EngineService.ForThisOS(_home)!.File), Is.True);
             Assert.That((await StatusAsync())?.StartedBy, Is.EqualTo(EngineStarter.Service));
             Assert.That(Tool.Run("obm", "status", "--home", _home).Output, Does.Contain("Started by: its service"));
@@ -116,6 +117,31 @@ public class ServiceTests
             Assert.That(exitCode, Is.Zero, output);
             Assert.That(output, Does.Not.Contain("Stopping the engine"));
             Assert.That((await StatusAsync())?.ProcessId, Is.Not.EqualTo(first.ProcessId));
+        }
+    }
+
+    // launchd never stops trying, so on macOS installing waits out its whole timeout, longer than Tool.Run does
+    [Test]
+    [Platform("Linux")]
+    public void AnEngineThatCantStart_IsReported_OnceSystemdGivesUp()
+    {
+        // Too long for a socket, so the engine exits as it starts, every time
+        var home = Path.Combine(_home, new string('a', 120));
+        try
+        {
+            var watch = Stopwatch.StartNew();
+            var (exitCode, output) = Tool.Run("obm", "service", "install", "--home", home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.Contain("didn't start the engine").And.Contain(EngineService.ForThisOS(home)!.HowToCheck));
+                Assert.That(watch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(20)));
+            }
+        }
+        finally
+        {
+            Tool.Run("obm", "service", "uninstall", "--home", home);
         }
     }
 

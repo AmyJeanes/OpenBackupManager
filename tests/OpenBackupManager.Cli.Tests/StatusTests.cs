@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.Versioning;
 
 namespace OpenBackupManager.Cli.Tests;
 
@@ -74,6 +75,31 @@ public class StatusTests
         {
             Assert.That(exitCode, Is.EqualTo(1));
             Assert.That(output, Does.Contain("the engine isn't running"));
+        }
+    }
+
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void AHomeItCantOpen_SaysSo()
+    {
+        Assume.That(Environment.UserName, Is.Not.EqualTo("root"), "root can open it anyway");
+        Directory.CreateDirectory(_home);
+        File.SetUnixFileMode(_home, UnixFileMode.None);
+        try
+        {
+            var (exitCode, output) = Tool.Run("obm", "status", "--home", _home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.Contain("Permission was denied to " + Path.Combine(_home, "run", "engine.sock")));
+                Assert.That(output, Does.Not.Contain("Unhandled exception"));
+            }
+        }
+        finally
+        {
+            File.SetUnixFileMode(_home, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
     }
 

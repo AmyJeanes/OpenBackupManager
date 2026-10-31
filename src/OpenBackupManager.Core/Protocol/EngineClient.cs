@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.IO.Pipes;
+using System.Net.Sockets;
 using System.Runtime.Versioning;
 using System.Security.Principal;
 using System.Text;
@@ -55,6 +56,12 @@ public sealed class EngineClient : IDisposable
                 EngineProblem.AnotherUserOrAdmin,
                 "The engine running for this home was started by another user or as administrator, so it can't be reached from here",
                 e);
+        }
+        // On macOS and Linux, when a folder on the way to the socket isn't this user's to open
+        catch (SocketException e) when (e.SocketErrorCode == SocketError.AccessDenied)
+        {
+            await pipe.DisposeAsync();
+            throw new EngineException($"Permission was denied to {EngineSocket.Name(paths)}, so the engine can't be reached", e);
         }
         catch
         {

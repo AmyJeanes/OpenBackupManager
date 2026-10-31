@@ -44,7 +44,7 @@
 
     There's no app yet to start the engine for you. `obm service install` starts it now and whenever you sign in, as a systemd user service, and starts it again if it fails. `obm service uninstall` stops it and takes it off. Or start `obmd` yourself, such as in a terminal you leave open.
 
-    The service runs while you're signed in. To keep it running when you're not, as on a server, turn on lingering with `loginctl enable-linger`. `systemctl --user status openbackupmanager` shows how it's doing, and `journalctl --user -u openbackupmanager` what it printed.
+    The service runs while you're signed in. To keep it running when you're not, as on a server, turn on lingering with `loginctl enable-linger`, and it starts when the computer does. `systemctl --user status openbackupmanager` shows how it's doing, and `journalctl --user -u openbackupmanager` what it printed.
 
     If you've moved `obm` and `obmd` since, run `obm service install` again. With `--home`, each folder gets its own.
 
