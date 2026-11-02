@@ -6,9 +6,10 @@ namespace OpenBackupManager.Core.Configuration;
 
 /// <summary>
 /// Reads and writes config.toml. A write changes one value in place, so comments and layout written by hand stay,
-/// and moves the new file over the old one in one step, keeping the last one as config.toml.bak
+/// and moves the new file over the old one in one step, keeping the last one as config.toml.bak. Reading applies each
+/// setting's environment variable over the file, which writing leaves out
 /// </summary>
-public sealed class ConfigFile(string path)
+public sealed class ConfigFile(string path, Func<string, string?>? environment = null)
 {
     public const string DefaultText = """
         # Open Backup Manager's settings for this device. The app writes this file, and you can edit it too.
@@ -16,6 +17,7 @@ public sealed class ConfigFile(string path)
         version = 1
 
         # start-at-login = false    # Start the app when you sign in. Left out, it does when installed unless a custom home folder is used
+        # secret-store = "file"    # Where secrets are kept: the OS's own store, or a file only you can read
 
         # [updates]
         # automatic = false    # Only check for updates when you ask, in About
@@ -25,7 +27,10 @@ public sealed class ConfigFile(string path)
 
     public string Path { get; } = path;
 
-    public ConfigResult Read() => ReadText(Path) is { } text ? Parse(text) : new ConfigResult(new AppConfig(), []);
+    // Allow tests to inject custom environment variables
+    internal Func<string, string?> Environment { get; } = environment ?? System.Environment.GetEnvironmentVariable;
+
+    public ConfigResult Read() => Parse(ReadText(Path) ?? "", Environment);
 
     // Writes the starting file if there isn't one, so there's something to edit
     public void CreateIfMissing()
@@ -53,7 +58,8 @@ public sealed class ConfigFile(string path)
     // Lets others write to or delete the file while it's open, so an editor's save doesn't fail because it's being read
     internal static FileStream OpenShared(string path) => new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
 
-    public static ConfigResult Parse(string text)
+    // Set passes no environment, so an env var's value is never written into the file
+    public static ConfigResult Parse(string text, Func<string, string?>? environment = null)
     {
         var document = SyntaxParser.Parse(text);
         var problems = document.Diagnostics
@@ -64,15 +70,19 @@ public sealed class ConfigFile(string path)
             Check(document, problems);
         }
 
+        var envVars = environment is null ? [] : EnvVars(environment, problems);
         if (problems.Any(p => p.IsError))
         {
             return new ConfigResult(null, problems);
         }
 
+        // Written into the file's text rather than set afterwards, so they're read the same way as the file
+        var withEnvVars = envVars.Aggregate(text, (current, envVar) =>
+            Edit(current, envVar.Setting.Section, envVar.Setting.Key, envVar.Value));
         AppConfig config;
         try
         {
-            config = TomlSerializer.Deserialize(text, AppConfigContext.Default.AppConfig) ?? new AppConfig();
+            config = TomlSerializer.Deserialize(withEnvVars, AppConfigContext.Default.AppConfig) ?? new AppConfig();
         }
         catch (TomlException e)
         {
@@ -232,15 +242,49 @@ public sealed class ConfigFile(string path)
             return;
         }
 
-        var (matches, expected) = setting.Kind switch
+        if (CheckValue(setting, kv.Value) is { } problem)
         {
-            SettingKind.Boolean => (kv.Value is BooleanValueSyntax, ConfigProblemKind.ShouldBeTrueOrFalse),
-            _ => (kv.Value is StringValueSyntax, ConfigProblemKind.ShouldBeText),
-        };
-        if (!matches)
-        {
-            problems.Add(new ConfigProblem(Line(kv), expected, IsError: true, path));
+            problems.Add(new ConfigProblem(Line(kv), problem, IsError: true, path));
         }
+    }
+
+    private static List<(Setting Setting, object Value)> EnvVars(Func<string, string?> environment, List<ConfigProblem> problems)
+    {
+        var envVars = new List<(Setting, object)>();
+        foreach (var setting in Settings.All)
+        {
+            if (setting.EnvVar is not { } envVar || environment(envVar) is not { Length: > 0 } text)
+            {
+                continue;
+            }
+
+            object? value = setting.Kind == SettingKind.Boolean ? bool.TryParse(text, out var on) ? on : null : text;
+            if (CheckValue(setting, value is null ? null : Value(value)) is { } problem)
+            {
+                problems.Add(new ConfigProblem(0, problem, IsError: true, setting.Path, envVar));
+            }
+            else
+            {
+                envVars.Add((setting, value!));
+            }
+        }
+
+        return envVars;
+    }
+
+    private static ConfigProblemKind? CheckValue(Setting setting, ValueSyntax? value)
+    {
+        if (setting.Kind == SettingKind.Boolean)
+        {
+            return value is BooleanValueSyntax ? null : ConfigProblemKind.ShouldBeTrueOrFalse;
+        }
+
+        if (value is not StringValueSyntax text)
+        {
+            return ConfigProblemKind.ShouldBeText;
+        }
+
+        return setting.Choices.Count > 0 && !setting.Choices.Contains(text.Value) ? ConfigProblemKind.NotAChoice : null;
     }
 
     private static ValueSyntax Value(object value) => value switch
@@ -303,4 +347,7 @@ public sealed class ConfigFile(string path)
     }
 }
 
-public sealed class ConfigException(string message) : Exception(message);
+public sealed class ConfigException(string message, ConfigProblem? problem = null) : Exception(message)
+{
+    public ConfigProblem? Problem { get; } = problem;
+}

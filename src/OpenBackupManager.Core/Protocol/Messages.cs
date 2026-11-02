@@ -55,7 +55,17 @@ public sealed record HelloParams(int Protocol, string Version);
 
 public sealed record HelloResult(int Protocol, string Version);
 
-public sealed record StatusResult(string Version, int ProcessId, DateTimeOffset Started, string Config, string State, EngineStarter StartedBy);
+public sealed record StatusResult(
+    string Version,
+    int ProcessId,
+    DateTimeOffset Started,
+    string Config,
+    string State,
+    EngineStarter StartedBy,
+    SecretsStatus Secrets);
+
+// Store is the store in use, as secret-store names it, or null when none is chosen yet. File is the file store's path
+public sealed record SecretsStatus(string? Store = null, string? File = null);
 
 // Quit in the tray app stops only an engine the app started
 [JsonConverter(typeof(JsonStringEnumConverter<EngineStarter>))]
@@ -101,6 +111,7 @@ public sealed record CrashResult;
 [JsonSerializable(typeof(HelloParams))]
 [JsonSerializable(typeof(HelloResult))]
 [JsonSerializable(typeof(StatusResult))]
+[JsonSerializable(typeof(SecretsStatus))]
 [JsonSerializable(typeof(StopResult))]
 #if DEBUG
 [JsonSerializable(typeof(CrashParams))]

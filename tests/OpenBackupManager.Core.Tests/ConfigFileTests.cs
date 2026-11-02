@@ -1,4 +1,5 @@
 using OpenBackupManager.Core.Configuration;
+using OpenBackupManager.Core.Platform;
 
 namespace OpenBackupManager.Core.Tests;
 
@@ -35,6 +36,7 @@ public class ConfigFileTests
         var result = ConfigFile.Parse("""
             version = 1
             start-at-login = false
+            secret-store = "file"
 
             [updates]
             prereleases = true
@@ -49,6 +51,7 @@ public class ConfigFileTests
         {
             Assert.That(result.Problems, Is.Empty);
             Assert.That(result.Config!.StartAtLogin, Is.False);
+            Assert.That(result.Config.SecretStore, Is.EqualTo("file"));
             Assert.That(result.Config.Updates.Prereleases, Is.True);
             Assert.That(result.Config.Remotes, Is.EquivalentTo([new RemoteSettings { Id = "onedrive", Name = "OneDrive", Root = "onedrive:OpenBackupManager/" }]));
         }
@@ -88,6 +91,18 @@ public class ConfigFileTests
             Assert.That(result.Config, Is.Null);
             Assert.That(result.Problems.Where(p => p.IsError).Select(p => p.ToString()), Has.One.EqualTo($"line {line}: {message}"));
         }
+    }
+
+    // Each OS's own list is checked by the CI runner for that OS
+    [TestCase("vault")]
+    [TestCase(null)]
+    public void Parse_AStoreThisOSDoesntHave_IsAMistake_NamingTheOnesItHas(string? store)
+    {
+        store ??= OperatingSystem.IsWindows() ? "keychain" : "credential-manager";
+
+        Assert.That(
+            ConfigFile.Parse($"secret-store = \"{store}\"").Problems.Select(p => (p.ToString(), p.IsError)),
+            Is.EquivalentTo([($"line 1: secret-store should be one of: {ThisOSsStores}", true)]));
     }
 
     [Test]
@@ -153,6 +168,58 @@ public class ConfigFileTests
         }
     }
 
+    [TestCase("start-at-login", "OBM_START_AT_LOGIN")]
+    [TestCase("secret-store", "OBM_SECRET_STORE")]
+    [TestCase("updates.automatic", "OBM_UPDATES_AUTOMATIC")]
+    [TestCase("updates", null)]
+    [TestCase("remotes.id", null)]
+    public void EachSettingsEnvVar_IsNamedFromItsKey(string path, string? envVar) =>
+        Assert.That(Settings.Find(path)!.EnvVar, Is.EqualTo(envVar));
+
+    [Test]
+    public void Parse_AnEnvVar_WinsOverTheFile()
+    {
+        var result = ConfigFile.Parse(
+            "start-at-login = true\n[updates]\nautomatic = true\n",
+            EnvVars(("OBM_START_AT_LOGIN", "false"), ("OBM_UPDATES_AUTOMATIC", "false")));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Problems, Is.Empty);
+            Assert.That(result.Config!.StartAtLogin, Is.False);
+            Assert.That(result.Config.Updates.Automatic, Is.False);
+        }
+    }
+
+    [Test]
+    public void Parse_AnEnvVar_SetsWhatTheFileLeavesOut()
+    {
+        var result = ConfigFile.Parse("", EnvVars(("OBM_START_AT_LOGIN", "false"), ("OBM_UPDATES_PRERELEASES", "true")));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Config!.StartAtLogin, Is.False);
+            Assert.That(result.Config.Updates.Prereleases, Is.True);
+        }
+    }
+
+    [Test]
+    public void Parse_AnEmptyEnvVar_IsLeftOut() =>
+        Assert.That(ConfigFile.Parse("secret-store = \"file\"", EnvVars(("OBM_SECRET_STORE", ""))).Config!.SecretStore, Is.EqualTo("file"));
+
+    [TestCase("OBM_UPDATES_AUTOMATIC", "maybe", "updates.automatic should be true or false")]
+    [TestCase("OBM_SECRET_STORE", "vault", "secret-store should be one of: {stores}")]
+    public void Parse_AnEnvVarWithAMistake_IsAnErrorNamingIt(string envVar, string value, string message)
+    {
+        var result = ConfigFile.Parse("", EnvVars((envVar, value)));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Config, Is.Null);
+            Assert.That(result.Problems.Select(p => (p.ToString(), p.IsError)), Is.EquivalentTo([($"environment variable {envVar}: {message.Replace("{stores}", ThisOSsStores)}", true)]));
+        }
+    }
+
     [Test]
     public void Edit_ChangesAValue_KeepingCommentsAndLayout() =>
         Assert.That(
@@ -196,6 +263,10 @@ public class ConfigFileTests
             Assert.That(result.Problems, Is.Empty);
         }
     }
+
+    [Test]
+    public void Read_MissingFile_StillHasTheEnvVars() =>
+        Assert.That(new ConfigFile(FilePath, EnvVars(("OBM_SECRET_STORE", "file"))).Read().Config!.SecretStore, Is.EqualTo("file"));
 
     [Test]
     public void Read_WorksWhileAnotherProgramHasTheFileOpenToWrite()
@@ -270,6 +341,21 @@ public class ConfigFileTests
         }
     }
 
+    [Test]
+    public void Set_NeverWritesAnEnvVarsValue()
+    {
+        File.WriteAllText(FilePath, "version = 1\n");
+        var file = new ConfigFile(FilePath, EnvVars(("OBM_UPDATES_AUTOMATIC", "false")));
+
+        file.Set("updates", "prereleases", true);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(File.ReadAllText(FilePath), Is.EqualTo("version = 1\n\n[updates]\nprereleases = true\n"));
+            Assert.That(file.Read().Config!.Updates.Automatic, Is.False);
+        }
+    }
+
     [TestCase("version = 1\nprereleases = tru\n", "can't be changed until it's fixed")]
     [TestCase("version = 2\n", "newer version")]
     public void Set_LeavesTheFileAlone_WhenItCantBeChanged(string text, string reason)
@@ -282,4 +368,10 @@ public class ConfigFileTests
             Assert.That(File.ReadAllText(FilePath), Is.EqualTo(text));
         }
     }
+
+    private static string ThisOSsStores => string.Join(", ", SecretStoreKinds.NamesOn(CurrentOS.Platform));
+
+    // Only these, rather than whatever's set where the tests run
+    private static Func<string, string?> EnvVars(params (string Name, string Value)[] envVars) =>
+        name => envVars.FirstOrDefault(v => v.Name == name).Value;
 }

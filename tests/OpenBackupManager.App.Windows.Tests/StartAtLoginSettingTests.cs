@@ -28,7 +28,7 @@ public sealed class StartAtLoginSettingTests
     [TestCase(false, ExpectedResult = false)]
     public bool LeftOut_FollowsTheDefault(bool onByDefault)
     {
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
         using var setting = Setting(watcher, onByDefault);
 
         return _startAtLogin.IsOn;
@@ -39,7 +39,7 @@ public sealed class StartAtLoginSettingTests
     public bool TheSetting_WinsOverTheDefault(string text, bool onByDefault)
     {
         File.WriteAllText(_file.Path, text);
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
         using var setting = Setting(watcher, onByDefault);
 
         return _startAtLogin.IsOn;
@@ -48,7 +48,7 @@ public sealed class StartAtLoginSettingTests
     [Test]
     public void AChange_AppliesStraightAway()
     {
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
         using var setting = Setting(watcher, onByDefault: true);
         // Raised after the setting's own handler, which was added first
         var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -67,7 +67,7 @@ public sealed class StartAtLoginSettingTests
     public void AFailure_IsOnlyLogged()
     {
         _startAtLogin.Fails = true;
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
         Assert.DoesNotThrow(() => Setting(watcher, onByDefault: true).Dispose());
     }

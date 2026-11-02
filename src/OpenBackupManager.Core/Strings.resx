@@ -16,6 +16,10 @@
     <value>Line {0}: {1}</value>
     <comment>{1} is one of the problems below, or the TOML reader's own message, which is only in English</comment>
   </data>
+  <data name="ConfigProblem_InEnvVar" xml:space="preserve">
+    <value>Environment variable {0}: {1}</value>
+    <comment>{0} is an environment variable's name, such as OBM_SECRET_STORE, and {1} is one of the problems below</comment>
+  </data>
   <data name="ConfigProblem_ShouldBeTrueOrFalse" xml:space="preserve">
     <value>{0} should be true or false</value>
     <comment>true and false are written in the file, so stay as they are</comment>
@@ -54,5 +58,9 @@
   </data>
   <data name="ConfigProblem_NewerVersion" xml:space="preserve">
     <value>written by a newer version of the app, which this version won't change</value>
+  </data>
+  <data name="ConfigProblem_NotAChoice" xml:space="preserve">
+    <value>{0} should be one of: {1}</value>
+    <comment>{1} lists the values it can have in a comma-separated list</comment>
   </data>
 </root>

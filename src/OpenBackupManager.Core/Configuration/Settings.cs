@@ -1,3 +1,5 @@
+using OpenBackupManager.Core.Platform;
+
 namespace OpenBackupManager.Core.Configuration;
 
 /// <summary>
@@ -18,6 +20,19 @@ public static class Settings
             Example = "false",
             Notes = "You can also turn it off in Windows' Settings > Apps > Startup, or Task Manager's Startup apps, which the app "
                 + "leaves alone even while this is `true`.",
+        },
+        new("secret-store", SettingKind.Text)
+        {
+            Summary = "Where this device keeps its secrets, such as the password that protects your sign-ins.",
+            Values = "`credential-manager` on Windows, `keychain` on macOS, `secret-service` on Linux, or `file` on any",
+            Choices = [.. SecretStoreKinds.NamesOn(CurrentOS.Platform)],
+            Default = "The OS's own store",
+            DefaultInFull = "`credential-manager` on Windows and `keychain` on macOS. Linux has no default, so one has to be chosen",
+            Example = "\"file\"",
+            Notes = "`file` keeps them in `secrets.json`, in the engine's own folder (see [Files and folders](files.md)), "
+                + "protected by nothing but its permissions, for when the OS's store can't be used, such as on a server. "
+                + "On Linux, `secret-service` is locked whenever you're not signed in with your password, so it can't be read "
+                + "with lingering on and nobody signed in, or after an automatic sign-in until it's unlocked.",
         },
         new("updates", SettingKind.Section)
         {
@@ -80,11 +95,19 @@ public sealed record Setting(string Path, SettingKind Kind)
 
     public string Notes { get; init; } = "";
 
+    // Empty when any text will do
+    public IReadOnlyList<string> Choices { get; init; } = [];
+
     public bool Hidden { get; init; }
 
     public bool IsSection => Kind is SettingKind.Section or SettingKind.SectionList;
 
     public string? Section => Path.LastIndexOf('.') is var dot and >= 0 ? Path[..dot] : null;
+
+    // A setting in a list of sections has none, as one env var couldn't say which entry it's for
+    public string? EnvVar => IsSection || Section is { } section && Settings.Find(section)!.Kind == SettingKind.SectionList
+        ? null
+        : "OBM_" + Path.ToUpperInvariant().Replace('.', '_').Replace('-', '_');
 
     public string Key => Path[(Path.LastIndexOf('.') + 1)..];
 

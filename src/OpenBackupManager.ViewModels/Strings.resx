@@ -168,6 +168,14 @@
     <value>{0} is already running in another session, or from another copy of the app.</value>
     <comment>{0} is the app's name</comment>
   </data>
+  <data name="Launch_ConfigMistake" xml:space="preserve">
+    <value>{0} won't start until its settings file is fixed.
+
+{1}
+
+{2}</value>
+    <comment>{0} is the app's name, {1} what's wrong, such as "Line 3: updates.prereleases should be true or false", and {2} the settings file's path</comment>
+  </data>
   <data name="Launch_RunningAsAdministrator" xml:space="preserve">
     <value>{0} is running as administrator, which it doesn't need. Start it again normally.</value>
     <comment>{0} is the app's name</comment>

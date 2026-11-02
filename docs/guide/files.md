@@ -42,6 +42,8 @@ Everything Open Backup Manager keeps about this device, such as its logs, is its
 
     `XDG_STATE_HOME` moves these folders as it does for other apps.
 
+With [`secret-store`](settings.md#secret-store) set to `file`, the engine keeps your secrets in `secrets.json`, in the data folder on Windows and the engine's own folder on macOS and Linux. It's protected only by its permissions, so anyone who can read it, including an administrator, can use your sign-ins. Keep it out of anything you share.
+
 If `--home <folder>` was given, or the `OBM_HOME` environment variable is set, everything goes in that folder instead.
 
 ## Logs

@@ -57,6 +57,23 @@ public class DaemonTests
         }
     }
 
+    [Test]
+    public void WontStart_WhileConfigHasAMistake()
+    {
+        var home = NewHome();
+        Directory.CreateDirectory(home);
+        File.WriteAllText(Path.Combine(home, "config.toml"), "secret-store = \"vault\"\n");
+
+        var (exitCode, output) = Tool.Run("obmd", "--home", home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Does.Contain($"obmd: {Path.Combine(home, "config.toml")} has a mistake on line 1: secret-store should be one of: ")
+                .And.Contain("The engine won't start until it's fixed"));
+        }
+    }
+
     // Only the tray app and obm service install use it
     [TestCase("app")]
     [TestCase("service")]

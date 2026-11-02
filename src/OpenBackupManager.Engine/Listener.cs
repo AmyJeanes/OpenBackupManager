@@ -12,6 +12,7 @@ namespace OpenBackupManager.Engine;
 internal sealed partial class Listener(
     AppPaths paths,
     EngineOptions options,
+    Secrets secrets,
     IHostApplicationLifetime lifetime,
     TimeProvider time,
     ILogger<Listener> logger) : IDisposable
@@ -57,7 +58,8 @@ internal sealed partial class Listener(
 
     public void Dispose() => _stopping.Dispose();
 
-    private StatusResult Status() => new(AppVersion.Current, Environment.ProcessId, _started, paths.Config, paths.State, options.StartedBy);
+    private StatusResult Status() =>
+        new(AppVersion.Current, Environment.ProcessId, _started, paths.Config, paths.State, options.StartedBy, secrets.Status());
 
     // .NET leaves the socket's permissions to the umask, so a private folder keeps other users from reaching it at all
     [UnsupportedOSPlatform("windows")]

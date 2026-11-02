@@ -112,6 +112,17 @@ public static class Program
         Task.Run(() => AppInstance.FindOrRegisterForKey(instanceKey)).Wait();
 
         var host = BuildHost(Home);
+        // Read the settings first, so a mistake in them stops the app before anything uses them
+        try
+        {
+            _ = host.Services.GetRequiredService<ConfigWatcher>();
+        }
+        catch (ConfigException e)
+        {
+            ShowMessage(Strings.Launch_ConfigMistake, e.Problem!.Describe(CultureInfo.CurrentUICulture), AppPaths.InHome(Home).ConfigFile);
+            return;
+        }
+
         var crashes = host.Services.GetRequiredService<CrashCapture>();
         AppDomain.CurrentDomain.UnhandledException += (_, e) => crashes.Capture((Exception)e.ExceptionObject);
         TaskScheduler.UnobservedTaskException += (_, e) => crashes.Unobserved(e.Exception);
@@ -133,11 +144,11 @@ public static class Program
             .AddSingleton(AppInfo.FromAssembly(AppName, typeof(Program).Assembly))
             .AddSingleton(TimeProvider.System)
             .AddSingleton(paths)
-            .AddSingleton(_ =>
+            .AddSingleton(services =>
             {
                 var file = new ConfigFile(paths.ConfigFile);
                 file.CreateIfMissing();
-                return new ConfigWatcher(file);
+                return new ConfigWatcher(file, services.GetRequiredService<ILogger<ConfigWatcher>>());
             })
             .AddSingleton<ConfigNotices>()
             .AddSingleton(services => new CrashReports(paths, services.GetRequiredService<TimeProvider>(), CrashReports.App))
@@ -147,7 +158,6 @@ public static class Program
             .AddSingleton<IAppActions>(services => services.GetRequiredService<AppActions>())
             .AddSingleton<INotifier>(_ => new WindowsNotifier(AppName, AppIcons.Ico, $"--home \"{home}\""))
             .AddSingleton<AppNotifications>()
-            .AddSingleton<ISecretStore>(_ => new CredentialManager(AppHome.InstanceKey(home)))
             .AddSingleton<IStartAtLogin>(_ => new RunKey(AppHome.InstanceKey(home), $"\"{Environment.ProcessPath}\" --home \"{home}\" {AtLoginArgument}"))
             .AddSingleton(services => new StartAtLoginSetting(
                 services.GetRequiredService<ConfigWatcher>(),
@@ -231,10 +241,10 @@ public static class Program
         return start(Environment.ProcessPath!, args.Contains(AtLoginArgument) ? $"{arguments} {AtLoginArgument}" : arguments);
     }
 
-    // {0} in the message is the app's name
-    private static void ShowMessage(string message) => PInvoke.MessageBox(
+    // {0} in the message is the app's name, and the values follow it
+    private static void ShowMessage(string message, params object?[] values) => PInvoke.MessageBox(
         HWND.Null,
-        Text.Format(message, AppName),
+        Text.Format(message, [AppName, .. values]),
         AppName,
         MESSAGEBOX_STYLE.MB_OK | MESSAGEBOX_STYLE.MB_ICONINFORMATION);
 }

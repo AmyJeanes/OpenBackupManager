@@ -14,6 +14,9 @@ public sealed record AppConfig
     // Left out, only the installed app's own home starts at login, so any other home has to ask for it
     public bool? StartAtLogin { get; init; }
 
+    // Left out, the OS's own store, or on Linux, none until obm asks
+    public string? SecretStore { get; init; }
+
     public UpdateSettings Updates { get; init; } = new();
 
     public IReadOnlyList<RemoteSettings> Remotes { get; init; } = [];

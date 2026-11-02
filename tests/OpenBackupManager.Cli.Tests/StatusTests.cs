@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Cli.Tests;
 
@@ -124,6 +126,25 @@ public class StatusTests
             File.Delete(_home);
         }
     }
+
+    [Test]
+    public void SaysWhereSecretsAreKept()
+    {
+        Directory.CreateDirectory(_home);
+        File.WriteAllText(Path.Combine(_home, "config.toml"), "secret-store = \"file\"\n");
+        using var daemon = Tool.Start("obmd", "--home", _home);
+        daemon.WaitFor("started, process");
+
+        Assert.That(
+            Tool.Run("obm", "status", "--home", _home).Output,
+            Does.Contain($"Secrets: in {Path.Combine(_home, "secrets.json")}, protected only by its permissions"));
+    }
+
+    [TestCase("credential-manager", null, "in Credential Manager")]
+    [TestCase("keychain", null, "in the login Keychain")]
+    [TestCase(null, null, "no store chosen yet. Choose one with secret-store in config.toml or OBM_SECRET_STORE: secret-service or file")]
+    public void Secrets(string? store, string? file, string expected) =>
+        Assert.That(Status.Secrets(new SecretsStatus(store, file), OSPlatform.Linux), Is.EqualTo(expected));
 
     [TestCase(0, "0s")]
     [TestCase(65, "1m 5s")]

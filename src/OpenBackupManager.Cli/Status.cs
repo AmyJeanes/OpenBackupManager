@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Platform;
 using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Cli;
@@ -41,6 +43,8 @@ internal static class Status
                 Console.WriteLine($"  State: {status.State}");
             }
 
+            Console.WriteLine("  Secrets: " + Secrets(status.Secrets, CurrentOS.Platform));
+
             return 0;
         }
         catch (EngineException e)
@@ -56,6 +60,19 @@ internal static class Status
         EngineStarter.Service => "its service, from obm service install",
         _ => "you or another program",
     };
+
+    internal static string Secrets(SecretsStatus secrets, OSPlatform os)
+    {
+        if (secrets.Store is null)
+        {
+            return "no store chosen yet. Choose one with secret-store in config.toml or OBM_SECRET_STORE: "
+                + string.Join(" or ", SecretStoreKinds.NamesOn(os));
+        }
+
+        return secrets.File is { } file
+            ? $"in {file}, protected only by its permissions"
+            : "in " + SecretStoreKinds.Parse(secrets.Store)!.Value.Title();
+    }
 
     // Such as 2d 3h 4m 5s, from the first part that isn't zero
     internal static string Uptime(TimeSpan up)

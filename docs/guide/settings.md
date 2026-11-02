@@ -23,10 +23,15 @@ Open Backup Manager keeps this device's settings in a text file, `config.toml`. 
 The file is [TOML](https://toml.io): settings are `name = value`, grouped into sections such as `[updates]`, and anything after a `#` is a comment. Anything left out has its default.
 
 - **Changes apply as soon as you save,** unless the file is on a network drive, where the app can't tell when it changes. There, restart the app after editing it.
-- **A mistake doesn't break anything.** If the file has an error, the app keeps using the last good settings, and shows a notification saying what's wrong and on which line, with a button that shows the file. Once you fix it and save, the fixed settings apply.
+- **A mistake while the app is running doesn't break anything.** It keeps using the last good settings, and shows a notification saying what's wrong and on which line, with a button that shows the file. Once you fix it and save, the fixed settings apply.
+- **A mistake when the app starts stops it starting,** as there are no good settings to keep using. A message says what's wrong and where the file is, and once it's fixed, start the app again. The engine won't start either.
 - **A setting the app doesn't know is only a warning,** written to [the app's log](files.md#logs), so a typo in a setting's name is worth checking for there if a change seems to do nothing.
 - **To go back to the defaults,** delete the file. The app writes a fresh one the next time it starts.
 - **When the app changes a setting itself,** it keeps your comments and layout, and keeps the previous file as `config.toml.bak`.
+
+## Environment variables
+
+Each setting can also be set with an environment variable, shown with it below, such as `OBM_UPDATES_AUTOMATIC` for `automatic` in `[updates]`. An env var wins over the file configuration.
 
 ## Settings
 
@@ -37,6 +42,7 @@ Each setting goes at the top of the file, or under its section's line, such as `
 | Setting | Default | Works on |
 | --- | --- | --- |
 | [`start-at-login`](#start-at-login) | `true` when installed | Windows |
+| [`secret-store`](#secret-store) | The OS's own store | All |
 | [`updates.automatic`](#updates.automatic) | `true` | Windows |
 | [`updates.prereleases`](#updates.prereleases) | Follows what's installed | Windows |
 
@@ -54,6 +60,9 @@ Values
 Default
 :   `true` for the installed app, unless it was started with another home
 
+Environment variable
+:   `OBM_START_AT_LOGIN`
+
 </div>
 
 ```toml
@@ -61,6 +70,29 @@ start-at-login = false
 ```
 
 You can also turn it off in Windows' Settings > Apps > Startup, or Task Manager's Startup apps, which the app leaves alone even while this is `true`.
+
+### `secret-store` {#secret-store}
+
+Where this device keeps its secrets, such as the password that protects your sign-ins.
+
+<div class="obm-facts" markdown>
+
+Values
+:   `credential-manager` on Windows, `keychain` on macOS, `secret-service` on Linux, or `file` on any
+
+Default
+:   `credential-manager` on Windows and `keychain` on macOS. Linux has no default, so one has to be chosen
+
+Environment variable
+:   `OBM_SECRET_STORE`
+
+</div>
+
+```toml
+secret-store = "file"
+```
+
+`file` keeps them in `secrets.json`, in the engine's own folder (see [Files and folders](files.md)), protected by nothing but its permissions, for when the OS's store can't be used, such as on a server. On Linux, `secret-service` is locked whenever you're not signed in with your password, so it can't be read with lingering on and nobody signed in, or after an automatic sign-in until it's unlocked.
 
 ### `[updates]` {#updates}
 
@@ -79,6 +111,9 @@ Values
 
 Default
 :   `true`
+
+Environment variable
+:   `OBM_UPDATES_AUTOMATIC`
 
 </div>
 
@@ -102,6 +137,9 @@ Values
 
 Default
 :   Follows what's installed, so a test version gets test versions
+
+Environment variable
+:   `OBM_UPDATES_PRERELEASES`
 
 </div>
 

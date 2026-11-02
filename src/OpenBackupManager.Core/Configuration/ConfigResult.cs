@@ -10,12 +10,15 @@ public sealed record ConfigResult(AppConfig? Config, IReadOnlyList<ConfigProblem
 
 /// <summary>
 /// An error stops the file being used. A warning, such as an unknown key, doesn't. Value is the key, section or id the
-/// problem is about, or for a Tomlyn error, Tomlyn's own message
+/// problem is about, or for a Tomlyn error, Tomlyn's own message. EnvVar is the environment variable it's in, when
+/// it's in one rather than on a line of the file
 /// </summary>
-public sealed record ConfigProblem(int Line, ConfigProblemKind Kind, bool IsError, string? Value = null)
+public sealed record ConfigProblem(int Line, ConfigProblemKind Kind, bool IsError, string? Value = null, string? EnvVar = null)
 {
     // In the given language, for showing to people
-    public string Describe(CultureInfo culture) => Format(culture, nameof(Strings.ConfigProblem_OnLine), Line, Message(culture));
+    public string Describe(CultureInfo culture) => EnvVar is null
+        ? Format(culture, nameof(Strings.ConfigProblem_OnLine), Line, Message(culture))
+        : Format(culture, nameof(Strings.ConfigProblem_InEnvVar), EnvVar, Message(culture));
 
     // Tomlyn's messages are only in English, so they're passed on as they are
     public string Message(CultureInfo culture) => Kind == ConfigProblemKind.Tomlyn ? Value! : Format(culture, Kind switch
@@ -31,11 +34,12 @@ public sealed record ConfigProblem(int Line, ConfigProblemKind Kind, bool IsErro
         ConfigProblemKind.UnknownSetting => nameof(Strings.ConfigProblem_UnknownSetting),
         ConfigProblemKind.UnknownSection => nameof(Strings.ConfigProblem_UnknownSection),
         ConfigProblemKind.NewerVersion => nameof(Strings.ConfigProblem_NewerVersion),
+        ConfigProblemKind.NotAChoice => nameof(Strings.ConfigProblem_NotAChoice),
         _ => throw new InvalidOperationException($"No message for {Kind}"),
-    }, Value);
+    }, Value, Kind == ConfigProblemKind.NotAChoice ? string.Join(", ", Settings.Find(Value ?? "")?.Choices ?? []) : null);
 
     // Always in English, for logs and exceptions
-    public override string ToString() => $"line {Line}: {Message(CultureInfo.InvariantCulture)}";
+    public override string ToString() => $"{(EnvVar is null ? $"line {Line}" : $"environment variable {EnvVar}")}: {Message(CultureInfo.InvariantCulture)}";
 
     private static string Format(CultureInfo culture, string name, params object?[] values) =>
         string.Format(culture, Strings.ResourceManager.GetString(name, culture)!, values);
@@ -55,4 +59,5 @@ public enum ConfigProblemKind
     UnknownSetting,
     UnknownSection,
     NewerVersion,
+    NotAChoice,
 }

@@ -1,7 +1,10 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
+using OpenBackupManager.Core.Platform;
 using OpenBackupManager.Core.Protocol;
 using Serilog;
 using Serilog.Events;
@@ -10,7 +13,7 @@ namespace OpenBackupManager.Engine;
 
 public static class EngineHost
 {
-    public static IHost Build(AppPaths paths, EngineStarter startedBy = EngineStarter.Other)
+    public static IHost Build(AppPaths paths, EngineStarter startedBy = EngineStarter.Other, Action<IServiceCollection>? platform = null)
     {
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
@@ -20,6 +23,10 @@ public static class EngineHost
             .AddSingleton(TimeProvider.System)
             .AddSingleton(services => new CrashReports(paths, services.GetRequiredService<TimeProvider>(), CrashReports.Engine))
             .AddSingleton<CrashCapture>()
+            .AddSingleton(services => new ConfigWatcher(new ConfigFile(paths.ConfigFile), services.GetRequiredService<ILogger<ConfigWatcher>>()))
+            .AddSingleton(new FileStore(Path.Combine(paths.State, "secrets.json")))
+            .AddKeyedSingleton<ISecretStore>(SecretStoreKind.File, (services, _) => services.GetRequiredService<FileStore>())
+            .AddSingleton<Secrets>()
             .AddSingleton<Listener>()
             .AddHostedService<EngineService>()
             .AddSerilog(log => log
@@ -34,6 +41,20 @@ public static class EngineHost
                     fileSizeLimitBytes: 10 * 1024 * 1024,
                     rollOnFileSizeLimit: true,
                     retainedFileCountLimit: 7));
-        return builder.Build();
+        platform?.Invoke(builder.Services); // OS-specific implementations
+
+        var host = builder.Build();
+        try
+        {
+            // Read config on startup to crash early if there's an error in it
+            host.Services.GetRequiredService<ConfigWatcher>();
+        }
+        catch (ConfigException)
+        {
+            host.Dispose();
+            throw;
+        }
+
+        return host;
     }
 }

@@ -15,6 +15,12 @@ public class ConfigProblemTests
             new ConfigProblem(2, ConfigProblemKind.ShouldBeTrueOrFalse, IsError: true, "updates.prereleases").Describe(CultureInfo.InvariantCulture),
             Is.EqualTo("Line 2: updates.prereleases should be true or false"));
 
+    [Test]
+    public void Describe_NamesTheEnvVar_WhenItsInOne() =>
+        Assert.That(
+            new ConfigProblem(0, ConfigProblemKind.ShouldBeTrueOrFalse, IsError: true, "updates.automatic", "OBM_UPDATES_AUTOMATIC").Describe(CultureInfo.InvariantCulture),
+            Is.EqualTo("Environment variable OBM_UPDATES_AUTOMATIC: updates.automatic should be true or false"));
+
 #if DEBUG
     [Test]
     public void Describe_UsesTheGivenLanguage_ButKeepsTheSettingsName()

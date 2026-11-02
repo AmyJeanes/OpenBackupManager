@@ -64,7 +64,8 @@ static string Render()
         if (!setting.IsSection)
         {
             page.Append("\n<div class=\"obm-facts\" markdown>\n\n");
-            page.Append(CultureInfo.InvariantCulture, $"Values\n:   {setting.Values}\n\nDefault\n:   {setting.DefaultInFull}\n\n</div>\n\n");
+            page.Append(CultureInfo.InvariantCulture, $"Values\n:   {setting.Values}\n\nDefault\n:   {setting.DefaultInFull}\n\n");
+            page.Append(CultureInfo.InvariantCulture, $"Environment variable\n:   `{setting.EnvVar}`\n\n</div>\n\n");
             page.Append(CultureInfo.InvariantCulture, $"```toml\n{setting.ExampleText}\n```\n");
         }
 

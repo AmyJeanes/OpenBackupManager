@@ -1,30 +1,44 @@
+using System.Globalization;
+using Microsoft.Extensions.Logging;
+
 namespace OpenBackupManager.Core.Configuration;
 
 /// <summary>
 /// Keeps this device's settings up to date with config.toml, so a hand edit applies as soon as it's saved. An edit
-/// with an error leaves the last good settings in use until it's fixed
+/// with an error leaves the last good settings in use until it's fixed. An error in the first read throws a
+/// ConfigException instead, as there are no good settings to fall back on
 /// </summary>
-public sealed class ConfigWatcher : IDisposable
+public sealed partial class ConfigWatcher : IDisposable
 {
     // How long the file has to be left alone before it's read, so a save in progress isn't read half written
     private static readonly TimeSpan SettleTime = TimeSpan.FromMilliseconds(250);
 
     private readonly ConfigFile _file;
+    private readonly ILogger _logger;
     private readonly List<FileSystemWatcher> _watchers = [];
     private readonly Lock _lock = new();
     private readonly Timer _settled;
     private string? _text;
     private bool _disposed;
 
-    public ConfigWatcher(ConfigFile file)
+    public ConfigWatcher(ConfigFile file, ILogger<ConfigWatcher> logger)
     {
         _file = file;
-        _settled = new Timer(_ => Reload());
+        _logger = logger;
         var folder = Path.GetDirectoryName(file.Path)!;
         Directory.CreateDirectory(folder);
         _text = ReadText();
         Result = Parse(_text);
-        Config = Result.Config ?? new AppConfig();
+        if (Result.Problems.FirstOrDefault(p => p.IsError) is { } error)
+        {
+            throw new ConfigException(error.EnvVar is null
+                ? $"{file.Path} has a mistake on line {error.Line}: {error.Message(CultureInfo.InvariantCulture)}"
+                : $"{error.EnvVar} has a mistake: {error.Message(CultureInfo.InvariantCulture)}", error);
+        }
+
+        Config = Result.Config!;
+        Log(Result);
+        _settled = new Timer(_ => Reload());
         Watch(file.Path);
         // A dotfiles manager often links the file, or its folder, to the copy it keeps, and edits go to that copy
         if (LinkTarget(file.Path) is { } target && Path.GetDirectoryName(target) != folder)
@@ -36,7 +50,7 @@ public sealed class ConfigWatcher : IDisposable
     // Raised from a background thread when the file has changed, with what reading it found
     public event Action<ConfigResult>? Changed;
 
-    // The last settings read without errors, or the defaults if there haven't been any
+    // The last settings read without errors
     public AppConfig Config { get; private set; }
 
     // What the latest read found, including problems with an edit that's waiting to be fixed
@@ -75,6 +89,12 @@ public sealed class ConfigWatcher : IDisposable
             Config = result.Config ?? Config;
         }
 
+        if (!result.HasErrors)
+        {
+            LogApplied();
+        }
+
+        Log(result);
         Changed?.Invoke(result);
     }
 
@@ -141,7 +161,31 @@ public sealed class ConfigWatcher : IDisposable
         }
     }
 
-    private static ConfigResult Parse(string? text) => text is null ? new ConfigResult(new AppConfig(), []) : ConfigFile.Parse(text);
+    private ConfigResult Parse(string? text) => ConfigFile.Parse(text ?? "", _file.Environment);
 
     private string? ReadText() => ConfigFile.ReadText(_file.Path);
+
+    private void Log(ConfigResult result)
+    {
+        foreach (var problem in result.Problems)
+        {
+            if (problem.IsError)
+            {
+                LogError(problem);
+            }
+            else
+            {
+                LogWarning(problem);
+            }
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Applied the changes to config.toml")]
+    private partial void LogApplied();
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "config.toml {Problem}, so the last good settings stay in use")]
+    private partial void LogError(ConfigProblem problem);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "config.toml {Problem}")]
+    private partial void LogWarning(ConfigProblem problem);
 }

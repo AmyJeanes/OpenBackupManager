@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using OpenBackupManager.Core.Configuration;
+using OpenBackupManager.Core.Platform;
 
 namespace OpenBackupManager.Core.Tests;
 
@@ -25,30 +27,43 @@ public class ConfigWatcherTests
     {
         Write("[updates]\nprereleases = true\n");
 
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
         Assert.That(watcher.Config.Updates.Prereleases, Is.True);
     }
 
     [Test]
-    public void StartsWithTheDefaults_WhenTheFileHasAnError()
+    public void StartsWithTheDefaults_WhenThereIsNoFile()
     {
-        Write("[updates]\nprereleases = tru\n");
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
-        using var watcher = new ConfigWatcher(_file);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(watcher.Config, Is.EqualTo(new AppConfig()));
-            Assert.That(watcher.Result.HasErrors, Is.True);
-        }
+        Assert.That(watcher.Config, Is.EqualTo(new AppConfig()));
     }
+
+    [Test]
+    public void WontStart_WhenTheFileHasAnError()
+    {
+        Write("version = 1\n[updates]\nprereleases = \"yes\"\n");
+
+        Assert.That(
+            () => new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance),
+            Throws.TypeOf<ConfigException>()
+                .With.Message.EqualTo($"{_file.Path} has a mistake on line 3: updates.prereleases should be true or false")
+                .And.Property(nameof(ConfigException.Problem)).Property(nameof(ConfigProblem.Line)).EqualTo(3));
+    }
+
+    [Test]
+    public void WontStart_WhenAnEnvVarHasAMistake() =>
+        Assert.That(
+            () => new ConfigWatcher(new ConfigFile(_file.Path, name => name == "OBM_SECRET_STORE" ? "vault" : null), NullLogger<ConfigWatcher>.Instance),
+            Throws.TypeOf<ConfigException>().With.Message.EqualTo(
+                $"OBM_SECRET_STORE has a mistake: secret-store should be one of: {string.Join(", ", SecretStoreKinds.NamesOn(CurrentOS.Platform))}"));
 
     [Test]
     public void AppliesAnEditWhenItsSaved()
     {
         Write("[updates]\nprereleases = false\n");
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
         var result = WaitForChange(watcher, () => Write("[updates]\nprereleases = true\n"));
 
@@ -60,10 +75,25 @@ public class ConfigWatcherTests
     }
 
     [Test]
+    public void KeepsTheEnvVars_OverAnEdit()
+    {
+        Write("[updates]\nprereleases = false\n");
+        using var watcher = new ConfigWatcher(new ConfigFile(_file.Path, name => name == "OBM_UPDATES_AUTOMATIC" ? "false" : null), NullLogger<ConfigWatcher>.Instance);
+
+        WaitForChange(watcher, () => Write("[updates]\nprereleases = true\nautomatic = true\n"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(watcher.Config.Updates.Prereleases, Is.True);
+            Assert.That(watcher.Config.Updates.Automatic, Is.False);
+        }
+    }
+
+    [Test]
     public void KeepsTheLastGoodSettings_UntilAnEditIsFixed()
     {
         Write("[updates]\nprereleases = true\n");
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
         var broken = WaitForChange(watcher, () => Write("[updates]\nprereleases = tru\n"));
         using (Assert.EnterMultipleScope())
@@ -84,7 +114,7 @@ public class ConfigWatcherTests
     public void WaitsForASaveToFinish()
     {
         Write("[updates]\nprereleases = false\n");
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
         var result = WaitForChange(watcher, () =>
         {
@@ -109,7 +139,7 @@ public class ConfigWatcherTests
     public void PicksUpTheAppsOwnChanges()
     {
         _file.CreateIfMissing();
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
         WaitForChange(watcher, () => _file.Set("updates", "prereleases", true));
 
@@ -123,7 +153,7 @@ public class ConfigWatcherTests
         var kept = Path.Combine(dotfiles, "obm.toml");
         File.WriteAllText(kept, "[updates]\nprereleases = false\n");
         Link(() => File.CreateSymbolicLink(_file.Path, kept));
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
         WaitForChange(watcher, () => File.WriteAllText(kept, "[updates]\nprereleases = true\n"));
 
@@ -137,7 +167,7 @@ public class ConfigWatcherTests
         File.WriteAllText(Path.Combine(dotfiles, "config.toml"), "[updates]\nprereleases = false\n");
         var linked = Path.Combine(_folder, "linked");
         Link(() => Directory.CreateSymbolicLink(linked, dotfiles));
-        using var watcher = new ConfigWatcher(new ConfigFile(Path.Combine(linked, "config.toml")));
+        using var watcher = new ConfigWatcher(new ConfigFile(Path.Combine(linked, "config.toml")), NullLogger<ConfigWatcher>.Instance);
 
         WaitForChange(watcher, () => File.WriteAllText(Path.Combine(dotfiles, "config.toml"), "[updates]\nprereleases = true\n"));
 
@@ -148,7 +178,7 @@ public class ConfigWatcherTests
     public void GoesBackToTheDefaults_WhenTheFileIsDeleted()
     {
         Write("[updates]\nprereleases = true\n");
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
         WaitForChange(watcher, () => File.Delete(_file.Path));
 
@@ -159,7 +189,7 @@ public class ConfigWatcherTests
     public void IgnoresTheFileWhileItsEmpty()
     {
         Write("[updates]\nprereleases = true\n");
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
         var changes = 0;
         watcher.Changed += _ => changes++;
 
@@ -177,7 +207,7 @@ public class ConfigWatcherTests
     public void DoesNothing_WhenTheTextHasntChanged()
     {
         Write("[updates]\nprereleases = true\n");
-        using var watcher = new ConfigWatcher(_file);
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
         var changes = 0;
         watcher.Changed += _ => changes++;
 

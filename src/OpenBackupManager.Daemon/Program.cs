@@ -2,9 +2,13 @@ using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Protocol;
 using OpenBackupManager.Daemon;
 using OpenBackupManager.Engine;
+#if WINDOWS
+using OpenBackupManager.Platform.Windows;
+#endif
 using Velopack.Locators;
 
 var homeOption = new Option<string>("--home")
@@ -63,7 +67,29 @@ static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, Cancell
         return 1;
     }
 
-    using var host = EngineHost.Build(paths, startedBy);
+    IHost built;
+    try
+    {
+        built = EngineHost.Build(paths, startedBy, services =>
+        {
+            // Platform.Windows is only referenced in the Windows build
+#if WINDOWS
+            services.AddWindowsPlatform(paths);
+#else
+            if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
+            {
+                throw new PlatformNotSupportedException("obmd runs on Windows, macOS and Linux");
+            }
+#endif
+        });
+    }
+    catch (ConfigException e)
+    {
+        await Console.Error.WriteLineAsync($"obmd: {e.Message}. The engine won't start until it's fixed");
+        return 1;
+    }
+
+    using var host = built;
     var crashes = host.Services.GetRequiredService<CrashCapture>();
     crashes.Start();
     using var shutdownHandler = OperatingSystem.IsWindows() ? new WindowsShutdownHandler(host) : null;
