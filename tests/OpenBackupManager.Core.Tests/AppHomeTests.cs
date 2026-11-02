@@ -68,6 +68,12 @@ public class AppHomeTests
     public void InstanceKey_IsTheSameForTheSameFolderWrittenDifferently() =>
         Assert.That(AppHome.InstanceKey(@"d:\homes\a\"), Is.EqualTo(AppHome.InstanceKey(@"D:\Homes\A")));
 
+    // Linux' file systems tell them apart, so they're different homes, which mustn't share secrets
+    [Test]
+    [Platform("Linux")]
+    public void InstanceKey_DiffersBetweenFoldersThatOnlyDifferInCase() =>
+        Assert.That(AppHome.InstanceKey("/tmp/obm-home"), Is.Not.EqualTo(AppHome.InstanceKey("/tmp/OBM-HOME")));
+
     [Test]
     public void InstanceKey_DiffersBetweenFolders() =>
         Assert.That(AppHome.InstanceKey(HomeA), Is.Not.EqualTo(AppHome.InstanceKey(HomeB)));

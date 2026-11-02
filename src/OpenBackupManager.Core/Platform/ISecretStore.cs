@@ -3,10 +3,10 @@ namespace OpenBackupManager.Core.Platform;
 // The OS's store for secrets such as the rclone config password, which config.toml refers to by name
 public interface ISecretStore
 {
-    Secret? Read(string name);
+    Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default);
 
-    void Save(string name, Secret secret);
+    Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default);
 
     // False if there was nothing to remove
-    bool Remove(string name);
+    Task<bool> RemoveAsync(string name, CancellationToken cancellationToken = default);
 }

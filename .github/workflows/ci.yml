@@ -44,6 +44,11 @@ jobs:
         with:
           global-json-file: global.json
 
+      # For the Secret Service tests, which start a bus and keyring of their own
+      - name: Install GNOME Keyring
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -qq -y --no-install-recommends gnome-keyring libsecret-tools > /dev/null
+
       - name: Build
         run: dotnet build OpenBackupManager.slnx
 
@@ -495,8 +500,8 @@ jobs:
               docker run --rm --platform ${{ matrix.platform }} --volume "$PWD:/source:ro" --workdir /source "$1" \
                   sh -c "$2 && sh .github/scripts/test-tarball.sh unpacked"
           }
-          check "$DEBIAN" 'apt-get update -qq && apt-get install -qq -y --no-install-recommends libicu72 > /dev/null'
-          check "$RHEL" 'microdnf install -y libicu > /dev/null'
+          check "$DEBIAN" 'apt-get update -qq && apt-get install -qq -y --no-install-recommends libicu72 libssl3 > /dev/null'
+          check "$RHEL" 'microdnf install -y libicu openssl-libs > /dev/null'
 
       # Checked with gh attestation verify, as are the programs once unpacked, since they're the same files
       - name: Attest

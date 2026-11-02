@@ -17,70 +17,74 @@ public class FileStoreTests
     }
 
     [TearDown]
-    public void DeleteHome() => Directory.Delete(_home, recursive: true);
-
-    [Test]
-    public void Read_Missing_IsNull_EvenBeforeTheFileExists() => Assert.That(_store.Read("rclone"), Is.Null);
-
-    [Test]
-    public void Save_ThenRead_GivesItBack()
+    public void DeleteHome()
     {
-        _store.Save("rclone", new Secret("first"));
-        _store.Save("rclone", new Secret("second"));
-
-        Assert.That(_store.Read("rclone")!.Reveal(), Is.EqualTo("second"));
+        _store.Dispose();
+        Directory.Delete(_home, recursive: true);
     }
 
     [Test]
-    public void Secrets_KeepEachOther()
+    public async Task Read_Missing_IsNull_EvenBeforeTheFileExists() => Assert.That(await _store.ReadAsync("rclone"), Is.Null);
+
+    [Test]
+    public async Task Save_ThenRead_GivesItBack()
     {
-        _store.Save("rclone", new Secret("one"));
-        _store.Save("heartbeat", new Secret("two"));
-        _store.Remove("rclone");
+        await _store.SaveAsync("rclone", new Secret("first"));
+        await _store.SaveAsync("rclone", new Secret("second"));
+
+        Assert.That((await _store.ReadAsync("rclone"))!.Reveal(), Is.EqualTo("second"));
+    }
+
+    [Test]
+    public async Task Secrets_KeepEachOther()
+    {
+        await _store.SaveAsync("rclone", new Secret("one"));
+        await _store.SaveAsync("heartbeat", new Secret("two"));
+        await _store.RemoveAsync("rclone");
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(_store.Read("rclone"), Is.Null);
-            Assert.That(_store.Read("heartbeat")!.Reveal(), Is.EqualTo("two"));
+            Assert.That(await _store.ReadAsync("rclone"), Is.Null);
+            Assert.That((await _store.ReadAsync("heartbeat"))!.Reveal(), Is.EqualTo("two"));
         }
     }
 
     [Test]
-    public void Save_LeavesOnlyTheFile()
+    public async Task Save_LeavesOnlyTheFile()
     {
-        _store.Save("rclone", new Secret("value"));
+        await _store.SaveAsync("rclone", new Secret("value"));
 
         Assert.That(Directory.GetFiles(Path.GetDirectoryName(_store.Path)!).Select(Path.GetFileName), Is.EqualTo((string[])["secrets.json"]));
     }
 
     [Test]
-    public void Save_WritesAJsonObjectOfNamesToValues()
+    public async Task Save_WritesAJsonObjectOfNamesToValues()
     {
-        _store.Save("rclone", new Secret("one"));
-        _store.Save("heartbeat", new Secret("two"));
+        await _store.SaveAsync("rclone", new Secret("one"));
+        await _store.SaveAsync("heartbeat", new Secret("two"));
 
         Assert.That(InTheFile(), Is.EquivalentTo(new Dictionary<string, string> { ["rclone"] = "one", ["heartbeat"] = "two" }));
     }
 
     [Test]
-    public void Read_AFileWrittenByHand()
+    public async Task Read_AFileWrittenByHand()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_store.Path)!);
         File.WriteAllText(_store.Path, """{ "rclone": "by hand" }""");
 
-        Assert.That(_store.Read("rclone")!.Reveal(), Is.EqualTo("by hand"));
+        Assert.That((await _store.ReadAsync("rclone"))!.Reveal(), Is.EqualTo("by hand"));
     }
 
     [Test]
-    public void Remove_TakesItOutOfTheFile_AndSaysWhetherThereWasOne()
+    public async Task Remove_TakesItOutOfTheFile_AndSaysWhetherThereWasOne()
     {
-        _store.Save("rclone", new Secret("one"));
-        _store.Save("heartbeat", new Secret("two"));
+        await _store.SaveAsync("rclone", new Secret("one"));
+        await _store.SaveAsync("heartbeat", new Secret("two"));
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(_store.Remove("rclone"), Is.True);
-            Assert.That(_store.Remove("rclone"), Is.False);
+            Assert.That(await _store.RemoveAsync("rclone"), Is.True);
+            Assert.That(await _store.RemoveAsync("rclone"), Is.False);
             Assert.That(InTheFile(), Is.EquivalentTo(new Dictionary<string, string> { ["heartbeat"] = "two" }));
         }
     }
@@ -93,7 +97,7 @@ public class FileStoreTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(() => _store.Save("rclone", new Secret("value")), Throws.TypeOf<InvalidDataException>().With.Message.Contains(_store.Path));
+            Assert.That(() => _store.SaveAsync("rclone", new Secret("value")), Throws.TypeOf<InvalidDataException>().With.Message.Contains(_store.Path));
             Assert.That(File.ReadAllText(_store.Path), Is.EqualTo("{ not json"));
         }
     }
@@ -101,9 +105,9 @@ public class FileStoreTests
     [Test]
     [Platform(Exclude = "Win")]
     [UnsupportedOSPlatform("windows")]
-    public void OnlyThisUserCanOpenIt()
+    public async Task OnlyThisUserCanOpenIt()
     {
-        _store.Save("rclone", new Secret("value"));
+        await _store.SaveAsync("rclone", new Secret("value"));
 
         Assert.That(File.GetUnixFileMode(_store.Path), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
     }
@@ -111,12 +115,12 @@ public class FileStoreTests
     [Test]
     [Platform(Exclude = "Win")]
     [UnsupportedOSPlatform("windows")]
-    public void AFileOpenedUpByHand_IsMadePrivateAgainOnTheNextSave()
+    public async Task AFileOpenedUpByHand_IsMadePrivateAgainOnTheNextSave()
     {
-        _store.Save("rclone", new Secret("value"));
+        await _store.SaveAsync("rclone", new Secret("value"));
         File.SetUnixFileMode(_store.Path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.OtherRead);
 
-        _store.Save("rclone", new Secret("value"));
+        await _store.SaveAsync("rclone", new Secret("value"));
 
         Assert.That(File.GetUnixFileMode(_store.Path), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
     }

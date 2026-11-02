@@ -49,7 +49,12 @@ public static class AppHome
 
     private static string InstalledHome(string localAppData) => Path.Combine(localAppData, "OpenBackupManager");
 
-    // So the same folder written differently is the same home, ignoring case as Windows does
-    private static string Normalize(string home) =>
-        Path.GetFullPath(home).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToUpperInvariant();
+    // So the same folder written differently is the same home. Case is ignored on Windows and macOS, as their usual
+    // file systems ignore it, which rclone assumes for local folders too. The folder itself can't be asked, as the key
+    // has to be the same before it exists
+    private static string Normalize(string home)
+    {
+        var path = Path.GetFullPath(home).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? path.ToUpperInvariant() : path;
+    }
 }

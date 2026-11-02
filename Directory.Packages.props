@@ -26,6 +26,7 @@
     <PackageVersion Include="System.CommandLine" Version="2.0.14" />
     <PackageVersion Include="System.Diagnostics.EventLog" Version="10.0.14" />
     <PackageVersion Include="Tomlyn" Version="2.10.1" />
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.95.2" />
     <PackageVersion Include="Velopack" Version="1.2.161" />
     <PackageVersion Include="WinUIEx" Version="2.9.3" />
   </ItemGroup>

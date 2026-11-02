@@ -19,9 +19,9 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
     private const int NotFound = 44;
     private const int Locked = 36;
 
-    public Secret? Read(string name)
+    public async Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default)
     {
-        var (exitCode, output, error) = Security(null, ["find-generic-password", "-s", Service(name), "-a", name, "-w", .. File()]);
+        var (exitCode, output, error) = await SecurityAsync(null, ["find-generic-password", "-s", Service(name), "-a", name, "-w", .. File()], cancellationToken);
         return exitCode switch
         {
             0 => new Secret(Encoding.UTF8.GetString(Convert.FromBase64String(output.TrimEnd('\n')))),
@@ -30,7 +30,7 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
         };
     }
 
-    public void Save(string name, Secret secret)
+    public async Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default)
     {
         var command = SaveCommand(name, secret);
         if (Encoding.UTF8.GetByteCount(command) > MaxCommand)
@@ -39,16 +39,16 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
         }
 
         // Through its input, as any program can see a command line
-        var (exitCode, _, error) = Security(command + "\n", ["-i"]);
+        var (exitCode, _, error) = await SecurityAsync(command + "\n", ["-i"], cancellationToken);
         if (exitCode != 0)
         {
             throw Failed("save", name, exitCode, error);
         }
     }
 
-    public bool Remove(string name)
+    public async Task<bool> RemoveAsync(string name, CancellationToken cancellationToken = default)
     {
-        var (exitCode, _, error) = Security(null, ["delete-generic-password", "-s", Service(name), "-a", name, .. File()]);
+        var (exitCode, _, error) = await SecurityAsync(null, ["delete-generic-password", "-s", Service(name), "-a", name, .. File()], cancellationToken);
         return exitCode switch
         {
             0 => true,
@@ -75,7 +75,7 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
     private static InvalidOperationException Failed(string action, string name, int exitCode, string error) =>
         new($"The Keychain couldn't {action} {name}: " + (exitCode == Locked ? "it's locked" : $"{error.Trim()} ({exitCode})"));
 
-    private static (int ExitCode, string Output, string Error) Security(string? input, string[] arguments)
+    private static async Task<(int ExitCode, string Output, string Error)> SecurityAsync(string? input, string[] arguments, CancellationToken cancellationToken)
     {
         var start = new ProcessStartInfo("/usr/bin/security")
         {
@@ -91,13 +91,13 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
         using var process = Process.Start(start)!;
         if (input is not null)
         {
-            process.StandardInput.Write(input);
+            await process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken);
             process.StandardInput.Close();
         }
 
-        var error = process.StandardError.ReadToEndAsync();
-        var output = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
-        return (process.ExitCode, output, error.Result);
+        var error = process.StandardError.ReadToEndAsync(cancellationToken);
+        var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
+        return (process.ExitCode, output, await error);
     }
 }

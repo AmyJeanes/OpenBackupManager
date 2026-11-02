@@ -32,105 +32,105 @@ public class KeychainTests
     [TestCase("two\nlines")]
     [TestCase("deadbeef")]
     [TestCase("with \"quotes\", a \\ and spaces")]
-    public void Read_GivesWhatWasSaved(string secret)
+    public async Task Read_GivesWhatWasSaved(string secret)
     {
         var store = Store();
 
-        store.Save("rclone-config", new Secret(secret));
+        await store.SaveAsync("rclone-config", new Secret(secret));
 
-        Assert.That(store.Read("rclone-config")?.Reveal(), Is.EqualTo(secret));
+        Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo(secret));
     }
 
     [Test]
-    public void Save_PutsItInTheKeychain_AsBase64()
+    public async Task Save_PutsItInTheKeychain_AsBase64()
     {
-        Store().Save("rclone-config", new Secret("pässwörd 🔑"));
+        await Store().SaveAsync("rclone-config", new Secret("pässwörd 🔑"));
 
         Assert.That(InTheKeychain("rclone-config"), Is.EqualTo(Convert.ToBase64String(Encoding.UTF8.GetBytes("pässwörd 🔑"))));
     }
 
     [Test]
-    public void Read_AnItemTheToolSaved()
+    public async Task Read_AnItemTheToolSaved()
     {
         Security("add-generic-password", "-s", $"{_prefix}/rclone-config", "-a", "rclone-config", "-w", Convert.ToBase64String("by the tool"u8), _file);
 
-        Assert.That(Store().Read("rclone-config")?.Reveal(), Is.EqualTo("by the tool"));
+        Assert.That((await Store().ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("by the tool"));
     }
 
     [Test]
-    public void Read_IsNullWhenNothingWasSaved() => Assert.That(Store().Read("rclone-config"), Is.Null);
+    public async Task Read_IsNullWhenNothingWasSaved() => Assert.That(await Store().ReadAsync("rclone-config"), Is.Null);
 
     [Test]
-    public void Save_ReplacesTheSecret()
+    public async Task Save_ReplacesTheSecret()
     {
         var store = Store();
 
-        store.Save("rclone-config", new Secret("first"));
-        store.Save("rclone-config", new Secret("second"));
+        await store.SaveAsync("rclone-config", new Secret("first"));
+        await store.SaveAsync("rclone-config", new Secret("second"));
 
-        Assert.That(store.Read("rclone-config")?.Reveal(), Is.EqualTo("second"));
+        Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("second"));
     }
 
     [Test]
-    public void Save_TakesTheLongestSecretTheToolTakes()
+    public async Task Save_TakesTheLongestSecretTheToolTakes()
     {
         var store = Store();
         var longest = new string('x', Enumerable.Range(1, Keychain.MaxCommand).Last(length => Fits(store, new string('x', length))));
 
-        store.Save("rclone-config", new Secret(longest));
+        await store.SaveAsync("rclone-config", new Secret(longest));
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(store.Read("rclone-config")?.Reveal(), Is.EqualTo(longest));
-            Assert.That(() => store.Save("rclone-config", new Secret(longest + "x")), Throws.ArgumentException);
+            Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo(longest));
+            Assert.That(() => store.SaveAsync("rclone-config", new Secret(longest + "x")), Throws.ArgumentException);
         }
     }
 
     [Test]
-    public void Save_TakesANameWithQuotesAndBackslashes()
+    public async Task Save_TakesANameWithQuotesAndBackslashes()
     {
         var store = Store();
 
-        store.Save("a \"name\" \\ like this", new Secret("secret"));
+        await store.SaveAsync("a \"name\" \\ like this", new Secret("secret"));
 
-        Assert.That(store.Read("a \"name\" \\ like this")?.Reveal(), Is.EqualTo("secret"));
+        Assert.That((await store.ReadAsync("a \"name\" \\ like this"))?.Reveal(), Is.EqualTo("secret"));
     }
 
     [Test]
-    public void Remove_RemovesTheSecret()
+    public async Task Remove_RemovesTheSecret()
     {
         var store = Store();
-        store.Save("rclone-config", new Secret("secret"));
+        await store.SaveAsync("rclone-config", new Secret("secret"));
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(store.Remove("rclone-config"), Is.True);
-            Assert.That(store.Read("rclone-config"), Is.Null);
-            Assert.That(store.Remove("rclone-config"), Is.False);
+            Assert.That(await store.RemoveAsync("rclone-config"), Is.True);
+            Assert.That(await store.ReadAsync("rclone-config"), Is.Null);
+            Assert.That(await store.RemoveAsync("rclone-config"), Is.False);
         }
     }
 
     [Test]
-    public void Remove_TakesItOutOfTheKeychain()
+    public async Task Remove_TakesItOutOfTheKeychain()
     {
         var store = Store();
-        store.Save("rclone-config", new Secret("secret"));
+        await store.SaveAsync("rclone-config", new Secret("secret"));
 
-        store.Remove("rclone-config");
+        await store.RemoveAsync("rclone-config");
 
         Assert.That(InTheKeychain("rclone-config"), Is.Null);
     }
 
     [Test]
-    public void Stores_WithDifferentPrefixesKeepTheirOwnSecrets()
+    public async Task Stores_WithDifferentPrefixesKeepTheirOwnSecrets()
     {
         var store = Store();
         var other = new Keychain(_prefix + "-other", _file);
 
-        store.Save("rclone-config", new Secret("this home's"));
-        other.Save("rclone-config", new Secret("another home's"));
+        await store.SaveAsync("rclone-config", new Secret("this home's"));
+        await other.SaveAsync("rclone-config", new Secret("another home's"));
 
-        Assert.That(store.Read("rclone-config")?.Reveal(), Is.EqualTo("this home's"));
+        Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("this home's"));
     }
 
     private Keychain Store() => new(_prefix, _file);

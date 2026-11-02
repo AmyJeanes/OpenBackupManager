@@ -15,7 +15,18 @@ public sealed unsafe class CredentialManager(string prefix) : ISecretStore
     // Credential Manager holds up to 2,560 bytes a secret, kept as UTF-16 as Windows' own tools read them
     public const int MaxLength = 2560 / sizeof(char);
 
-    public Secret? Read(string name)
+    // Windows has no async versions of these
+    public Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(Read(name));
+
+    public Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default)
+    {
+        Save(name, secret);
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> RemoveAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(Remove(name));
+
+    private Secret? Read(string name)
     {
         if (!PInvoke.CredRead(Target(name), CRED_TYPE.CRED_TYPE_GENERIC, out var credential))
         {
@@ -32,7 +43,7 @@ public sealed unsafe class CredentialManager(string prefix) : ISecretStore
         }
     }
 
-    public void Save(string name, Secret secret)
+    private void Save(string name, Secret secret)
     {
         var value = secret.Reveal();
         if (value.Length > MaxLength)
@@ -58,7 +69,7 @@ public sealed unsafe class CredentialManager(string prefix) : ISecretStore
         }
     }
 
-    public bool Remove(string name) =>
+    private bool Remove(string name) =>
         PInvoke.CredDelete(Target(name), CRED_TYPE.CRED_TYPE_GENERIC) || (NotFound() ? false : throw new Win32Exception());
 
     private static bool NotFound() => Marshal.GetLastPInvokeError() == (int)WIN32_ERROR.ERROR_NOT_FOUND;

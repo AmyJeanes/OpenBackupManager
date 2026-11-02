@@ -19,28 +19,28 @@ public class CredentialManagerTests
     public void SetUp() => _prefix = "OpenBackupManager-Tests-" + Guid.NewGuid().ToString("N");
 
     [TearDown]
-    public void RemoveSaved()
+    public async Task RemoveSaved()
     {
         foreach (var (store, name) in _saved)
         {
-            store.Remove(name);
+            await store.RemoveAsync(name);
         }
     }
 
     [Test]
-    public void Read_GivesWhatWasSaved()
+    public async Task Read_GivesWhatWasSaved()
     {
         var store = Store();
 
-        Save(store, "rclone-config", "pässwörd 🔑");
+        await SaveAsync(store, "rclone-config", "pässwörd 🔑");
 
-        Assert.That(store.Read("rclone-config")?.Reveal(), Is.EqualTo("pässwörd 🔑"));
+        Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("pässwörd 🔑"));
     }
 
     [Test]
-    public void Save_PutsItInCredentialManager_AsUtf16_KeptToThisComputer()
+    public async Task Save_PutsItInCredentialManager_AsUtf16_KeptToThisComputer()
     {
-        Save(Store(), "rclone-config", "pässwörd 🔑");
+        await SaveAsync(Store(), "rclone-config", "pässwörd 🔑");
 
         var credential = InCredentialManager("rclone-config");
 
@@ -48,80 +48,80 @@ public class CredentialManagerTests
     }
 
     [Test]
-    public void Read_ACredentialCmdkeySaved()
+    public async Task Read_ACredentialCmdkeySaved()
     {
         var store = Store();
         _saved.Add((store, "rclone-config"));
 
         Cmdkey($"/generic:{_prefix}/rclone-config", "/user:rclone-config", "/pass:pässwörd");
 
-        Assert.That(store.Read("rclone-config")?.Reveal(), Is.EqualTo("pässwörd"));
+        Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("pässwörd"));
     }
 
     [Test]
-    public void Read_IsNullWhenNothingWasSaved() => Assert.That(Store().Read("rclone-config"), Is.Null);
+    public async Task Read_IsNullWhenNothingWasSaved() => Assert.That(await Store().ReadAsync("rclone-config"), Is.Null);
 
     [Test]
-    public void Save_ReplacesTheSecret()
+    public async Task Save_ReplacesTheSecret()
     {
         var store = Store();
 
-        Save(store, "rclone-config", "first");
-        Save(store, "rclone-config", "second");
+        await SaveAsync(store, "rclone-config", "first");
+        await SaveAsync(store, "rclone-config", "second");
 
-        Assert.That(store.Read("rclone-config")?.Reveal(), Is.EqualTo("second"));
+        Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("second"));
     }
 
     [Test]
-    public void Save_TakesTheLongestSecretCredentialManagerHolds()
+    public async Task Save_TakesTheLongestSecretCredentialManagerHolds()
     {
         var store = Store();
         var longest = new string('x', CredentialManager.MaxLength);
 
-        Save(store, "rclone-config", longest);
+        await SaveAsync(store, "rclone-config", longest);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(store.Read("rclone-config")?.Reveal(), Is.EqualTo(longest));
-            Assert.That(() => store.Save("rclone-config", new Secret(longest + "x")), Throws.ArgumentException);
+            Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo(longest));
+            Assert.That(() => store.SaveAsync("rclone-config", new Secret(longest + "x")), Throws.ArgumentException);
         }
     }
 
     [Test]
-    public void Remove_RemovesTheSecret()
+    public async Task Remove_RemovesTheSecret()
     {
         var store = Store();
-        Save(store, "rclone-config", "secret");
+        await SaveAsync(store, "rclone-config", "secret");
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(store.Remove("rclone-config"), Is.True);
-            Assert.That(store.Read("rclone-config"), Is.Null);
-            Assert.That(store.Remove("rclone-config"), Is.False);
+            Assert.That(await store.RemoveAsync("rclone-config"), Is.True);
+            Assert.That(await store.ReadAsync("rclone-config"), Is.Null);
+            Assert.That(await store.RemoveAsync("rclone-config"), Is.False);
         }
     }
 
     [Test]
-    public void Remove_TakesItOutOfCredentialManager()
+    public async Task Remove_TakesItOutOfCredentialManager()
     {
         var store = Store();
-        Save(store, "rclone-config", "secret");
+        await SaveAsync(store, "rclone-config", "secret");
 
-        store.Remove("rclone-config");
+        await store.RemoveAsync("rclone-config");
 
         Assert.That(InCredentialManager("rclone-config"), Is.Null);
     }
 
     [Test]
-    public void Stores_WithDifferentPrefixesKeepTheirOwnSecrets()
+    public async Task Stores_WithDifferentPrefixesKeepTheirOwnSecrets()
     {
         var store = Store();
         var other = new CredentialManager(_prefix + "-other");
 
-        Save(store, "rclone-config", "this home's");
-        Save(other, "rclone-config", "another home's");
+        await SaveAsync(store, "rclone-config", "this home's");
+        await SaveAsync(other, "rclone-config", "another home's");
 
-        Assert.That(store.Read("rclone-config")?.Reveal(), Is.EqualTo("this home's"));
+        Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("this home's"));
     }
 
     private CredentialManager Store() => new(_prefix);
@@ -153,9 +153,9 @@ public class CredentialManagerTests
         Assert.That(process.ExitCode, Is.Zero, "cmdkey");
     }
 
-    private void Save(CredentialManager store, string name, string value)
+    private async Task SaveAsync(CredentialManager store, string name, string value)
     {
         _saved.Add((store, name));
-        store.Save(name, new Secret(value));
+        await store.SaveAsync(name, new Secret(value));
     }
 }

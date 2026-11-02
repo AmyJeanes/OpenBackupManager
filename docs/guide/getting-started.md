@@ -66,7 +66,7 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
     3. Start the engine with `obm service install`, which keeps it running from when you sign in, or with `obmd` in a terminal. See [The engine](command-line.md#the-engine).
 
-    They need ICU, a library for text in every language, which desktop distros already have. On a minimal or server install, add it with your package manager, such as `sudo apt install libicu72` on Debian 12 or `sudo dnf install libicu` on Fedora and RHEL. Each build is checked on Debian 12 and RHEL 9, and should run on anything newer.
+    They need ICU, a library for text in every language, and OpenSSL, for encryption, which desktop distros already have. On a minimal or server install, add them with your package manager, such as `sudo apt install libicu72 libssl3` on Debian 12 or `sudo dnf install libicu openssl-libs` on Fedora and RHEL. Each build is checked on Debian 12 and RHEL 9, and should run on anything newer.
 
     !!! tip "Check it first"
 
