@@ -11,6 +11,8 @@
     <PublishAot>true</PublishAot>
     <!-- The Windows app builds it for its own runtime, to go beside it -->
     <RuntimeIdentifiers Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- As the Windows framework defines WINDOWS -->
+    <DefineConstants Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(DefineConstants);MACOS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +28,10 @@
 
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <ProjectReference Include="..\OpenBackupManager.Platform.Windows\OpenBackupManager.Platform.Windows.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <ProjectReference Include="..\OpenBackupManager.Platform.MacOS\OpenBackupManager.Platform.MacOS.csproj" />
   </ItemGroup>
 
 </Project>

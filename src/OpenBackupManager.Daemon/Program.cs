@@ -8,6 +8,8 @@ using OpenBackupManager.Daemon;
 using OpenBackupManager.Engine;
 #if WINDOWS
 using OpenBackupManager.Platform.Windows;
+#elif MACOS
+using OpenBackupManager.Platform.MacOS;
 #endif
 using Velopack.Locators;
 
@@ -72,11 +74,13 @@ static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, Cancell
     {
         built = EngineHost.Build(paths, startedBy, services =>
         {
-            // Platform.Windows is only referenced in the Windows build
+            // Each OS's platform project is only referenced when obmd is built on that OS
 #if WINDOWS
             services.AddWindowsPlatform(paths);
+#elif MACOS
+            services.AddMacOSPlatform(paths);
 #else
-            if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
+            if (!OperatingSystem.IsLinux())
             {
                 throw new PlatformNotSupportedException("obmd runs on Windows, macOS and Linux");
             }
