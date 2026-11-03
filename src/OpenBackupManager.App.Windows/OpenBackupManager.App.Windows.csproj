@@ -18,13 +18,17 @@
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
     <!-- CsWin32's generated Windows API code uses pointers -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- CsWin32 writes its code before compiling, so .NET's source generators convert every call, as NativeAOT needs -->
+    <CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
+    <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
     <!-- Program.cs has its own Main, which hands over to a copy that's already running -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
 
-  <!-- XAML code-behind for C# Dev Kit's IntelliSense until https://github.com/microsoft/vscode-dotnettools/issues/2990 is fixed -->
+  <!-- XAML code-behind for C# Dev Kit's IntelliSense until https://github.com/microsoft/vscode-dotnettools/issues/2990 is fixed.
+       CsWin32's code comes first, as the XAML step fails when dotnet format loads the project, which would leave it out -->
   <PropertyGroup Condition="'$(BuildingInsideVisualStudio)' != 'true'">
-    <CoreCompileDependsOn>DesignTimeMarkupCompilation;$(CoreCompileDependsOn)</CoreCompileDependsOn>
+    <CoreCompileDependsOn>GenerateCsWin32Code;DesignTimeMarkupCompilation;$(CoreCompileDependsOn)</CoreCompileDependsOn>
   </PropertyGroup>
 
   <!-- WinUI alone, not Microsoft.WindowsAppSDK, which adds about 60 MB of AI, ML and search parts -->

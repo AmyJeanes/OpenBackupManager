@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
@@ -42,20 +43,31 @@ internal static class NativeMethods
     // Windows identifies a tray icon by the window that owns it and its ID, and WinUIEx keeps that window private,
     // so this asks with each of this thread's windows until one owns it.
     // Replace with TrayIcon.GetBounds once https://github.com/dotMorten/WinUIEx/issues/281 is released
-    public static RectInt32? TrayIconBounds(uint id)
+    public static unsafe RectInt32? TrayIconBounds(uint id)
     {
-        RectInt32? bounds = null;
-        _ = PInvoke.EnumThreadWindows(PInvoke.GetCurrentThreadId(), (hwnd, _) =>
-        {
-            var icon = new NOTIFYICONIDENTIFIER { cbSize = (uint)Marshal.SizeOf<NOTIFYICONIDENTIFIER>(), hWnd = hwnd, uID = id };
-            if (PInvoke.Shell_NotifyIconGetRect(in icon, out var rect).Failed)
-            {
-                return true;
-            }
+        var search = new IconSearch { Id = id };
+        _ = PInvoke.EnumThreadWindows(PInvoke.GetCurrentThreadId(), &FindIcon, (LPARAM)(nint)(&search));
+        return search.Bounds;
+    }
 
-            bounds = new RectInt32(rect.left, rect.top, rect.Width, rect.Height);
-            return false;
-        }, default);
-        return bounds;
+    // Called for each window. Windows takes a plain function, so the search comes through as a pointer
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)])]
+    private static unsafe BOOL FindIcon(HWND hwnd, LPARAM data)
+    {
+        var search = (IconSearch*)data.Value;
+        var icon = new NOTIFYICONIDENTIFIER { cbSize = (uint)sizeof(NOTIFYICONIDENTIFIER), hWnd = hwnd, uID = search->Id };
+        if (PInvoke.Shell_NotifyIconGetRect(in icon, out var rect).Failed)
+        {
+            return true;
+        }
+
+        search->Bounds = new RectInt32(rect.left, rect.top, rect.Width, rect.Height);
+        return false;
+    }
+
+    private struct IconSearch
+    {
+        public uint Id;
+        public RectInt32? Bounds;
     }
 }
