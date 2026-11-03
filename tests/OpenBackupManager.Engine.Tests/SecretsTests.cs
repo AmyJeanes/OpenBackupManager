@@ -53,7 +53,7 @@ public class SecretsTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.EqualTo(new MigrateSecretsResult(OSStore.Name(), 2, [], _file.Path)).Using<MigrateSecretsResult>(Same));
+            Assert.That(result, Is.EqualTo(new MigrateSecretsResult(2, [], _file.Path, OSStore.Name())).Using<MigrateSecretsResult>(Same));
             Assert.That(await InTheFile(), Is.EquivalentTo(new Dictionary<string, string> { ["rclone-config"] = "one", ["heartbeat"] = "two" }));
             Assert.That(_os.Secrets, Is.Empty);
             Assert.That(secrets.Chosen, Is.EqualTo(SecretStoreKind.File));
@@ -191,7 +191,7 @@ public class SecretsTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.EqualTo(new MigrateSecretsResult("file", 0, [], _file.Path)).Using<MigrateSecretsResult>(Same));
+            Assert.That(result, Is.EqualTo(new MigrateSecretsResult(0, [], _file.Path, "file")).Using<MigrateSecretsResult>(Same));
             Assert.That(await InTheFile(), Has.Count.EqualTo(1));
         }
     }

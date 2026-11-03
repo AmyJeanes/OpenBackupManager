@@ -72,5 +72,5 @@ public class MigrateTests
     [TestCase("secret-service", 1, "file", "Moved 1 secret from Secret Service to " + File)]
     [TestCase("file", 3, "secret-service", "Moved 3 secrets from " + File + " to Secret Service")]
     public void Moved(string? from, int moved, string store, string expected) =>
-        Assert.That(Migrate.Moved(new MigrateSecretsResult(from, moved, [], File), store), Is.EqualTo(expected));
+        Assert.That(Migrate.Moved(new MigrateSecretsResult(moved, [], File, from), store), Is.EqualTo(expected));
 }

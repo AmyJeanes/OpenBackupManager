@@ -201,5 +201,5 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
 
     private string Title(SecretStoreKind kind) => kind == SecretStoreKind.File ? fileStore.Path : kind.Title();
 
-    private MigrateSecretsResult Result(SecretStoreKind? from, int moved, List<string> left) => new(from?.Name(), moved, left, fileStore.Path);
+    private MigrateSecretsResult Result(SecretStoreKind? from, int moved, List<string> left) => new(moved, left, fileStore.Path, from?.Name());
 }

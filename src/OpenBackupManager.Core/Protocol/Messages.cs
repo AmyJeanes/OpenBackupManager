@@ -34,7 +34,7 @@ public sealed record RpcRequest(
 public sealed record RpcResponse(
     [property: JsonPropertyName("jsonrpc")] string JsonRpc,
     // Written even when null, as JSON-RPC requires, where ProtocolJson would leave it out
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] JsonElement? Id,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] JsonElement? Id = null,
     JsonElement? Result = null,
     RpcError? Error = null);
 
@@ -75,7 +75,7 @@ public sealed record MigrateSecretsParams(string Store);
 
 // From is the store they were in, as secret-store names it, or null when none was chosen. When it's the store asked
 // for, nothing was moved. Left names the secrets that couldn't be removed from it. File is the file store's path
-public sealed record MigrateSecretsResult(string? From, int Moved, IReadOnlyList<string> Left, string File);
+public sealed record MigrateSecretsResult(int Moved, IReadOnlyList<string> Left, string File, string? From = null);
 
 // Quit in the tray app stops only an engine the app started
 [JsonConverter(typeof(JsonStringEnumConverter<EngineStarter>))]
@@ -109,7 +109,8 @@ public sealed record CrashParams(string How)
 public sealed record CrashResult;
 #endif
 
-// Nullable annotations are kept to, so a message missing what it needs isn't read
+// Nullable annotations are kept to, so a message missing what it needs isn't read. Nulls are left out, so each nullable
+// parameter defaults to null, or a message holding one couldn't be read
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
