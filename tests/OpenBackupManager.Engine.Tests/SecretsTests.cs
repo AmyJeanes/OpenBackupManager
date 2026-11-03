@@ -110,6 +110,30 @@ public class SecretsTests
         }
     }
 
+    // As Secret Service with no default keyring, which nothing would otherwise try until a secret is saved
+    [Test]
+    public void AStoreThatCantBeUsed_IsRefused_EvenWithNothingToMove()
+    {
+        var secrets = SecretsWith("secret-store = \"file\"");
+        _os.FailListing = true;
+
+        Assert.That(() => secrets.MigrateAsync(OSStore.Name(), CancellationToken.None),
+            Throws.InstanceOf<EngineException>().With.Message.EqualTo("couldn't list them"));
+        Assert.That(secrets.Chosen, Is.EqualTo(SecretStoreKind.File));
+    }
+
+    [Test]
+    public void NothingChosen_AStoreThatCantBeUsed_IsntChosen()
+    {
+        Assume.That(SecretStoreKinds.DefaultOn(CurrentOS.Platform), Is.Null, "Only Linux has no store until one is chosen");
+        var secrets = SecretsWith("");
+        _os.FailListing = true;
+
+        Assert.That(() => secrets.MigrateAsync(OSStore.Name(), CancellationToken.None),
+            Throws.InstanceOf<EngineException>().With.Message.EqualTo("couldn't list them"));
+        Assert.That(secrets.Chosen, Is.Null);
+    }
+
     [Test]
     public async Task ACopyThatReadsBackDifferently_IsPutBack()
     {

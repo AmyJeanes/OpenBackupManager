@@ -58,6 +58,22 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
                     + $"Set {Setting} in config.toml to {Chosen?.Name()}, remove {envVar} and restart the engine, then run this again");
             }
 
+            if (Chosen == to)
+            {
+                return Result(to, 0, []);
+            }
+
+            // So a store that can't be used, such as Secret Service with no default keyring, is refused before the setting
+            // points to it, even with nothing to move
+            try
+            {
+                await StoreFor(to).ListAsync(cancellationToken);
+            }
+            catch (Exception e) when (e is InvalidOperationException or IOException or UnauthorizedAccessException)
+            {
+                throw new EngineException(e.Message, e);
+            }
+
             if (Chosen is not { } from)
             {
                 try
@@ -70,11 +86,6 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
                 }
 
                 return Result(null, 0, []);
-            }
-
-            if (from == to)
-            {
-                return Result(from, 0, []);
             }
 
             var (names, moved) = await CopyAsync(from, to, cancellationToken);
