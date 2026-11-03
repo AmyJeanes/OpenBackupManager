@@ -14,4 +14,8 @@
     <ProjectReference Include="..\OpenBackupManager.Core\OpenBackupManager.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenBackupManager.Platform.Linux.Tests" />
+  </ItemGroup>
+
 </Project>
