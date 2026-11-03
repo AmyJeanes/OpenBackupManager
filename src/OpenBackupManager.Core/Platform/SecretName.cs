@@ -6,9 +6,11 @@ namespace OpenBackupManager.Core.Platform;
 // case, so two names differing only in case would be one secret there
 public static partial class SecretName
 {
+    public static bool IsValid(string name) => Valid().IsMatch(name);
+
     public static void Check(string name)
     {
-        if (!Valid().IsMatch(name))
+        if (!IsValid(name))
         {
             throw new ArgumentException($"Secret names are up to 64 lowercase letters, digits and dashes, starting with a letter or digit, not \"{name}\"", nameof(name));
         }

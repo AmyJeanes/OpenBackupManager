@@ -1,6 +1,7 @@
 using System.CommandLine;
 using OpenBackupManager.Cli;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Platform;
 using Velopack.Locators;
 
 var homeOption = new Option<string>("--home")
@@ -30,11 +31,23 @@ var serviceCommand = new Command("service", "Keep the engine running from when y
 };
 serviceCommand.Hidden = OperatingSystem.IsWindows();
 
+var storeArgument = new Argument<string>("store") { Description = "The store to keep them in from now on" };
+storeArgument.AcceptOnlyFromAmong([.. SecretStoreKinds.NamesOn(CurrentOS.Platform)]);
+var migrateCommand = new Command("migrate", "Move this device's secrets to another store, and keep them there") { storeArgument };
+migrateCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? Migrate.RunAsync(Paths(parseResult), parseResult.GetValue(storeArgument)!, cancellationToken));
+
+var secretsCommand = new Command("secrets", "Where this device keeps its secrets, such as the password that protects your sign-ins")
+{
+    migrateCommand,
+};
+
 var command = new RootCommand("Open Backup Manager's command line")
 {
     homeOption,
     statusCommand,
     serviceCommand,
+    secretsCommand,
 };
 
 return await command.Parse(args).InvokeAsync();

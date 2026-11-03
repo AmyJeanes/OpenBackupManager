@@ -65,6 +65,19 @@ public sealed class FileStore(string path) : ISecretStore, IDisposable
         }
     }
 
+    public async Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        await _lock.WaitAsync(cancellationToken);
+        try
+        {
+            return [.. (await LoadAsync(cancellationToken)).Keys.Order(StringComparer.Ordinal)];
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
     public void Dispose() => _lock.Dispose();
 
     private async Task<Dictionary<string, string>> LoadAsync(CancellationToken cancellationToken)

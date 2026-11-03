@@ -91,6 +91,13 @@ public sealed class EngineClient : IDisposable
     public Task<StatusResult> StatusAsync(CancellationToken cancellationToken) =>
         CallAsync(EngineProtocol.Status, null, ProtocolJson.Default.StatusResult, cancellationToken);
 
+    public Task<MigrateSecretsResult> MigrateSecretsAsync(string store, CancellationToken cancellationToken) =>
+        CallAsync(
+            EngineProtocol.MigrateSecrets,
+            JsonSerializer.SerializeToElement(new MigrateSecretsParams(store), ProtocolJson.Default.MigrateSecretsParams),
+            ProtocolJson.Default.MigrateSecretsResult,
+            cancellationToken);
+
     // Returns once the engine has closed the connection, as it does as it stops
     public async Task StopAsync(CancellationToken cancellationToken)
     {

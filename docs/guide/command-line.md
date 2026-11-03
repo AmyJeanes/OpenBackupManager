@@ -22,6 +22,7 @@
 | `obm status` | Shows whether the engine is running, and if so its version, process ID, how long it's been up, what started it and its data folder. Exits with 1 if it isn't running. |
 | `obm service install` | macOS and Linux: starts the engine now and whenever you sign in, and again if it fails. See [The engine](#the-engine). |
 | `obm service uninstall` | macOS and Linux: stops the engine, and stops it starting when you sign in. |
+| `obm secrets migrate <store>` | Moves your secrets to another store, such as `file`, and keeps them there from now on, as [`secret-store`](settings.md#secret-store) says. It copies them all and checks each before removing them from the old store, so if anything goes wrong they're still where they were. The engine has to be running. |
 | `obm --help` | Lists the commands, and `obm <command> --help` describes one. |
 
 ## The engine
@@ -46,7 +47,7 @@
 
     There's no app yet to start the engine for you. `obm service install` starts it now and whenever you sign in, as a systemd user service, and starts it again if it fails. `obm service uninstall` stops it and takes it off. Or start `obmd` yourself, such as in a terminal you leave open.
 
-    The service runs while you're signed in. To keep it running when you're not, as on a server, turn on lingering with `loginctl enable-linger`, and it starts when the computer does. `systemctl --user status openbackupmanager` shows how it's doing, and `journalctl --user -u openbackupmanager` what it printed.
+    The service runs while you're signed in. To keep it running when you're not, as on a server, turn on lingering with `loginctl enable-linger`, and it starts when the computer does. Secret Service is locked while you're not signed in with your password, so the engine can't read secrets kept there then. To keep them in a file only you can read instead, run `obm secrets migrate file`. `systemctl --user status openbackupmanager` shows how it's doing, and `journalctl --user -u openbackupmanager` what it printed.
 
     If you've moved `obm` and `obmd` since, run `obm service install` again. With `--home`, each folder gets its own.
 

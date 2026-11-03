@@ -92,7 +92,7 @@ Environment variable
 secret-store = "file"
 ```
 
-`file` keeps them in `secrets.json`, in the engine's own folder (see [Files and folders](files.md)), protected by nothing but its permissions, for when the OS's store can't be used, such as on a server or over SSH. On Windows and macOS, any program running as you can read what's in the OS's store too. On Linux, `secret-service` is locked whenever you're not signed in with your password, so it can't be read with lingering on and nobody signed in, or after an automatic sign-in until it's unlocked.
+`file` keeps them in `secrets.json`, in the engine's own folder (see [Files and folders](files.md)), protected by nothing but its permissions, for when the OS's store can't be used, such as on a server or over SSH. On Windows and macOS, any program running as you can read what's in the OS's store too. On Linux, `secret-service` is locked whenever you're not signed in with your password, so it can't be read with lingering on and nobody signed in, or after an automatic sign-in until it's unlocked. To change it once secrets are saved, run `obm secrets migrate` with the store to move them to, which changes this too (see [Command line](command-line.md#commands)). Changing it by hand leaves them behind in the old store.
 
 ### `[updates]` {#updates}
 

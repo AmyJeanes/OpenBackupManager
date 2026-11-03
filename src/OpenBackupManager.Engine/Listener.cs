@@ -154,11 +154,11 @@ internal sealed partial class Listener(
         {
             try
             {
-                var connection = new Connection(Status);
+                var connection = new Connection(Status, secrets);
                 using var reader = new StreamReader(pipe, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
                 while (!connection.Closing && await reader.ReadLineAsync(cancellationToken) is { } line)
                 {
-                    if (connection.Answer(line) is { } response)
+                    if (await connection.AnswerAsync(line, cancellationToken) is { } response)
                     {
                         await pipe.WriteAsync(EngineProtocol.Line(response, ProtocolJson.Default.RpcResponse), cancellationToken);
                         await pipe.FlushAsync(cancellationToken);

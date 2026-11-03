@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Platform;
 using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Cli;
@@ -24,10 +25,9 @@ internal static class Service
 
             await TakeOverAsync(paths, cancellationToken);
             service.Install();
-            if (!await StartedAsync(paths, service, cancellationToken))
-            {
-                throw new ServiceException($"the service didn't start the engine. {service.HowToCheck} might say why");
-            }
+            var status = await StartedAsync(paths, service, cancellationToken)
+                ?? throw new ServiceException($"the service didn't start the engine. {service.HowToCheck} might say why");
+            var inSecretService = status.Secrets.Store == SecretStoreKind.SecretService.Name();
 
             if (service.SwitchedOff)
             {
@@ -36,6 +36,10 @@ internal static class Service
             else if (service is SystemdService && SystemdService.Lingering)
             {
                 Console.WriteLine("The engine is running, and starts whenever the computer does");
+                if (inSecretService)
+                {
+                    Console.WriteLine(SystemdService.LockedWhileSignedOut);
+                }
             }
             else
             {
@@ -43,6 +47,10 @@ internal static class Service
                 if (service is SystemdService)
                 {
                     Console.WriteLine("It stops once you've signed out everywhere. To keep it running, as on a server, run loginctl enable-linger");
+                    if (inSecretService)
+                    {
+                        Console.WriteLine(SystemdService.LockedWhileSignedOut);
+                    }
                 }
             }
 
@@ -109,8 +117,8 @@ internal static class Service
         }
     }
 
-    // A few seconds at a time, so it can stop waiting once the service manager stops trying
-    private static async Task<bool> StartedAsync(AppPaths paths, EngineService service, CancellationToken cancellationToken)
+    // A few seconds at a time, so it can stop waiting once the service manager stops trying. Null if it didn't start it
+    private static async Task<StatusResult?> StartedAsync(AppPaths paths, EngineService service, CancellationToken cancellationToken)
     {
         var until = DateTime.UtcNow + StartTimeout;
         while (DateTime.UtcNow < until && !service.HasGivenUp)
@@ -118,13 +126,14 @@ internal static class Service
             using var engine = await EngineClient.ConnectAsync(paths, FindTimeout, cancellationToken);
             if (engine is not null)
             {
-                return (await engine.StatusAsync(cancellationToken)).StartedBy == EngineStarter.Service;
+                var status = await engine.StatusAsync(cancellationToken);
+                return status.StartedBy == EngineStarter.Service ? status : null;
             }
 
             // Connecting gives up at once on a socket path too long for the OS
             await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
         }
 
-        return false;
+        return null;
     }
 }

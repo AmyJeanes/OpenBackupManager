@@ -145,6 +145,24 @@ public class KeychainTests
         Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("this home's"));
     }
 
+    [Test]
+    public async Task List_IsEmptyWhenNothingWasSaved() => Assert.That(await Store().ListAsync(), Is.Empty);
+
+    [Test]
+    public async Task List_GivesOnlyThisHomesSecrets()
+    {
+        var store = Store();
+        await store.SaveAsync("rclone-config", new Secret("one"));
+        await store.SaveAsync("heartbeat", new Secret("two"));
+        await new Keychain(_prefix + "-other", _file).SaveAsync("another-home", new Secret("three"));
+
+        // Under the prefix, but not as the store would save them
+        Security("add-generic-password", "-s", $"{_prefix}/Upper-Case", "-a", "Upper-Case", "-w", "four", _file);
+        Security("add-generic-password", "-s", $"{_prefix}/one-name", "-a", "another-name", "-w", "five", _file);
+
+        Assert.That(await store.ListAsync(), Is.EqualTo((string[])["heartbeat", "rclone-config"]));
+    }
+
     private Keychain Store() => new(_prefix, _file);
 
     private static bool Fits(Keychain store, string secret) =>

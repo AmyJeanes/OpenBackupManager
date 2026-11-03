@@ -9,4 +9,7 @@ public interface ISecretStore
 
     // False if there was nothing to remove
     Task<bool> RemoveAsync(string name, CancellationToken cancellationToken = default);
+
+    // The names of every secret this home has saved here, so they can all be moved or removed
+    Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default);
 }

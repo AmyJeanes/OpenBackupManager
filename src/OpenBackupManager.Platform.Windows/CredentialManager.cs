@@ -26,6 +26,8 @@ public sealed unsafe class CredentialManager(string prefix) : ISecretStore
 
     public Task<bool> RemoveAsync(string name, CancellationToken cancellationToken = default) => Run(() => Remove(name), cancellationToken);
 
+    public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default) => Run(List, cancellationToken);
+
     private Secret? Read(string name)
     {
         SecretName.Check(name);
@@ -75,6 +77,43 @@ public sealed unsafe class CredentialManager(string prefix) : ISecretStore
     {
         SecretName.Check(name);
         return PInvoke.CredDelete(Target(name), CRED_TYPE.CRED_TYPE_GENERIC) || (NotFound() ? false : throw Failed("remove", name));
+    }
+
+    // Windows matches targets ignoring case, and anything can save one under the prefix, so only our names are kept
+    private IReadOnlyList<string> List()
+    {
+        uint count;
+        CREDENTIALW** credentials;
+        bool found;
+        fixed (char* filter = $"{prefix}/*")
+        {
+            found = PInvoke.CredEnumerate(filter, 0, &count, &credentials);
+        }
+
+        if (!found)
+        {
+            return NotFound() ? [] : throw Failed("list", "the saved secrets");
+        }
+
+        try
+        {
+            var names = new List<string>();
+            for (var i = 0; i < count; i++)
+            {
+                var credential = credentials[i];
+                var name = credential->TargetName.ToString()[(prefix.Length + 1)..];
+                if (credential->Type == CRED_TYPE.CRED_TYPE_GENERIC && SecretName.IsValid(name))
+                {
+                    names.Add(name);
+                }
+            }
+
+            return [.. names.Order(StringComparer.Ordinal)];
+        }
+        finally
+        {
+            PInvoke.CredFree(credentials);
+        }
     }
 
     // So what goes wrong comes back in the task, as from any other store

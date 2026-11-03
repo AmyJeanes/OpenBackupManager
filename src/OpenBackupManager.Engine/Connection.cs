@@ -6,7 +6,7 @@ using OpenBackupManager.Core.Protocol;
 namespace OpenBackupManager.Engine;
 
 // What the engine says to one client, a line at a time. It closes the connection once it's refused a client
-internal sealed class Connection(Func<StatusResult> status)
+internal sealed class Connection(Func<StatusResult> status, Secrets secrets)
 {
     private bool _greeted;
 
@@ -16,7 +16,7 @@ internal sealed class Connection(Func<StatusResult> status)
     public bool Stopping { get; private set; }
 
     // Null when nothing should be sent back: a message without an id is a notification, which JSON-RPC never answers
-    public RpcResponse? Answer(string line)
+    public async Task<RpcResponse?> AnswerAsync(string line, CancellationToken cancellationToken)
     {
         RpcRequest? request;
         try
@@ -49,6 +49,7 @@ internal sealed class Connection(Func<StatusResult> status)
             EngineProtocol.Hello => Hello(id, request.Params),
             EngineProtocol.Status => Result(id, status(), ProtocolJson.Default.StatusResult),
             EngineProtocol.Stop => Stop(id),
+            EngineProtocol.MigrateSecrets => await MigrateSecretsAsync(id, request.Params, cancellationToken),
 #if DEBUG
             EngineProtocol.Crash => Crash(id, request.Params),
 #endif
@@ -58,17 +59,7 @@ internal sealed class Connection(Func<StatusResult> status)
 
     private RpcResponse Hello(JsonElement id, JsonElement? parameters)
     {
-        HelloParams? hello;
-        try
-        {
-            hello = parameters?.Deserialize(ProtocolJson.Default.HelloParams);
-        }
-        catch (JsonException)
-        {
-            hello = null;
-        }
-
-        if (hello is null)
+        if (Params(parameters, ProtocolJson.Default.HelloParams) is not { } hello)
         {
             return Error(id, RpcError.InvalidParams, $"{EngineProtocol.Hello} needs the client's protocol and version");
         }
@@ -84,6 +75,24 @@ internal sealed class Connection(Func<StatusResult> status)
 
         _greeted = true;
         return Result(id, new HelloResult(EngineProtocol.Version, AppVersion.Current), ProtocolJson.Default.HelloResult);
+    }
+
+    // Answered once it's done, which takes as long as the stores do
+    private async Task<RpcResponse> MigrateSecretsAsync(JsonElement id, JsonElement? parameters, CancellationToken cancellationToken)
+    {
+        if (Params(parameters, ProtocolJson.Default.MigrateSecretsParams) is not { } migrate)
+        {
+            return Error(id, RpcError.InvalidParams, $"{EngineProtocol.MigrateSecrets} needs the store to move the secrets to");
+        }
+
+        try
+        {
+            return Result(id, await secrets.MigrateAsync(migrate.Store, cancellationToken), ProtocolJson.Default.MigrateSecretsResult);
+        }
+        catch (EngineException e)
+        {
+            return Error(id, RpcError.Failed, e.Message);
+        }
     }
 
     private RpcResponse Stop(JsonElement id)
@@ -110,6 +119,20 @@ internal sealed class Connection(Func<StatusResult> status)
         return Result(id, new CrashResult(), ProtocolJson.Default.CrashResult);
     }
 #endif
+
+    // Null when they're missing or the wrong shape
+    private static T? Params<T>(JsonElement? parameters, JsonTypeInfo<T> type)
+        where T : class
+    {
+        try
+        {
+            return parameters?.Deserialize(type);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
     private static RpcResponse Result<T>(JsonElement id, T result, JsonTypeInfo<T> type) =>
         new("2.0", id, JsonSerializer.SerializeToElement(result, type), null);

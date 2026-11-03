@@ -17,6 +17,11 @@ internal sealed class SystemdService(string? home, string obmd, Func<string, str
     // Off, the engine stops once the user's last session ends, until they sign in again
     public static bool Lingering => System.IO.File.Exists("/var/lib/systemd/linger/" + System.Environment.UserName);
 
+    // For when secrets are in Secret Service and the engine runs with lingering on, or could
+    public const string LockedWhileSignedOut =
+        "Secret Service, where your secrets are kept, is locked while you're not signed in with your password, so the engine can't read them then. "
+        + "To keep them in a file only you can read instead, run obm secrets migrate file";
+
     // Where systemd looks for the user's own units, by its own XDG_CONFIG_HOME rather than one set only in the shell
     private string ConfigFolder =>
         systemdEnvironment("XDG_CONFIG_HOME") is { Length: > 0 } config && config.StartsWith('/') ? config : Path.Combine(Environment("HOME")!, ".config");

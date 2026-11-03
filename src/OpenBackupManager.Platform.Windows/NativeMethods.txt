@@ -1,5 +1,6 @@
 CoTaskMemFree
 CredDelete
+CredEnumerate
 CredFree
 CredRead
 CredWrite

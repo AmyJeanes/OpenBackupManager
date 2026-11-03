@@ -66,6 +66,37 @@ public sealed class Keychain(string prefix, string file) : ISecretStore
         };
     }
 
+    // Without -d it prints every item's attributes and none of their secrets, so it never asks to unlock anything
+    public async Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        var (exitCode, output, error) = await SecurityAsync("list", "the saved secrets", null, ["dump-keychain", file], cancellationToken);
+        return exitCode == 0 ? Names(output) : throw Failed("list", "the saved secrets", exitCode, error);
+    }
+
+    // Each item starts with a keychain: line. Anything can save an item, so only those named as this store names them count
+    private IReadOnlyList<string> Names(string dump)
+    {
+        var names = new List<string>();
+        string? service = null, account = null;
+        foreach (var line in dump.Split('\n').Append("keychain: "))
+        {
+            if (line.StartsWith("keychain: ", StringComparison.Ordinal))
+            {
+                if (account is not null && SecretName.IsValid(account) && service == Service(account))
+                {
+                    names.Add(account);
+                }
+
+                service = account = null;
+            }
+
+            service = Attribute(line, "svce") ?? service;
+            account = Attribute(line, "acct") ?? account;
+        }
+
+        return [.. names.Distinct().Order(StringComparer.Ordinal)];
+    }
+
     // Base64, as -w prints a secret with anything outside printable ASCII as hex, which can't be told apart from text.
     // Quoted all the same, as an empty secret would leave -w with no value, and the tool would ask for one
     internal string SaveCommand(string name, Secret secret) =>
@@ -74,6 +105,13 @@ public sealed class Keychain(string prefix, string file) : ISecretStore
             "-w", Quote(Convert.ToBase64String(Encoding.UTF8.GetBytes(secret.Reveal()))), Quote(file));
 
     private string Service(string name) => $"{prefix}/{name}";
+
+    // Such as     "acct"<blob>="rclone-config". A value that isn't plain text is printed as hex, which no name of ours is
+    private static string? Attribute(string line, string attribute)
+    {
+        var start = $"    \"{attribute}\"<blob>=\"";
+        return line.StartsWith(start, StringComparison.Ordinal) && line.EndsWith('"') ? line[start.Length..^1] : null;
+    }
 
     // security -i splits a line with its own quoting, where a backslash escapes the next character
     private static string Quote(string value) => "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";

@@ -164,6 +164,44 @@ public class SecretServiceTests
     }
 
     [Test]
+    public async Task List_IsEmptyWhenNothingWasSaved() => Assert.That(await Store().ListAsync(), Is.Empty);
+
+    [Test]
+    public async Task List_GivesOnlyThisHomesSecrets()
+    {
+        var store = Store();
+        await store.SaveAsync("rclone-config", new Secret("one"));
+        await store.SaveAsync("heartbeat", new Secret("two"));
+        await new SecretService(_prefix + "-other", _address).SaveAsync("another-home", new Secret("three"));
+
+        // With this home's attribute, but not as the store would save them
+        Tool("secret-tool", "four", "store", "--label=upper case", "service", $"{_prefix}/Upper-Case", "account", "Upper-Case", "home", _prefix);
+        Tool("secret-tool", "five", "store", "--label=two names", "service", $"{_prefix}/one-name", "account", "another-name", "home", _prefix);
+
+        Assert.That(await store.ListAsync(), Is.EqualTo((string[])["heartbeat", "rclone-config"]));
+    }
+
+    [Test]
+    public async Task List_LooksInEveryKeyring()
+    {
+        Tool("secret-tool", "elsewhere", "store", "--collection=/org/freedesktop/secrets/collection/session", "--label=elsewhere",
+            "service", $"{_prefix}/rclone-config", "account", "rclone-config", "home", _prefix);
+
+        Assert.That(await Store().ListAsync(), Is.EqualTo((string[])["rclone-config"]));
+    }
+
+    [Test]
+    public async Task List_RefusesWhileTheKeyringIsLocked()
+    {
+        var store = Store();
+        await store.SaveAsync("rclone-config", new Secret("secret"));
+        Tool("busctl", null, $"--address={_address}", "call", "org.freedesktop.secrets", "/org/freedesktop/secrets",
+            "org.freedesktop.Secret.Service", "Lock", "ao", "1", Login);
+
+        Assert.That(() => store.ListAsync(), Throws.InvalidOperationException.With.Message.EqualTo("Secret Service couldn't list the saved secrets: the keyring is locked"));
+    }
+
+    [Test]
     public void ABusWithNoKeyring_SaysSo()
     {
         var (bus, address) = StartBus("empty-bus");

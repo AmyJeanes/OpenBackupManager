@@ -139,6 +139,24 @@ public class CredentialManagerTests
     }
 
     [Test]
+    public async Task List_IsEmptyWhenNothingWasSaved() => Assert.That(await Store().ListAsync(), Is.Empty);
+
+    [Test]
+    public async Task List_GivesOnlyThisHomesSecrets()
+    {
+        var store = Store();
+        await SaveAsync(store, "rclone-config", "one");
+        await SaveAsync(store, "heartbeat", "two");
+        await SaveAsync(new CredentialManager(_prefix + "-other"), "another-home", "three");
+
+        // Under the prefix, but not a name the store would save
+        _saved.Add((store, "upper-case"));
+        Cmdkey($"/generic:{_prefix}/Upper-Case", "/user:Upper-Case", "/pass:four");
+
+        Assert.That(await store.ListAsync(), Is.EqualTo((string[])["heartbeat", "rclone-config"]));
+    }
+
+    [Test]
     public void ANameThatIsntASecretName_IsRefused_InTheTask()
     {
         var store = Store();

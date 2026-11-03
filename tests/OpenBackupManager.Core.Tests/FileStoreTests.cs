@@ -52,6 +52,20 @@ public class FileStoreTests
     }
 
     [Test]
+    public async Task List_IsEmpty_BeforeTheFileExists() => Assert.That(await _store.ListAsync(), Is.Empty);
+
+    [Test]
+    public async Task List_GivesEveryName()
+    {
+        await _store.SaveAsync("rclone", new Secret("one"));
+        await _store.SaveAsync("heartbeat", new Secret("two"));
+        await _store.SaveAsync("removed", new Secret("three"));
+        await _store.RemoveAsync("removed");
+
+        Assert.That(await _store.ListAsync(), Is.EqualTo((string[])["heartbeat", "rclone"]));
+    }
+
+    [Test]
     public async Task Save_LeavesOnlyTheFile()
     {
         await _store.SaveAsync("rclone", new Secret("value"));

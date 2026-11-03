@@ -14,6 +14,7 @@ public static class EngineProtocol
     public const string Hello = "hello";
     public const string Status = "status";
     public const string Stop = "stop";
+    public const string MigrateSecrets = "migrateSecrets";
 
 #if DEBUG
     // For testing crash reports
@@ -49,6 +50,9 @@ public sealed record RpcError(int Code, string Message)
     // `hello` and this reply keep their shape in every version, as they're how two different versions find out
     public const int ProtocolMismatch = -32000;
     public const int HelloFirst = -32001;
+
+    // It couldn't do what was asked, and the message says why
+    public const int Failed = -32002;
 }
 
 public sealed record HelloParams(int Protocol, string Version);
@@ -66,6 +70,12 @@ public sealed record StatusResult(
 
 // Store is the store in use, as secret-store names it, or null when none is chosen yet. File is the file store's path
 public sealed record SecretsStatus(string? Store = null, string? File = null);
+
+public sealed record MigrateSecretsParams(string Store);
+
+// From is the store they were in, as secret-store names it, or null when none was chosen. When it's the store asked
+// for, nothing was moved. Left names the secrets that couldn't be removed from it. File is the file store's path
+public sealed record MigrateSecretsResult(string? From, int Moved, IReadOnlyList<string> Left, string File);
 
 // Quit in the tray app stops only an engine the app started
 [JsonConverter(typeof(JsonStringEnumConverter<EngineStarter>))]
@@ -113,6 +123,8 @@ public sealed record CrashResult;
 [JsonSerializable(typeof(StatusResult))]
 [JsonSerializable(typeof(SecretsStatus))]
 [JsonSerializable(typeof(StopResult))]
+[JsonSerializable(typeof(MigrateSecretsParams))]
+[JsonSerializable(typeof(MigrateSecretsResult))]
 #if DEBUG
 [JsonSerializable(typeof(CrashParams))]
 [JsonSerializable(typeof(CrashResult))]

@@ -20,7 +20,8 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
 
     public Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default) => UseAsync("save", name, async keyring =>
     {
-        var saved = await keyring.CreateItemAsync(Service(name), Attributes(name), Encoding.UTF8.GetBytes(secret.Reveal()));
+        // SearchItems matches whole values only, so the prefix has its own attribute for listing
+        var saved = await keyring.CreateItemAsync(Service(name), new(Attributes(name)) { ["home"] = prefix }, Encoding.UTF8.GetBytes(secret.Reveal()));
 
         // So it's the only copy: saving replaces one with the same attributes only if the keyring does as the spec says,
         // and only in the default keyring
@@ -53,6 +54,27 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
         return unlocked.Length > 0;
     }, cancellationToken);
 
+    public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default) => ConnectAsync("list", "the saved secrets", async keyring =>
+    {
+        var (unlocked, locked) = await keyring.SearchEveryKeyringAsync(new() { ["home"] = prefix });
+        if (locked.Length > 0)
+        {
+            throw Failed("list", "the saved secrets", "a keyring holding them is locked");
+        }
+
+        var names = new List<string>();
+        foreach (var item in unlocked)
+        {
+            var attributes = await keyring.AttributesAsync(item);
+            if (attributes.GetValueOrDefault("account") is { } name && SecretName.IsValid(name) && attributes.GetValueOrDefault("service") == Service(name))
+            {
+                names.Add(name);
+            }
+        }
+
+        return (IReadOnlyList<string>)[.. names.Distinct().Order(StringComparer.Ordinal)];
+    }, cancellationToken);
+
     private string Service(string name) => $"{prefix}/{name}";
 
     private Dictionary<string, string> Attributes(string name) => new() { ["service"] = Service(name), ["account"] = name };
@@ -60,41 +82,47 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
     private async Task<T> UseAsync<T>(string action, string name, Func<Keyring, Task<T>> use, CancellationToken cancellationToken)
     {
         SecretName.Check(name);
+        return await ConnectAsync(action, name, use, cancellationToken);
+    }
+
+    // what is the secret's name, or the saved secrets when listing them all
+    private async Task<T> ConnectAsync<T>(string action, string what, Func<Keyring, Task<T>> use, CancellationToken cancellationToken)
+    {
         var address = bus ?? Environment.GetEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS");
         if (string.IsNullOrEmpty(address))
         {
-            throw Failed(action, name, "there's no D-Bus session to reach it through, as DBUS_SESSION_BUS_ADDRESS isn't set");
+            throw Failed(action, what, "there's no D-Bus session to reach it through, as DBUS_SESSION_BUS_ADDRESS isn't set");
         }
 
         try
         {
             using var connection = new DBusConnection(address);
             await connection.ConnectAsync().AsTask().WaitAsync(Timeout, cancellationToken);
-            var keyring = await Keyring.DefaultAsync(connection, reason => Failed(action, name, reason), cancellationToken);
+            var keyring = await Keyring.DefaultAsync(connection, reason => Failed(action, what, reason), cancellationToken);
 
             // secret-tool reports a secret in a locked keyring as missing, so this checks first, and never asks to unlock it
             if (await keyring.LockedAsync())
             {
-                throw Failed(action, name, "the keyring is locked");
+                throw Failed(action, what, "the keyring is locked");
             }
 
             return await use(keyring);
         }
         catch (DBusErrorReplyException e) when (e.ErrorName == "org.freedesktop.DBus.Error.ServiceUnknown")
         {
-            throw Failed(action, name, "nothing provides it, such as GNOME Keyring or KDE Wallet");
+            throw Failed(action, what, "nothing provides it, such as GNOME Keyring or KDE Wallet");
         }
         catch (DBusConnectFailedException e)
         {
-            throw Failed(action, name, $"D-Bus at {address} can't be reached. {e.Message}");
+            throw Failed(action, what, $"D-Bus at {address} can't be reached. {e.Message}");
         }
         catch (TimeoutException)
         {
-            throw Failed(action, name, $"it didn't answer within {Timeout.TotalSeconds} seconds");
+            throw Failed(action, what, $"it didn't answer within {Timeout.TotalSeconds} seconds");
         }
         catch (Exception e) when (e is DBusExceptionBase or CryptographicException)
         {
-            throw Failed(action, name, e.Message);
+            throw Failed(action, what, e.Message);
         }
     }
 
@@ -133,6 +161,27 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
                 var reader = message.GetBodyReader();
                 reader.ReadSignature("b");
                 return reader.ReadBool();
+            });
+
+        public Task<Dictionary<string, string>> AttributesAsync(string item) => CallAsync(item, "org.freedesktop.DBus.Properties", "Get", "ss",
+            (ref writer) =>
+            {
+                writer.WriteString(ItemInterface);
+                writer.WriteString("Attributes");
+            },
+            (message, _) =>
+            {
+                var reader = message.GetBodyReader();
+                reader.ReadSignature("a{ss}");
+                var attributes = new Dictionary<string, string>();
+                var end = reader.ReadDictionaryStart();
+                while (reader.HasNext(end))
+                {
+                    var key = reader.ReadString();
+                    attributes[key] = reader.ReadString();
+                }
+
+                return attributes;
             });
 
         public Task<string[]> SearchAsync(Dictionary<string, string> attributes) =>

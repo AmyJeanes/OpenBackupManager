@@ -56,6 +56,17 @@ public sealed partial class ConfigWatcher : IDisposable
     // What the latest read found, including problems with an edit that's waiting to be fixed
     public ConfigResult Result { get; private set; }
 
+    // Applied straight away rather than when the watcher sees it, so what reads the setting next gets the new value
+    public void Set(string? table, string key, object? value)
+    {
+        _file.Set(table, key, value);
+        Reload();
+    }
+
+    // When the setting's env var is set, which wins over the file, so changing the file wouldn't change the setting
+    public string? EnvVarOverriding(string path) =>
+        Settings.Find(path)?.EnvVar is { } envVar && _file.Environment(envVar) is { Length: > 0 } ? envVar : null;
+
     public void Reload()
     {
         ConfigResult result;
