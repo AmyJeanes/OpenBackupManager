@@ -48,7 +48,7 @@ public class ConfigWatcherTests
         Assert.That(
             () => new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance),
             Throws.TypeOf<ConfigException>()
-                .With.Message.EqualTo($"{_file.Path} has a mistake on line 3: updates.prereleases should be true or false")
+                .With.Message.EqualTo($"{_file.Path} has an error on line 3: updates.prereleases should be true or false")
                 .And.Property(nameof(ConfigException.Problem)).Property(nameof(ConfigProblem.Line)).EqualTo(3));
     }
 
@@ -57,7 +57,7 @@ public class ConfigWatcherTests
         Assert.That(
             () => new ConfigWatcher(new ConfigFile(_file.Path, name => name == "OBM_SECRET_STORE" ? "vault" : null), NullLogger<ConfigWatcher>.Instance),
             Throws.TypeOf<ConfigException>().With.Message.EqualTo(
-                $"OBM_SECRET_STORE has a mistake: secret-store should be one of: {string.Join(", ", SecretStoreKinds.NamesOn(CurrentOS.Platform))}"));
+                $"OBM_SECRET_STORE has an error: secret-store should be one of: {string.Join(", ", SecretStoreKinds.NamesOn(CurrentOS.Platform))}"));
 
     [Test]
     public void AppliesAnEditWhenItsSaved()

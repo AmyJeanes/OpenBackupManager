@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Platform;
 using OpenBackupManager.Core.Protocol;
 
@@ -44,6 +45,10 @@ internal static class Status
             }
 
             Console.WriteLine("  Secrets: " + Secrets(status.Secrets, CurrentOS.Platform));
+            foreach (var line in ConfigProblems(status.ConfigProblems, CultureInfo.CurrentUICulture))
+            {
+                Console.WriteLine("  " + line);
+            }
 
             return 0;
         }
@@ -73,6 +78,25 @@ internal static class Status
             ? $"in {file}, protected only by its permissions"
             : "in " + SecretStoreKinds.Parse(secrets.Store)!.Value.Title();
     }
+
+    internal static IEnumerable<string> ConfigProblems(IReadOnlyList<ConfigProblem> problems, CultureInfo culture)
+    {
+        if (problems.Count == 0)
+        {
+            return [];
+        }
+
+        var errors = problems.Count(p => p.IsError);
+        var heading = errors > 0
+            ? $"config.toml has {(errors == 1 ? "an error" : "errors")}, so its latest changes aren't applied:"
+            : $"config.toml has {(problems.Count == 1 ? "a warning" : "warnings")}, but its settings are applied:";
+        return [heading, .. problems.OrderBy(p => !p.IsError).Select(p => "  " + Describe(p, culture))];
+    }
+
+    private static string Describe(ConfigProblem problem, CultureInfo culture) =>
+        (problem.IsError ? "Error" : "Warning")
+        + (problem.EnvVar is { } envVar ? $" in {envVar}" : string.Create(CultureInfo.InvariantCulture, $" on line {problem.Line}"))
+        + ": " + problem.Message(culture);
 
     // Such as 2d 3h 4m 5s, from the first part that isn't zero
     internal static string Uptime(TimeSpan up)

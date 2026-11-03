@@ -32,8 +32,8 @@ public sealed partial class ConfigWatcher : IDisposable
         if (Result.Problems.FirstOrDefault(p => p.IsError) is { } error)
         {
             throw new ConfigException(error.EnvVar is null
-                ? $"{file.Path} has a mistake on line {error.Line}: {error.Message(CultureInfo.InvariantCulture)}"
-                : $"{error.EnvVar} has a mistake: {error.Message(CultureInfo.InvariantCulture)}", error);
+                ? $"{file.Path} has an error on line {error.Line}: {error.Message(CultureInfo.InvariantCulture)}"
+                : $"{error.EnvVar} has an error: {error.Message(CultureInfo.InvariantCulture)}", error);
         }
 
         Config = Result.Config!;

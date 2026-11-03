@@ -10,8 +10,8 @@ public sealed record ConfigResult(AppConfig? Config, IReadOnlyList<ConfigProblem
 
 /// <summary>
 /// An error stops the file being used. A warning, such as an unknown key, doesn't. Value is the key, section or id the
-/// problem is about, or for a Tomlyn error, Tomlyn's own message. EnvVar is the environment variable it's in, when
-/// it's in one rather than on a line of the file
+/// problem is about, or for one TOML itself reports, Tomlyn's own message. EnvVar is the environment variable it's in,
+/// when it's in one rather than on a line of the file
 /// </summary>
 public sealed record ConfigProblem(int Line, ConfigProblemKind Kind, bool IsError, string? Value = null, string? EnvVar = null)
 {
@@ -21,7 +21,7 @@ public sealed record ConfigProblem(int Line, ConfigProblemKind Kind, bool IsErro
         : Format(culture, nameof(Strings.ConfigProblem_InEnvVar), EnvVar, Message(culture));
 
     // Tomlyn's messages are only in English, so they're passed on as they are
-    public string Message(CultureInfo culture) => Kind == ConfigProblemKind.Tomlyn ? Value! : Format(culture, Kind switch
+    public string Message(CultureInfo culture) => Kind == ConfigProblemKind.Toml ? Value! : Format(culture, Kind switch
     {
         ConfigProblemKind.ShouldBeTrueOrFalse => nameof(Strings.ConfigProblem_ShouldBeTrueOrFalse),
         ConfigProblemKind.ShouldBeWholeNumber => nameof(Strings.ConfigProblem_ShouldBeWholeNumber),
@@ -47,7 +47,7 @@ public sealed record ConfigProblem(int Line, ConfigProblemKind Kind, bool IsErro
 
 public enum ConfigProblemKind
 {
-    Tomlyn,
+    Toml,
     ShouldBeTrueOrFalse,
     ShouldBeWholeNumber,
     ShouldBeText,

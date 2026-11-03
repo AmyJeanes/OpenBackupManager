@@ -10,9 +10,9 @@ public class ProtocolJsonTests
     [Test]
     public void EveryNullableParameter_DefaultsToNull()
     {
-        var withoutDefault = typeof(ProtocolJson).Assembly.GetTypes()
-            .Where(type => type.Namespace == typeof(ProtocolJson).Namespace && !type.ContainsGenericParameters)
-            .Select(ProtocolJson.Default.GetTypeInfo)
+        // Every type the context reads, including those inside a message, such as ConfigProblem
+        var withoutDefault = typeof(ProtocolJson).GetProperties()
+            .Select(property => property.GetValue(ProtocolJson.Default))
             .OfType<JsonTypeInfo>()
             .SelectMany(message => message.Properties
                 .Select(property => property.AssociatedParameter)

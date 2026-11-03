@@ -19,7 +19,7 @@
 | Command | What it does |
 | --- | --- |
 | `obm --version` | Shows the version. |
-| `obm status` | Shows whether the engine is running, and if so its version, process ID, how long it's been up, what started it and its data folder. Exits with 1 if it isn't running. |
+| `obm status` | Shows whether the engine is running, and if so its version, process ID, how long it's been up, what started it, its data folder, where secrets are kept, and any errors or warnings in `config.toml`. An error in an edit leaves the engine using the last good settings until it's fixed, so it's still running. Exits with 1 only if it isn't running. |
 | `obm service install` | macOS and Linux: starts the engine now and whenever you sign in, and again if it fails. See [The engine](#the-engine). |
 | `obm service uninstall` | macOS and Linux: stops the engine, and stops it starting when you sign in. |
 | `obm secrets migrate <store>` | Moves your secrets to another store, such as `file`, and keeps them there from now on, as [`secret-store`](settings.md#secret-store) says. It copies them all and checks each before removing them from the old store, so if anything goes wrong they're still where they were. The engine has to be running. |

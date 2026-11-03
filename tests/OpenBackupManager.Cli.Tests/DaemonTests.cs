@@ -69,7 +69,7 @@ public class DaemonTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(exitCode, Is.EqualTo(1));
-            Assert.That(output, Does.Contain($"obmd: {Path.Combine(home, "config.toml")} has a mistake on line 1: secret-store should be one of: ")
+            Assert.That(output, Does.Contain($"obmd: {Path.Combine(home, "config.toml")} has an error on line 1: secret-store should be one of: ")
                 .And.Contain("The engine won't start until it's fixed"));
         }
     }

@@ -112,7 +112,7 @@ public class ConfigFileTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(problem.Kind, Is.EqualTo(ConfigProblemKind.Tomlyn));
+            Assert.That(problem.Kind, Is.EqualTo(ConfigProblemKind.Toml));
             Assert.That(problem.ToString(), Is.EqualTo("line 2: Unexpected token `tru` for a value"));
         }
     }

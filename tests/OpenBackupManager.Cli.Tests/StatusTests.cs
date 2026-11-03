@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Cli.Tests;
@@ -138,6 +139,47 @@ public class StatusTests
         Assert.That(
             Tool.Run("obm", "status", "--home", _home).Output,
             Does.Contain($"Secrets: in {Path.Combine(_home, "secrets.json")}, protected only by its permissions"));
+    }
+
+    [Test]
+    public void ShowsWhatsWrongWithConfig_WhileItsStillRunning()
+    {
+        using var daemon = Tool.Start("obmd", "--home", _home);
+        daemon.WaitFor("started, process");
+        File.WriteAllText(Path.Combine(_home, "config.toml"), "colour = \"blue\"\n[updates]\nprereleases = \"yes\"\n");
+        daemon.WaitFor("so the last good settings stay in use");
+
+        var (exitCode, output) = Tool.Run("obm", "status", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Does.Contain(string.Join(
+                Environment.NewLine,
+                "  config.toml has an error, so its latest changes aren't applied:",
+                "    Error on line 3: updates.prereleases should be true or false",
+                "    Warning on line 1: colour isn't a known setting")));
+        }
+    }
+
+    [Test]
+    public void ConfigWithNoProblems_ShowsNothing() =>
+        Assert.That(Status.ConfigProblems([], CultureInfo.InvariantCulture), Is.Empty);
+
+    [Test]
+    public void ConfigWithOnlyWarnings_SaysItsStillUsed() =>
+        Assert.That(
+            Status.ConfigProblems([new ConfigProblem(2, ConfigProblemKind.UnknownSection, IsError: false, "colours")], CultureInfo.InvariantCulture),
+            Is.EqualTo(["config.toml has a warning, but its settings are applied:", "  Warning on line 2: [colours] isn't a known section"]));
+
+    [Test]
+    public void ConfigWithSeveral_SaysSo()
+    {
+        var two = Status.ConfigProblems(
+            [new ConfigProblem(1, ConfigProblemKind.VersionTooLow, IsError: true), new ConfigProblem(3, ConfigProblemKind.RemoteNeedsId, IsError: true)],
+            CultureInfo.InvariantCulture);
+
+        Assert.That(two.First(), Is.EqualTo("config.toml has errors, so its latest changes aren't applied:"));
     }
 
     [TestCase("credential-manager", null, "in Credential Manager")]

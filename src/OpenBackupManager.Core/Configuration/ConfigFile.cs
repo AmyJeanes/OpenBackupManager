@@ -63,7 +63,7 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
     {
         var document = SyntaxParser.Parse(text);
         var problems = document.Diagnostics
-            .Select(d => new ConfigProblem(d.Span.Start.Line + 1, ConfigProblemKind.Tomlyn, d.Kind == DiagnosticMessageKind.Error, d.Message))
+            .Select(d => new ConfigProblem(d.Span.Start.Line + 1, ConfigProblemKind.Toml, d.Kind == DiagnosticMessageKind.Error, d.Message))
             .ToList();
         if (!document.HasErrors)
         {
@@ -87,7 +87,7 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
         catch (TomlException e)
         {
             // Only for shapes the checks above leave alone, such as a section written as an inline table
-            problems.Add(new ConfigProblem(e.Line ?? 1, ConfigProblemKind.Tomlyn, IsError: true, e.Message));
+            problems.Add(new ConfigProblem(e.Line ?? 1, ConfigProblemKind.Toml, IsError: true, e.Message));
             return new ConfigResult(null, problems);
         }
 

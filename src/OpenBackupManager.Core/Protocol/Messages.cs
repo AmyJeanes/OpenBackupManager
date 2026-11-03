@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using OpenBackupManager.Core.Configuration;
 
 namespace OpenBackupManager.Core.Protocol;
 
@@ -66,7 +67,9 @@ public sealed record StatusResult(
     string Config,
     string State,
     EngineStarter StartedBy,
-    SecretsStatus Secrets);
+    SecretsStatus Secrets,
+    // From the engine's latest read of config.toml. An error leaves the last good settings in use
+    IReadOnlyList<ConfigProblem> ConfigProblems);
 
 // Store is the store in use, as secret-store names it, or null when none is chosen yet. File is the file store's path
 public sealed record SecretsStatus(string? Store = null, string? File = null);
@@ -115,7 +118,8 @@ public sealed record CrashResult;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     RespectNullableAnnotations = true,
-    RespectRequiredConstructorParameters = true)]
+    RespectRequiredConstructorParameters = true,
+    Converters = [typeof(CamelCaseEnumConverter<ConfigProblemKind>)])]
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(RpcRequest))]
 [JsonSerializable(typeof(RpcResponse))]
@@ -131,3 +135,7 @@ public sealed record CrashResult;
 [JsonSerializable(typeof(CrashResult))]
 #endif
 public sealed partial class ProtocolJson : JsonSerializerContext;
+
+// By name, as a number would change meaning when a value's added before it
+public sealed class CamelCaseEnumConverter<T>() : JsonStringEnumConverter<T>(JsonNamingPolicy.CamelCase)
+    where T : struct, Enum;

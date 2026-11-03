@@ -33,7 +33,7 @@ public class ConfigProblemTests
     [Test]
     public void TomlynsMessage_StaysAsItIs_InAnyLanguage() =>
         Assert.That(
-            new ConfigProblem(2, ConfigProblemKind.Tomlyn, IsError: true, "Unexpected token `tru` for a value").Message(CultureInfo.GetCultureInfo("qps-ploc")),
+            new ConfigProblem(2, ConfigProblemKind.Toml, IsError: true, "Unexpected token `tru` for a value").Message(CultureInfo.GetCultureInfo("qps-ploc")),
             Is.EqualTo("Unexpected token `tru` for a value"));
 #endif
 
