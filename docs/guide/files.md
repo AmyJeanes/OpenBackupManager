@@ -16,7 +16,7 @@ Everything Open Backup Manager keeps about this device, such as its logs, is its
     | Logs | `%LocalAppData%\OpenBackupManager\logs\` |
     | Crash reports | `%LocalAppData%\OpenBackupManager\crashes\` |
 
-    The settings are `config.toml`, and `config.toml.bak`, the version before the app last changed it. See [Settings](settings.md). The app also keeps `last-version` there: the version that last ran, so it can say when it's been updated.
+    The settings are `config.toml`, and `config.toml.bak`, the version before the app last changed it. See [Settings](settings.md). The app also keeps `last-version` there: the version that last ran, so it can say when it's been updated. `app.lock` and `engine.lock` make sure only one app and one engine run, so leave them alone.
 
 === "macOS"
 

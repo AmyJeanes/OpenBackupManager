@@ -93,14 +93,12 @@ public static class Program
             return;
         }
 
-        // Global, unlike AppInstance, so it covers every session. Taken on this thread, which runs until the app ends,
-        // as a mutex belongs to the thread that took it
+        // Off the UI thread, as Microsoft's single-instance guidance does, so the UI thread never blocks on the handover
         var instanceKey = AppHome.InstanceKey(Home);
-        _instanceLock = ProcessLock.TryTake("app", AppPaths.InHome(Home));
+        (_instanceLock, var handedOver) = Task.Run(() => TakeLockOrHandOver(instanceKey, StartedAtLogin)).Result;
         if (_instanceLock is null)
         {
-            // Off the UI thread, as Microsoft's single-instance guidance does, so the UI thread never blocks on the handover
-            if (!Task.Run(() => HandOverToRunningCopy(instanceKey, StartedAtLogin)).Result && !StartedAtLogin)
+            if (!handedOver && !StartedAtLogin)
             {
                 ShowMessage(Strings.Launch_RunningElsewhere);
             }
@@ -200,32 +198,47 @@ public static class Program
     }
 
     // False if there's no copy to hand over to here, as when it runs in another session or is another exe
-    private static bool HandOverToRunningCopy(string instanceKey, bool atLogin)
+    // Looks for a running copy first, as one in this session is the usual case, and hands over to it at once. The lock is
+    // global, unlike AppInstance, so it also finds a copy in another session or of another exe. Both are tried for a
+    // moment, as a copy launched at the same time registers just after it takes the lock, and something else, such as a
+    // backup program, may have the lock's file open
+    private static (ProcessLock? Lock, bool HandedOver) TakeLockOrHandOver(string instanceKey, bool atLogin)
     {
-        // The running copy registers just after it takes the lock, so one launched at the same time may need a moment.
-        // Only looks, where FindOrRegisterForKey would register this copy when it finds none
         var until = DateTime.UtcNow + TimeSpan.FromSeconds(2);
-        AppInstance? running;
-        while ((running = AppInstance.GetInstances().FirstOrDefault(i => i.Key == instanceKey)) is null)
+        while (true)
         {
+            // Only looks, where FindOrRegisterForKey would register this copy when it finds none
+            if (AppInstance.GetInstances().FirstOrDefault(i => i.Key == instanceKey) is { } running)
+            {
+                HandOver(running, atLogin);
+                return (null, true);
+            }
+
+            if (ProcessLock.TryTake("app", AppPaths.InHome(Home)) is { } taken)
+            {
+                return (taken, false);
+            }
+
             if (DateTime.UtcNow > until)
             {
-                return false;
+                return (null, false);
             }
 
             Thread.Sleep(200);
         }
+    }
 
+    private static void HandOver(AppInstance running, bool atLogin)
+    {
         // Nothing to open, since nobody launched it
         if (atLogin)
         {
-            return true;
+            return;
         }
 
         // Windows only lets the app the user just launched take focus, so this passes that on to the running copy's flyout
         PInvoke.AllowSetForegroundWindow(running.ProcessId);
         running.RedirectActivationToAsync(AppInstance.GetCurrent().GetActivatedEventArgs()).AsTask().Wait();
-        return true;
     }
 
     // As administrator, the engine the app starts refuses to run, and Windows doesn't show the app's notifications. A
