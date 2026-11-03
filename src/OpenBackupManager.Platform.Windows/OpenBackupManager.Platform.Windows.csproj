@@ -6,6 +6,11 @@
     <IsAotCompatible>true</IsAotCompatible>
     <!-- CsWin32's generated Windows API code uses pointers -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- CsWin32 writes its code before compiling, so .NET's COM source generators convert every call, as NativeAOT needs -->
+    <CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
+    <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
+    <!-- Only 64-bit Windows is shipped, where structs are laid out as on x64 -->
+    <CsWin32PlatformTarget>x64</CsWin32PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>

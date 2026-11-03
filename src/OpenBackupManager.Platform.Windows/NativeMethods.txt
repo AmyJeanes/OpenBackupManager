@@ -20,3 +20,16 @@ _SVGIO
 SendMessageTimeout
 WM_SETTINGCHANGE
 HWND_BROADCAST
+CoCreateInstance
+ShellWindows
+IShellWindows
+IShellBrowser
+IShellView
+IShellFolderViewDual
+IShellDispatch2
+CoRegisterClassObject
+CoRevokeClassObject
+INotificationActivationCallback
+IClassFactory
+IServiceProvider
+CLASS_E_NOAGGREGATION
