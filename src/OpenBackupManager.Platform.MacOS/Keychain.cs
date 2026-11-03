@@ -7,10 +7,13 @@ using OpenBackupManager.Core.Platform;
 namespace OpenBackupManager.Platform.MacOS;
 
 // Through Apple's security tool rather than Security.framework, as macOS lets the tool read what it saved after an
-// update without a password prompt, which it doesn't for an unsigned build. Only tests pass a keychain file
+// update without a password prompt, which it doesn't for an unsigned build
 [SupportedOSPlatform("macos")]
-public sealed class Keychain(string prefix, string? file = null) : ISecretStore
+public sealed class Keychain(string prefix, string file) : ISecretStore
 {
+    // Named in every command rather than left to the default keychain and search list, which the user can change
+    public static readonly string Login = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Keychains", "login.keychain-db");
+
     // security -i reads up to 4,095 bytes of a line and runs the rest as another command, so the newline must fit too
     internal const int MaxCommand = 4094;
 
@@ -19,9 +22,13 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
     private const int NotFound = 44;
     private const int Locked = 36;
 
+    // The tool answers at once, so one that doesn't in this time isn't going to
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
+
     public async Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default)
     {
-        var (exitCode, output, error) = await SecurityAsync(null, ["find-generic-password", "-s", Service(name), "-a", name, "-w", .. File()], cancellationToken);
+        SecretName.Check(name);
+        var (exitCode, output, error) = await SecurityAsync("read", name, null, ["find-generic-password", "-s", Service(name), "-a", name, "-w", file], cancellationToken);
         return exitCode switch
         {
             0 => new Secret(Encoding.UTF8.GetString(Convert.FromBase64String(output.TrimEnd('\n')))),
@@ -32,6 +39,7 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
 
     public async Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default)
     {
+        SecretName.Check(name);
         var command = SaveCommand(name, secret);
         if (Encoding.UTF8.GetByteCount(command) > MaxCommand)
         {
@@ -39,7 +47,7 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
         }
 
         // Through its input, as any program can see a command line
-        var (exitCode, _, error) = await SecurityAsync(command + "\n", ["-i"], cancellationToken);
+        var (exitCode, _, error) = await SecurityAsync("save", name, command + "\n", ["-i"], cancellationToken);
         if (exitCode != 0)
         {
             throw Failed("save", name, exitCode, error);
@@ -48,7 +56,8 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
 
     public async Task<bool> RemoveAsync(string name, CancellationToken cancellationToken = default)
     {
-        var (exitCode, _, error) = await SecurityAsync(null, ["delete-generic-password", "-s", Service(name), "-a", name, .. File()], cancellationToken);
+        SecretName.Check(name);
+        var (exitCode, _, error) = await SecurityAsync("remove", name, null, ["delete-generic-password", "-s", Service(name), "-a", name, file], cancellationToken);
         return exitCode switch
         {
             0 => true,
@@ -58,24 +67,25 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
     }
 
     // Base64, as -w prints a secret with anything outside printable ASCII as hex, which can't be told apart from text.
-    // It also needs no quoting
+    // Quoted all the same, as an empty secret would leave -w with no value, and the tool would ask for one
     internal string SaveCommand(string name, Secret secret) =>
-        string.Join(' ', [
+        string.Join(' ',
             "add-generic-password", "-U", "-s", Quote(Service(name)), "-a", Quote(name),
-            "-w", Convert.ToBase64String(Encoding.UTF8.GetBytes(secret.Reveal())),
-            .. File().Select(Quote)]);
+            "-w", Quote(Convert.ToBase64String(Encoding.UTF8.GetBytes(secret.Reveal()))), Quote(file));
 
     private string Service(string name) => $"{prefix}/{name}";
-
-    private string[] File() => file is null ? [] : [file];
 
     // security -i splits a line with its own quoting, where a backslash escapes the next character
     private static string Quote(string value) => "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 
     private static InvalidOperationException Failed(string action, string name, int exitCode, string error) =>
-        new($"The Keychain couldn't {action} {name}: " + (exitCode == Locked ? "it's locked" : $"{error.Trim()} ({exitCode})"));
+        Failed(action, name, exitCode == Locked ? "it's locked" : $"{error.Trim()} ({exitCode})");
 
-    private static async Task<(int ExitCode, string Output, string Error)> SecurityAsync(string? input, string[] arguments, CancellationToken cancellationToken)
+    private static InvalidOperationException Failed(string action, string name, string reason) =>
+        new($"The Keychain couldn't {action} {name}: {reason}");
+
+    private static async Task<(int ExitCode, string Output, string Error)> SecurityAsync(
+        string action, string name, string? input, string[] arguments, CancellationToken cancellationToken)
     {
         var start = new ProcessStartInfo("/usr/bin/security")
         {
@@ -89,15 +99,32 @@ public sealed class Keychain(string prefix, string? file = null) : ISecretStore
         }
 
         using var process = Process.Start(start)!;
-        if (input is not null)
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(Timeout);
+        try
         {
-            await process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken);
-            process.StandardInput.Close();
-        }
+            if (input is not null)
+            {
+                await process.StandardInput.WriteAsync(input.AsMemory(), timeout.Token);
+                process.StandardInput.Close();
+            }
 
-        var error = process.StandardError.ReadToEndAsync(cancellationToken);
-        var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
-        return (process.ExitCode, output, await error);
+            var error = process.StandardError.ReadToEndAsync(timeout.Token);
+            var output = await process.StandardOutput.ReadToEndAsync(timeout.Token);
+            await process.WaitForExitAsync(timeout.Token);
+            return (process.ExitCode, output, await error);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw Failed(action, name, $"it didn't answer within {Timeout.TotalSeconds} seconds");
+        }
+        finally
+        {
+            // So a cancelled or stuck call doesn't leave it running
+            if (!process.HasExited)
+            {
+                process.Kill();
+            }
+        }
     }
 }

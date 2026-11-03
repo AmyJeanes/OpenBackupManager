@@ -1,4 +1,6 @@
 using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text.Json;
 using OpenBackupManager.Core.Platform;
 
@@ -99,6 +101,83 @@ public class FileStoreTests
         {
             Assert.That(() => _store.SaveAsync("rclone", new Secret("value")), Throws.TypeOf<InvalidDataException>().With.Message.Contains(_store.Path));
             Assert.That(File.ReadAllText(_store.Path), Is.EqualTo("{ not json"));
+        }
+    }
+
+    [Test]
+    public void AFileWithASecretThatHasNoValue_IsRefused()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_store.Path)!);
+        File.WriteAllText(_store.Path, """{ "rclone": null }""");
+
+        Assert.That(() => _store.ReadAsync("rclone"), Throws.TypeOf<InvalidDataException>().With.Message.Contains(_store.Path).And.Message.Contains("rclone"));
+    }
+
+    [Test]
+    public void ANameThatIsntASecretName_IsRefused()
+    {
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(() => _store.SaveAsync("Rclone", new Secret("value")), Throws.ArgumentException);
+            Assert.That(() => _store.ReadAsync("Rclone"), Throws.ArgumentException);
+            Assert.That(() => _store.RemoveAsync("Rclone"), Throws.ArgumentException);
+        }
+    }
+
+    [Test]
+    public async Task Save_StartsAfreshFromATempFileLeftBehind()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_store.Path)!);
+        File.WriteAllText(_store.Path + ".tmp", "left by a save that never finished, and longer than what's saved now");
+
+        await _store.SaveAsync("rclone", new Secret("value"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(InTheFile(), Is.EquivalentTo(new Dictionary<string, string> { ["rclone"] = "value" }));
+            Assert.That(File.Exists(_store.Path + ".tmp"), Is.False);
+        }
+    }
+
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public async Task Save_NeverWritesThroughALinkLeftInPlaceOfTheTempFile()
+    {
+        var elsewhere = Path.Combine(_home, "elsewhere");
+        File.WriteAllText(elsewhere, "untouched");
+        Directory.CreateDirectory(Path.GetDirectoryName(_store.Path)!);
+        File.CreateSymbolicLink(_store.Path + ".tmp", elsewhere);
+
+        await _store.SaveAsync("rclone", new Secret("value"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(File.ReadAllText(elsewhere), Is.EqualTo("untouched"));
+            Assert.That(new FileInfo(_store.Path).LinkTarget, Is.Null);
+            Assert.That(InTheFile(), Is.EquivalentTo(new Dictionary<string, string> { ["rclone"] = "value" }));
+        }
+    }
+
+    [Test]
+    [Platform("Win")]
+    [SupportedOSPlatform("windows")]
+    public async Task OnlyThisUser_SystemAndAdministratorsCanOpenIt_WhateverTheFolderAllows()
+    {
+        await _store.SaveAsync("rclone", new Secret("value"));
+
+        var security = new FileInfo(_store.Path).GetAccessControl();
+        var rules = security.GetAccessRules(includeExplicit: true, includeInherited: true, typeof(SecurityIdentifier)).Cast<FileSystemAccessRule>();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(security.AreAccessRulesProtected, Is.True);
+            Assert.That(rules.Select(rule => (rule.IdentityReference, rule.FileSystemRights, rule.AccessControlType)), Is.EquivalentTo(
+            [
+                ((IdentityReference)WindowsIdentity.GetCurrent().User!, FileSystemRights.FullControl, AccessControlType.Allow),
+                (new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), FileSystemRights.FullControl, AccessControlType.Allow),
+                (new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), FileSystemRights.FullControl, AccessControlType.Allow),
+            ]));
         }
     }
 

@@ -29,6 +29,7 @@ public class KeychainTests
     public void TearDown() => Security("delete-keychain", _file);
 
     [TestCase("pässwörd 🔑")]
+    [TestCase("")]
     [TestCase("two\nlines")]
     [TestCase("deadbeef")]
     [TestCase("with \"quotes\", a \\ and spaces")]
@@ -87,14 +88,25 @@ public class KeychainTests
     }
 
     [Test]
-    public async Task Save_TakesANameWithQuotesAndBackslashes()
+    public void ANameThatCouldSplitTheCommand_IsRefused()
     {
         var store = Store();
 
-        await store.SaveAsync("a \"name\" \\ like this", new Secret("secret"));
-
-        Assert.That((await store.ReadAsync("a \"name\" \\ like this"))?.Reveal(), Is.EqualTo("secret"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(() => store.SaveAsync("a \"name\"\nlike this", new Secret("secret")), Throws.ArgumentException);
+            Assert.That(() => store.ReadAsync("a \"name\"\nlike this"), Throws.ArgumentException);
+            Assert.That(() => store.RemoveAsync("a \"name\"\nlike this"), Throws.ArgumentException);
+        }
     }
+
+    [Test]
+    public void ACancelledCall_IsCancelled() =>
+        Assert.That(() => Store().ReadAsync("rclone-config", new CancellationToken(canceled: true)), Throws.InstanceOf<OperationCanceledException>());
+
+    [Test]
+    public void Login_IsTheKeychainTheToolSaysIsTheLoginOne() =>
+        Assert.That(Run("login-keychain").Output.Trim().Trim('"'), Is.EqualTo(Keychain.Login));
 
     [Test]
     public async Task Remove_RemovesTheSecret()

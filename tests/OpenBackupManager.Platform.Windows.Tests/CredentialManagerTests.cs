@@ -18,12 +18,26 @@ public class CredentialManagerTests
     [SetUp]
     public void SetUp() => _prefix = "OpenBackupManager-Tests-" + Guid.NewGuid().ToString("N");
 
+    // Each on its own, so one that fails doesn't leave the rest behind
     [TearDown]
     public async Task RemoveSaved()
     {
+        List<Exception> failures = [];
         foreach (var (store, name) in _saved)
         {
-            await store.RemoveAsync(name);
+            try
+            {
+                await store.RemoveAsync(name);
+            }
+            catch (Exception e)
+            {
+                failures.Add(e);
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            throw new AggregateException(failures);
         }
     }
 
@@ -124,6 +138,24 @@ public class CredentialManagerTests
         Assert.That((await store.ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("this home's"));
     }
 
+    [Test]
+    public void ANameThatIsntASecretName_IsRefused_InTheTask()
+    {
+        var store = Store();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(store.SaveAsync("Rclone-Config", new Secret("secret")).IsFaulted, Is.True);
+            Assert.That(() => store.SaveAsync("Rclone-Config", new Secret("secret")), Throws.ArgumentException);
+            Assert.That(() => store.ReadAsync("Rclone-Config"), Throws.ArgumentException);
+            Assert.That(() => store.RemoveAsync("Rclone-Config"), Throws.ArgumentException);
+        }
+    }
+
+    [Test]
+    public void ACancelledCall_IsCancelled() =>
+        Assert.That(Store().ReadAsync("rclone-config", new CancellationToken(canceled: true)).IsCanceled, Is.True);
+
     private CredentialManager Store() => new(_prefix);
 
     // Read with Windows' own call, so a mistake the store makes both saving and reading still shows
@@ -147,7 +179,7 @@ public class CredentialManagerTests
 
     private static void Cmdkey(params string[] arguments)
     {
-        using var process = Process.Start(new ProcessStartInfo("cmdkey", arguments) { RedirectStandardOutput = true })!;
+        using var process = Process.Start(new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "cmdkey.exe"), arguments) { RedirectStandardOutput = true })!;
         process.StandardOutput.ReadToEnd();
         process.WaitForExit();
         Assert.That(process.ExitCode, Is.Zero, "cmdkey");

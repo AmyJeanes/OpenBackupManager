@@ -16,21 +16,22 @@ public sealed unsafe class CredentialManager(string prefix) : ISecretStore
     public const int MaxLength = 2560 / sizeof(char);
 
     // Windows has no async versions of these
-    public Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(Read(name));
+    public Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default) => Run(() => Read(name), cancellationToken);
 
-    public Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default)
+    public Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default) => Run(() =>
     {
         Save(name, secret);
-        return Task.CompletedTask;
-    }
+        return true;
+    }, cancellationToken);
 
-    public Task<bool> RemoveAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(Remove(name));
+    public Task<bool> RemoveAsync(string name, CancellationToken cancellationToken = default) => Run(() => Remove(name), cancellationToken);
 
     private Secret? Read(string name)
     {
+        SecretName.Check(name);
         if (!PInvoke.CredRead(Target(name), CRED_TYPE.CRED_TYPE_GENERIC, out var credential))
         {
-            return NotFound() ? null : throw new Win32Exception();
+            return NotFound() ? null : throw Failed("read", name);
         }
 
         try
@@ -45,6 +46,7 @@ public sealed unsafe class CredentialManager(string prefix) : ISecretStore
 
     private void Save(string name, Secret secret)
     {
+        SecretName.Check(name);
         var value = secret.Reveal();
         if (value.Length > MaxLength)
         {
@@ -64,13 +66,44 @@ public sealed unsafe class CredentialManager(string prefix) : ISecretStore
             };
             if (!PInvoke.CredWrite(credential, 0))
             {
-                throw new Win32Exception();
+                throw Failed("save", name);
             }
         }
     }
 
-    private bool Remove(string name) =>
-        PInvoke.CredDelete(Target(name), CRED_TYPE.CRED_TYPE_GENERIC) || (NotFound() ? false : throw new Win32Exception());
+    private bool Remove(string name)
+    {
+        SecretName.Check(name);
+        return PInvoke.CredDelete(Target(name), CRED_TYPE.CRED_TYPE_GENERIC) || (NotFound() ? false : throw Failed("remove", name));
+    }
+
+    // So what goes wrong comes back in the task, as from any other store
+    private static Task<T> Run<T>(Func<T> call, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Task.FromCanceled<T>(cancellationToken);
+        }
+
+        try
+        {
+            return Task.FromResult(call());
+        }
+        catch (Exception e)
+        {
+            return Task.FromException<T>(e);
+        }
+    }
+
+    // A network sign-in, such as over SSH, has no credentials of its own for Credential Manager to keep them with
+    private static InvalidOperationException Failed(string action, string name)
+    {
+        var error = Marshal.GetLastPInvokeError();
+        var reason = error == (int)WIN32_ERROR.ERROR_NO_SUCH_LOGON_SESSION
+            ? "Windows doesn't let this session use it, as with a sign-in over SSH. Set secret-store to file to keep secrets in a file instead"
+            : new Win32Exception(error).Message;
+        return new InvalidOperationException($"Credential Manager couldn't {action} {name}: {reason}");
+    }
 
     private static bool NotFound() => Marshal.GetLastPInvokeError() == (int)WIN32_ERROR.ERROR_NOT_FOUND;
 

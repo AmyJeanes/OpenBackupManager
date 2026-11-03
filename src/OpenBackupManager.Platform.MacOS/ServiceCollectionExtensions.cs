@@ -13,6 +13,6 @@ public static class ServiceCollectionExtensions
             throw new PlatformNotSupportedException("macOS' platform services only work on macOS");
         }
 
-        return services.AddKeyedSingleton<ISecretStore>(SecretStoreKind.Keychain, new Keychain(AppHome.InstanceKey(paths.State)));
+        return services.AddKeyedSingleton<ISecretStore>(SecretStoreKind.Keychain, new Keychain(AppHome.InstanceKey(paths.State), Keychain.Login));
     }
 }

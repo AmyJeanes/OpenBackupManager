@@ -59,6 +59,7 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
 
     private async Task<T> UseAsync<T>(string action, string name, Func<Keyring, Task<T>> use, CancellationToken cancellationToken)
     {
+        SecretName.Check(name);
         var address = bus ?? Environment.GetEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS");
         if (string.IsNullOrEmpty(address))
         {

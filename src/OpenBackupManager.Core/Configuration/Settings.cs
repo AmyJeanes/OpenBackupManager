@@ -30,8 +30,8 @@ public static class Settings
             DefaultInFull = "`credential-manager` on Windows and `keychain` on macOS. Linux has no default, so one has to be chosen",
             Example = "\"file\"",
             Notes = "`file` keeps them in `secrets.json`, in the engine's own folder (see [Files and folders](files.md)), "
-                + "protected by nothing but its permissions, for when the OS's store can't be used, such as on a server. "
-                + "On Linux, `secret-service` is locked whenever you're not signed in with your password, so it can't be read "
+                + "protected by nothing but its permissions, for when the OS's store can't be used, such as on a server or over SSH. "
+                + "On Windows and macOS, any program running as you can read what's in the OS's store too. On Linux, `secret-service` is locked whenever you're not signed in with your password, so it can't be read "
                 + "with lingering on and nobody signed in, or after an automatic sign-in until it's unlocked.",
         },
         new("updates", SettingKind.Section)
