@@ -113,6 +113,9 @@ public sealed class InstallTests : AppTests
             Assert.That(UserPathEntries(), Does.Contain(CommandLineFolder));
             Assert.That(Directory.GetFiles(CommandLineFolder).Select(Path.GetFileName), Is.EqualTo((string[])["obm.exe"]));
             Assert.That(Obm("--version"), Does.StartWith("0.0.1+"));
+            Assert.That(new FileInfo(Path.Combine(InstallFolder, "current", "LICENSE.txt")).Length, Is.GreaterThan(0));
+            // The generated part, not only the hand-written notices the app's build copies
+            Assert.That(File.ReadAllText(Path.Combine(InstallFolder, "current", "THIRD-PARTY-NOTICES.txt")), Does.Contain("Microsoft.WindowsAppSDK.WinUI"));
         }
 
         var engine = EngineOf("0.0.1");

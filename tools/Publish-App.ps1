@@ -4,8 +4,9 @@ Publishes the Windows app, obmd and obm into one folder, laid out as they're ins
 
 .DESCRIPTION
 Each is compiled ahead of time with NativeAOT. On Windows, the app and obmd go in the folder, and obm alone in its bin
-folder, which installing adds to PATH. On macOS and Linux, obm and obmd go side by side, as the tarball has them. CI's
-package and test jobs and Publish-TestUpdate.ps1 publish with it.
+folder, which installing adds to PATH. On macOS and Linux, obm and obmd go side by side, as the tarball has them. Then
+tools/NoticesGen writes THIRD-PARTY-NOTICES.txt beside them. CI's package and test jobs and Publish-TestUpdate.ps1
+publish with it.
 
 .EXAMPLE
 ./tools/Publish-App.ps1 -Output publish -Version 0.1.0
@@ -29,6 +30,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
 
+# Each program's packages, which the notices are made from
+$assets = [Collections.Generic.List[string]]::new()
+
 function Publish($project, $folder) {
     $publishArgs = @(
         'publish', (Join-Path $root "src/$project")
@@ -45,6 +49,7 @@ function Publish($project, $folder) {
     }
     dotnet @publishArgs
     if ($LASTEXITCODE) { throw "Publishing $project failed" }
+    $assets.Add((Join-Path $root "src/$project/obj/project.assets.json"))
 }
 
 if ($IsWindows) {
@@ -52,3 +57,15 @@ if ($IsWindows) {
 }
 Publish 'OpenBackupManager.Daemon' $Output
 Publish 'OpenBackupManager.Cli' ($IsWindows ? (Join-Path $Output 'bin') : $Output)
+
+# Made from the packages just published for this runtime, so each download lists what it holds
+$noticesArgs = @(
+    'run', '--project', (Join-Path $root 'tools/NoticesGen'), '--'
+    '--runtime', $Runtime
+    '--hand-written', (Join-Path $root 'THIRD-PARTY-NOTICES.txt')
+    '--assets'
+    $assets
+    '--output', (Join-Path $Output 'THIRD-PARTY-NOTICES.txt')
+)
+dotnet @noticesArgs
+if ($LASTEXITCODE) { throw 'Writing the third-party notices failed' }

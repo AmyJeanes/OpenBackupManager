@@ -95,6 +95,11 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
     // Opens the folder with the file selected, since .toml files often have no app to open them
     public void ShowConfigFile() => Process.Start("explorer.exe", $"/select,\"{_paths.ConfigFile}\"")?.Dispose();
 
+    // The installed copies, which match this version, unlike GitHub's, which can list what this version doesn't have
+    public void ShowLicence() => OpenBesideTheApp("LICENSE.txt");
+
+    public void ShowThirdPartyNotices() => OpenBesideTheApp("THIRD-PARTY-NOTICES.txt");
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Quitting")]
     private partial void LogQuitting();
 
@@ -114,6 +119,9 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         _host.Dispose();
         Application.Current.Exit();
     }
+
+    private static void OpenBesideTheApp(string file) =>
+        Process.Start(new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, file)) { UseShellExecute = true })?.Dispose();
 
     private static void Show(Window window)
     {

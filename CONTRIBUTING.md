@@ -40,6 +40,7 @@ dotnet format analyzers OpenBackupManager.slnx
 - Log messages, error messages and code comments don't end with a full stop. A longer one can have full stops between its sentences, just not after the last.
 - Don't destructure objects in log messages with `{@value}`. NativeAOT doesn't support it, so it only logs the object's `ToString()`. Log the values you need instead.
 - Package versions live in `Directory.Packages.props`.
+- Each download's `THIRD-PARTY-NOTICES.txt` starts with the hand-written one in the repository, for what isn't a NuGet package, such as rclone. `tools/Publish-App.ps1` then adds every NuGet package the programs ship, with `tools/NoticesGen`. A package under a licence with no text in `tools/NoticesGen/Licences` stops publishing: check the licence lets us ship it, then add its standard text there, named for its SPDX expression as the package's nuspec gives it, such as `MIT.txt`, `Apache-2.0.txt` or `MIT OR Apache-2.0.txt`.
 - The Windows UI tests start the app, click and press keys, so leave the mouse and keyboard alone while they run. They move the dev build's tray icon from the hidden icons onto the taskbar, where it stays. The elements they look for need an `x:Name`, which UI Automation reports as the element's ID; `AutomationProperties.AutomationId` is only for elements without one. The install and update test replaces the installed app, so it only runs when picked, as CI does: see [Windows app](docs/design/windows-app.md).
 
 ## The user guide's site

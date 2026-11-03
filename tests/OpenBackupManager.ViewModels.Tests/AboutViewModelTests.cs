@@ -43,15 +43,29 @@ public class AboutViewModelTests
     }
 
     [Test]
-    public void Links_AreInTheRepository()
+    public void GitHubLink_IsTheRepository() => Assert.That(About().GitHubLink, Is.EqualTo(new Uri("https://example.com/obm")));
+
+    [Test]
+    public void Licence_OpensTheInstalledCopy()
     {
-        var about = About();
+        About().ShowLicenceCommand.Execute(null);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(about.GitHubLink, Is.EqualTo(new Uri("https://example.com/obm")));
-            Assert.That(about.LicenceLink, Is.EqualTo(new Uri("https://example.com/obm/blob/main/LICENSE")));
-            Assert.That(about.ThirdPartyNoticesLink, Is.EqualTo(new Uri("https://example.com/obm/blob/main/THIRD-PARTY-NOTICES.md")));
+            Assert.That(_actions.LicenceShows, Is.EqualTo(1));
+            Assert.That(_actions.ThirdPartyNoticesShows, Is.Zero);
+        }
+    }
+
+    [Test]
+    public void ThirdPartyNotices_OpensTheInstalledCopy()
+    {
+        About().ShowThirdPartyNoticesCommand.Execute(null);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_actions.ThirdPartyNoticesShows, Is.EqualTo(1));
+            Assert.That(_actions.LicenceShows, Is.Zero);
         }
     }
 

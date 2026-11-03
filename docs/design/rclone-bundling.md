@@ -6,7 +6,7 @@ The app ships its own rclone, at a version we've tested, instead of using whatev
 
 - `rclone.version` pins the release. Renovate proposes updates, but rclone updates aren't merged automatically, because its behaviour can change between releases.
 - Building `OpenBackupManager.Rclone` runs `tools/RcloneFetch` for the build's runtime, or the one in the `RcloneRuntimeIdentifier` property. It downloads `SHA256SUMS` and the release zip from rclone's GitHub release, checks the signature on `SHA256SUMS` against `tools/RcloneFetch/rclone-signing-key.asc`, checks the zip's hash against it, and extracts rclone to `obj/rclone/<version>/<runtime>/`.
-- That file is copied next to the app, and next to anything that references the project such as the tests, along with `THIRD-PARTY-NOTICES.md`. It's reused until `rclone.version` or the key changes, so only the first build needs internet access.
+- That file is copied next to the app, and next to anything that references the project such as the tests. rclone's licence is in `THIRD-PARTY-NOTICES.txt`, which each download carries. The file is reused until `rclone.version` or the key changes, so only the first build needs internet access.
 - Code finds it through `BundledRclone.FilePath`, and `BundledRclone.Version` is the pinned version.
 
 ## Why

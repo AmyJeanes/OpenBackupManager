@@ -1,8 +1,15 @@
 #!/bin/sh
-# Checks obm and obmd unpacked from a tarball run: the engine starts, obm status reaches it, and it stops cleanly. CI
-# runs it on the macOS runners, and for Linux in older distros' containers, which have no PowerShell
+# Checks obm and obmd unpacked from a tarball run: the engine starts, obm status reaches it, and it stops cleanly. Also
+# that the licences came with them. CI runs it on the macOS runners, and for Linux in older distros' containers, which
+# have no PowerShell
 set -eu
 dir=$1
+
+test -s "$dir/LICENSE" || { echo "LICENSE is missing or empty"; exit 1; }
+# The generated part, not only the hand-written notices it starts with
+grep -q "These NuGet packages are used under" "$dir/THIRD-PARTY-NOTICES.txt" ||
+    { echo "THIRD-PARTY-NOTICES.txt is missing or lists no packages"; exit 1; }
+
 home=$(mktemp -d /tmp/obm.XXXXXX)
 
 "$dir/obm" --version

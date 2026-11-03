@@ -12,6 +12,7 @@
     <Project Path="src/OpenBackupManager.ViewModels/OpenBackupManager.ViewModels.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/NoticesGen.Tests/NoticesGen.Tests.csproj" />
     <Project Path="tests/OpenBackupManager.App.Windows.Tests/OpenBackupManager.App.Windows.Tests.csproj" />
     <Project Path="tests/OpenBackupManager.App.Windows.UITests/OpenBackupManager.App.Windows.UITests.csproj" />
     <Project Path="tests/OpenBackupManager.Cli.Tests/OpenBackupManager.Cli.Tests.csproj" />
@@ -25,6 +26,7 @@
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/DocsGen/DocsGen.csproj" />
+    <Project Path="tools/NoticesGen/NoticesGen.csproj" />
     <Project Path="tools/RcloneFetch/RcloneFetch.csproj" />
   </Folder>
 </Solution>

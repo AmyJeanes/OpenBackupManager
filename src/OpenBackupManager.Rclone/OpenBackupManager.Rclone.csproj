@@ -21,7 +21,6 @@
   <ItemGroup>
     <AssemblyMetadata Include="RcloneVersion" Value="$(RcloneVersion)" />
     <None Include="$(RcloneFile)" Link="$(RcloneFileName)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-    <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

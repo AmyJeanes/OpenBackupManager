@@ -12,4 +12,8 @@ public interface IAppActions
     void RestartToUpdate();
 
     void ShowConfigFile();
+
+    void ShowLicence();
+
+    void ShowThirdPartyNotices();
 }

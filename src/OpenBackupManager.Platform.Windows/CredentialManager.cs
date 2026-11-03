@@ -9,7 +9,7 @@ using Windows.Win32.Security.Credentials;
 namespace OpenBackupManager.Platform.Windows;
 
 // Secrets as generic credentials in Credential Manager, named "<prefix>/<name>". Windows encrypts them for this user
-// and keeps them to this computer. Based on Git Credential Manager's store (see THIRD-PARTY-NOTICES.md)
+// and keeps them to this computer. Based on Git Credential Manager's store (see THIRD-PARTY-NOTICES.txt)
 public sealed unsafe class CredentialManager(string prefix) : ISecretStore
 {
     // Credential Manager holds up to 2,560 bytes a secret, kept as UTF-16 as Windows' own tools read them

@@ -8,6 +8,10 @@ internal sealed class FakeActions : IAppActions
 
     public int ConfigFileShows { get; private set; }
 
+    public int LicenceShows { get; private set; }
+
+    public int ThirdPartyNoticesShows { get; private set; }
+
     public void Open() => Opens++;
 
     public void About()
@@ -21,4 +25,8 @@ internal sealed class FakeActions : IAppActions
     public void RestartToUpdate() => Restarts++;
 
     public void ShowConfigFile() => ConfigFileShows++;
+
+    public void ShowLicence() => LicenceShows++;
+
+    public void ShowThirdPartyNotices() => ThirdPartyNoticesShows++;
 }
