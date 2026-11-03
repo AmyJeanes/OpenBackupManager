@@ -38,6 +38,7 @@ Where the app keeps its files on each OS, and its settings file, `config.toml`.
 - **Windows uses Local, not Roaming, AppData,** because the settings hold this device's folder paths, which mustn't follow the user to another device.
 - **macOS keeps config in `~/.config`,** where command line tools like rclone and `gh` keep theirs, so it works with dotfiles. `XDG_CONFIG_HOME` moves it, as it does for them. Everything else follows Apple's layout, which also shows the logs in Console.
 - **A relative path in an XDG variable is ignored,** as the XDG spec says.
+- **Our own reading and writing, not Microsoft.Extensions.Configuration (checked Nov 2026).** Its file provider clears every setting when a reload can't parse the file or finds it missing, where ours keeps the last good settings. Its watcher doesn't follow links, its settings lose their line numbers, an unknown key can only throw, its environment variables split keys on `__`, and it can't write back. Its TOML providers are years out of date (Tomlyn.Extensions.Configuration) or don't keep the file's layout (CsToml). Tomlyn's syntax tree is the only .NET TOML library that writes back every character as it was. The folder libraries (Xdg.Directories, Directories.Net, FVNever.AppDirs) put macOS config in `~/Library`, use XDG variables even when they're relative, or have no state folder.
 
 ## Accepted limits
 
