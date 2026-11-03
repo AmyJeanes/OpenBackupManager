@@ -7,12 +7,14 @@ namespace OpenBackupManager.Cli;
 
 // What obm service install sets up with the OS's own service manager to keep the engine running, as the user. Each
 // home has its own, so homes run side by side as they do by hand
-internal abstract class EngineService(string? home, string obmd, Func<string, string?> environment)
+internal abstract class EngineService(string? home, string obmd, string obm, Func<string, string?> environment)
 {
     // Null for the OS's usual folders
     public string? Home { get; } = home is null ? null : Path.TrimEndingDirectorySeparator(home);
 
     public string Obmd { get; } = obmd;
+
+    public string Obm { get; } = obm;
 
     // Where its definition is written
     public abstract string File { get; }
@@ -35,14 +37,19 @@ internal abstract class EngineService(string? home, string obmd, Func<string, st
     // Named from the home's path, so each home's is found again from the same --home
     protected string? HomeKey => Home is null ? null : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Home)))[..16];
 
-    protected IEnumerable<string> Arguments => [Obmd, "--started-by", "service", .. Home is null ? [] : new[] { "--home", Home }];
+    protected IEnumerable<string> Arguments => [Obmd, "--started-by", "service", .. HomeArguments];
+
+    protected IEnumerable<string> ReloadArguments => [Obm, "config", "reload", .. HomeArguments];
+
+    private IEnumerable<string> HomeArguments => Home is null ? [] : ["--home", Home];
 
     // Null on Windows, where the tray app starts the engine at sign-in
     public static EngineService? ForThisOS(string? home)
     {
         var obmd = Path.Combine(AppContext.BaseDirectory, "obmd");
-        return OperatingSystem.IsMacOS() ? new LaunchAgent(home, obmd, System.Environment.GetEnvironmentVariable)
-            : OperatingSystem.IsLinux() ? new SystemdService(home, obmd, System.Environment.GetEnvironmentVariable, SystemdService.SystemdEnvironment())
+        var obm = Path.Combine(AppContext.BaseDirectory, "obm");
+        return OperatingSystem.IsMacOS() ? new LaunchAgent(home, obmd, obm, System.Environment.GetEnvironmentVariable)
+            : OperatingSystem.IsLinux() ? new SystemdService(home, obmd, obm, System.Environment.GetEnvironmentVariable, SystemdService.SystemdEnvironment())
             : null;
     }
 

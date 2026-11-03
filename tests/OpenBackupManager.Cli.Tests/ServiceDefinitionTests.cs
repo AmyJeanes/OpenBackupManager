@@ -6,6 +6,7 @@ namespace OpenBackupManager.Cli.Tests;
 public class ServiceDefinitionTests
 {
     private const string Obmd = "/opt/obm/obmd";
+    private const string Obm = "/opt/obm/obm";
 
     private static readonly Dictionary<string, string> Shell = new()
     {
@@ -20,13 +21,14 @@ public class ServiceDefinitionTests
     [Test]
     public void Systemd_StartsTheEngine_WithTheShellsFolders()
     {
-        var service = new SystemdService(null, Obmd, Shell.GetValueOrDefault, Systemd.GetValueOrDefault);
+        var service = new SystemdService(null, Obmd, Obm, Shell.GetValueOrDefault, Systemd.GetValueOrDefault);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(service.Unit, Is.EqualTo("openbackupmanager.service"));
             Assert.That(service.File, Is.EqualTo(Path.Combine("/home/amy", ".config", "systemd", "user", "openbackupmanager.service")));
             Assert.That(Lines(service.Definition()), Does.Contain("ExecStart=\"/opt/obm/obmd\" \"--started-by\" \"service\""));
+            Assert.That(Lines(service.Definition()), Does.Contain("ExecReload=\"/opt/obm/obm\" \"config\" \"reload\""));
             Assert.That(Lines(service.Definition()), Does.Contain("Environment=\"XDG_CONFIG_HOME=/home/amy/dotfiles\""));
             Assert.That(Lines(service.Definition()), Does.Contain("Environment=\"XDG_STATE_HOME=/home/amy/state\""));
             Assert.That(service.Definition(), Does.Not.Contain("XDG_CACHE_HOME"));
@@ -39,13 +41,16 @@ public class ServiceDefinitionTests
     [Test]
     public void Systemd_QuotesAHome()
     {
-        var service = new SystemdService(@"/home/amy/100% ""backups"" $HOME\x", Obmd, Shell.GetValueOrDefault, Systemd.GetValueOrDefault);
+        var service = new SystemdService(@"/home/amy/100% ""backups"" $HOME\x", Obmd, Obm, Shell.GetValueOrDefault, Systemd.GetValueOrDefault);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
                 Lines(service.Definition()),
                 Does.Contain(@"ExecStart=""/opt/obm/obmd"" ""--started-by"" ""service"" ""--home"" ""/home/amy/100%% \""backups\"" $$HOME\\x"""));
+            Assert.That(
+                Lines(service.Definition()),
+                Does.Contain(@"ExecReload=""/opt/obm/obm"" ""config"" ""reload"" ""--home"" ""/home/amy/100%% \""backups\"" $$HOME\\x"""));
             Assert.That(service.Definition(), Does.Not.Contain("Environment="));
             Assert.That(service.Unit, Does.Match("^openbackupmanager-[0-9a-f]{16}\\.service$"));
         }
@@ -56,7 +61,7 @@ public class ServiceDefinitionTests
     public void Systemd_PutsTheUnit_InSystemdsOwnConfigFolder()
     {
         var systemd = new Dictionary<string, string> { ["XDG_CONFIG_HOME"] = "/home/amy/systemd-config" };
-        var service = new SystemdService(null, Obmd, Shell.GetValueOrDefault, systemd.GetValueOrDefault);
+        var service = new SystemdService(null, Obmd, Obm, Shell.GetValueOrDefault, systemd.GetValueOrDefault);
 
         Assert.That(service.File, Is.EqualTo(Path.Combine("/home/amy/systemd-config", "systemd", "user", "openbackupmanager.service")));
     }
@@ -77,7 +82,7 @@ public class ServiceDefinitionTests
     [Test]
     public void LaunchAgent_StartsTheEngine_WithTheShellsConfigFolder()
     {
-        var agent = new LaunchAgent(null, Obmd, Shell.GetValueOrDefault);
+        var agent = new LaunchAgent(null, Obmd, Obm, Shell.GetValueOrDefault);
         var plist = XDocument.Parse(agent.Definition());
 
         using (Assert.EnterMultipleScope())
@@ -96,7 +101,7 @@ public class ServiceDefinitionTests
     [Test]
     public void LaunchAgent_PassesAHome()
     {
-        var agent = new LaunchAgent("/Users/amy/<backups> & more/", Obmd, Shell.GetValueOrDefault);
+        var agent = new LaunchAgent("/Users/amy/<backups> & more/", Obmd, Obm, Shell.GetValueOrDefault);
         var plist = XDocument.Parse(agent.Definition());
 
         using (Assert.EnterMultipleScope())
@@ -113,7 +118,7 @@ public class ServiceDefinitionTests
     [Test]
     public void EachHome_HasItsOwn()
     {
-        static string Unit(string? home) => new SystemdService(home, Obmd, Shell.GetValueOrDefault, Systemd.GetValueOrDefault).Unit;
+        static string Unit(string? home) => new SystemdService(home, Obmd, Obm, Shell.GetValueOrDefault, Systemd.GetValueOrDefault).Unit;
 
         using (Assert.EnterMultipleScope())
         {

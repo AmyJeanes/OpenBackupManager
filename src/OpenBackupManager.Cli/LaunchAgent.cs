@@ -5,7 +5,8 @@ using System.Xml.Linq;
 namespace OpenBackupManager.Cli;
 
 // A LaunchAgent on macOS, which launchd runs in the user's session from when they sign in
-internal sealed class LaunchAgent(string? home, string obmd, Func<string, string?> environment) : EngineService(home, obmd, environment)
+internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<string, string?> environment)
+    : EngineService(home, obmd, obm, environment)
 {
     public string Label => HomeKey is null ? "io.github.amyjeanes.openbackupmanager.engine" : $"io.github.amyjeanes.openbackupmanager.engine.{HomeKey}";
 

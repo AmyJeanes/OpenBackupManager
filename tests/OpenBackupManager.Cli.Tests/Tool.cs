@@ -36,7 +36,10 @@ internal sealed class Tool : IDisposable
         }
     }
 
-    public static Tool Start(string name, params string[] args)
+    public static Tool Start(string name, params string[] args) => Start(name, new Dictionary<string, string>(), args);
+
+    // With these environment variables set too
+    public static Tool Start(string name, IReadOnlyDictionary<string, string> environment, params string[] args)
     {
         var file = OperatingSystem.IsWindows() ? name + ".exe" : name;
         var path = Published is null ? Path.Combine(AppContext.BaseDirectory, file)
@@ -49,6 +52,10 @@ internal sealed class Tool : IDisposable
             UseShellExecute = false,
         };
         start.Environment.Remove("OBM_HOME");
+        foreach (var (variable, value) in environment)
+        {
+            start.Environment[variable] = value;
+        }
 
         var tool = new Tool(name, new Process { StartInfo = start });
         tool._process.OutputDataReceived += (_, e) => tool.Add(e.Data);
@@ -60,9 +67,11 @@ internal sealed class Tool : IDisposable
     }
 
     // Runs it to the end
-    public static (int ExitCode, string Output) Run(string name, params string[] args)
+    public static (int ExitCode, string Output) Run(string name, params string[] args) => Run(name, new Dictionary<string, string>(), args);
+
+    public static (int ExitCode, string Output) Run(string name, IReadOnlyDictionary<string, string> environment, params string[] args)
     {
-        using var tool = Start(name, args);
+        using var tool = Start(name, environment, args);
         return (tool.WaitForExit(), tool.Output);
     }
 

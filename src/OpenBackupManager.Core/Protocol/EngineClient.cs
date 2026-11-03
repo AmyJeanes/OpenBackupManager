@@ -28,6 +28,12 @@ public sealed class EngineClient : IDisposable
     // Completes once the connection ends, such as when the engine stops or crashes
     public Task Closed { get; }
 
+    // Long enough for an engine that's just starting
+    private static readonly TimeSpan StartingTimeout = TimeSpan.FromSeconds(2);
+
+    public static Task<EngineClient?> ConnectAsync(AppPaths paths, CancellationToken cancellationToken) =>
+        ConnectAsync(paths, StartingTimeout, cancellationToken);
+
     // Null if no engine is running, which takes the whole timeout to find out, as one may be starting
     public static async Task<EngineClient?> ConnectAsync(AppPaths paths, TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -97,6 +103,9 @@ public sealed class EngineClient : IDisposable
             JsonSerializer.SerializeToElement(new MigrateSecretsParams(store), ProtocolJson.Default.MigrateSecretsParams),
             ProtocolJson.Default.MigrateSecretsResult,
             cancellationToken);
+
+    public Task<ReloadConfigResult> ReloadConfigAsync(CancellationToken cancellationToken) =>
+        CallAsync(EngineProtocol.ReloadConfig, null, ProtocolJson.Default.ReloadConfigResult, cancellationToken);
 
     // Returns once the engine has closed the connection, as it does as it stops
     public async Task StopAsync(CancellationToken cancellationToken)

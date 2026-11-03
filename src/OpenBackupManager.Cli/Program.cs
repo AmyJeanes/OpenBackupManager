@@ -42,12 +42,39 @@ var secretsCommand = new Command("secrets", "Where this device keeps its secrets
     migrateCommand,
 };
 
+var reloadCommand = new Command("reload", "Have the engine read config.toml again, for when it can't see the file change, such as on a network drive");
+reloadCommand.SetAction((parseResult, cancellationToken) => RefuseUnderSudo() ?? Config.ReloadAsync(Paths(parseResult), cancellationToken));
+
+var fileOption = new Option<string?>("--file")
+{
+    Description = "Check this file instead of config.toml",
+    HelpName = "file",
+};
+var envOption = new Option<bool>("--env")
+{
+    Description = "Also apply this shell's OBM_ environment variables",
+};
+var validateCommand = new Command("validate", "Check config.toml for errors and warnings, without the engine")
+{
+    fileOption,
+    envOption,
+};
+validateCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? Task.FromResult(Config.Validate(Paths(parseResult), parseResult.GetValue(fileOption), parseResult.GetValue(envOption))));
+
+var configCommand = new Command("config", "This device's settings, in config.toml")
+{
+    reloadCommand,
+    validateCommand,
+};
+
 var command = new RootCommand("Open Backup Manager's command line")
 {
     homeOption,
     statusCommand,
     serviceCommand,
     secretsCommand,
+    configCommand,
 };
 
 return await command.Parse(args).InvokeAsync();

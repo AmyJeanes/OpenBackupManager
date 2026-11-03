@@ -9,9 +9,6 @@ namespace OpenBackupManager.Cli;
 // obm service install and uninstall: the engine from sign-in on macOS and Linux, through the OS's service manager
 internal static class Service
 {
-    // Long enough for an engine that's just starting
-    private static readonly TimeSpan FindTimeout = TimeSpan.FromSeconds(2);
-
     private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(30);
 
     public static async Task<int> InstallAsync(AppPaths paths, EngineService service, CancellationToken cancellationToken)
@@ -89,7 +86,7 @@ internal static class Service
     // service's own is left for installing again to restart
     private static async Task TakeOverAsync(AppPaths paths, CancellationToken cancellationToken)
     {
-        using var engine = await EngineClient.ConnectAsync(paths, FindTimeout, cancellationToken);
+        using var engine = await EngineClient.ConnectAsync(paths, cancellationToken);
         if (engine is null)
         {
             return;
@@ -123,7 +120,7 @@ internal static class Service
         var until = DateTime.UtcNow + StartTimeout;
         while (DateTime.UtcNow < until && !service.HasGivenUp)
         {
-            using var engine = await EngineClient.ConnectAsync(paths, FindTimeout, cancellationToken);
+            using var engine = await EngineClient.ConnectAsync(paths, cancellationToken);
             if (engine is not null)
             {
                 var status = await engine.StatusAsync(cancellationToken);

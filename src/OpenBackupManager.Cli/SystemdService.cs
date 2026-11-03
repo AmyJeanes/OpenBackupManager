@@ -2,8 +2,9 @@ namespace OpenBackupManager.Cli;
 
 // A systemd user service on Linux, which runs while the user has a session, or all the time with lingering on.
 // systemdEnvironment is systemd's own, which can differ from the shell's
-internal sealed class SystemdService(string? home, string obmd, Func<string, string?> environment, Func<string, string?> systemdEnvironment)
-    : EngineService(home, obmd, environment)
+internal sealed class SystemdService(
+    string? home, string obmd, string obm, Func<string, string?> environment, Func<string, string?> systemdEnvironment)
+    : EngineService(home, obmd, obm, environment)
 {
     public string Unit => HomeKey is null ? "openbackupmanager.service" : $"openbackupmanager-{HomeKey}.service";
 
@@ -111,6 +112,8 @@ internal sealed class SystemdService(string? home, string obmd, Func<string, str
             "",
             "[Service]",
             "ExecStart=" + string.Join(' ', Arguments.Select(argument => Quote(argument, isCommand: true))),
+            // So systemctl reload waits for the engine, and fails when config.toml has an error
+            "ExecReload=" + string.Join(' ', ReloadArguments.Select(argument => Quote(argument, isCommand: true))),
         };
         lines.AddRange(Variables("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME").Select(variable => "Environment=" + Quote($"{variable.Name}={variable.Value}", isCommand: false)));
         lines.AddRange(["Restart=on-failure", "", "[Install]", "WantedBy=default.target", ""]);

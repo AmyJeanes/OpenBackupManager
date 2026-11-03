@@ -10,15 +10,12 @@ namespace OpenBackupManager.Cli;
 // obm status: whether the engine is running, and which
 internal static class Status
 {
-    // Long enough for an engine that's just starting
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
-
     // The service, on macOS and Linux, is only for saying when it should have started the engine
     public static async Task<int> RunAsync(AppPaths paths, EngineService? service, CancellationToken cancellationToken)
     {
         try
         {
-            using var engine = await EngineClient.ConnectAsync(paths, Timeout, cancellationToken);
+            using var engine = await EngineClient.ConnectAsync(paths, cancellationToken);
             if (engine is null)
             {
                 await Console.Error.WriteLineAsync(
@@ -86,12 +83,22 @@ internal static class Status
             return [];
         }
 
-        var errors = problems.Count(p => p.IsError);
-        var heading = errors > 0
-            ? $"config.toml has {(errors == 1 ? "an error" : "errors")}, so its latest changes aren't applied:"
-            : $"config.toml has {(problems.Count == 1 ? "a warning" : "warnings")}, but its settings are applied:";
-        return [heading, .. problems.OrderBy(p => !p.IsError).Select(p => "  " + Describe(p, culture))];
+        var heading = problems.Any(p => p.IsError)
+            ? $"config.toml has {Count(problems)}, so its latest changes aren't applied:"
+            : $"config.toml has {Count(problems)}, but its settings are applied:";
+        return [heading, .. Lines(problems, culture)];
     }
+
+    // Such as "an error" or "warnings". Errors are what matter, so warnings are only counted when there are none
+    internal static string Count(IReadOnlyList<ConfigProblem> problems)
+    {
+        var errors = problems.Count(p => p.IsError);
+        return errors > 0 ? (errors == 1 ? "an error" : "errors") : (problems.Count == 1 ? "a warning" : "warnings");
+    }
+
+    // Each indented under a heading, errors first
+    internal static IEnumerable<string> Lines(IReadOnlyList<ConfigProblem> problems, CultureInfo culture) =>
+        problems.OrderBy(p => !p.IsError).Select(p => "  " + Describe(p, culture));
 
     private static string Describe(ConfigProblem problem, CultureInfo culture) =>
         (problem.IsError ? "Error" : "Warning")

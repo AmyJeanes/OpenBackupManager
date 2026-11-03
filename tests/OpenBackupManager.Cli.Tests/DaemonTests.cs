@@ -125,6 +125,24 @@ public class DaemonTests
         }
     }
 
+    // As a daemon does, where SIGHUP would otherwise end it
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void ReadsConfigAgain_OnSIGHUP()
+    {
+        var home = NewHome();
+        var daemon = Daemon(home);
+        daemon.WaitFor(Started);
+
+        using (var kill = Process.Start("kill", ["-HUP", daemon.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)]))
+        {
+            kill.WaitForExit();
+        }
+
+        daemon.WaitFor("Reading config.toml again, as SIGHUP asks");
+        Assert.That(Tool.Run("obm", "status", "--home", home).ExitCode, Is.Zero, daemon.Output);
+    }
+
     [Test]
     public void AHomeThatsAFile_SaysWhy()
     {

@@ -42,5 +42,5 @@ Where the app keeps its files on each OS, and its settings file, `config.toml`.
 
 ## Accepted limits
 
-- **On network drives and some mounts, an edit only applies after a restart.** The watcher relies on the OS's change notifications, which network shares, FUSE and some container mounts don't send, and which WSL doesn't send for Windows files under `/mnt`. The config folder is a local per-user folder unless `--home` points somewhere else, so checking the file on a timer isn't worth it.
+- **On network drives and some mounts, an edit needs `obm config reload`.** The watcher relies on the OS's change notifications, which network shares, FUSE and some container mounts don't send, and which WSL doesn't send for Windows files under `/mnt`. There, `obm config reload`, SIGHUP on macOS and Linux, or a restart applies it. The config folder is a local per-user folder unless `--home` points somewhere else, so checking the file on a timer isn't worth it.
 - **A missed change isn't retried.** The next save, or starting the app again, picks it up.

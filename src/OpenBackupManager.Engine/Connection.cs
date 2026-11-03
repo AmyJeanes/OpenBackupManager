@@ -1,12 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Engine;
 
 // What the engine says to one client, a line at a time. It closes the connection once it's refused a client
-internal sealed class Connection(Func<StatusResult> status, Secrets secrets)
+internal sealed class Connection(Func<StatusResult> status, ConfigWatcher config, Secrets secrets)
 {
     private bool _greeted;
 
@@ -50,6 +51,7 @@ internal sealed class Connection(Func<StatusResult> status, Secrets secrets)
             EngineProtocol.Status => Result(id, status(), ProtocolJson.Default.StatusResult),
             EngineProtocol.Stop => Stop(id),
             EngineProtocol.MigrateSecrets => await MigrateSecretsAsync(id, request.Params, cancellationToken),
+            EngineProtocol.ReloadConfig => ReloadConfig(id),
 #if DEBUG
             EngineProtocol.Crash => Crash(id, request.Params),
 #endif
@@ -93,6 +95,12 @@ internal sealed class Connection(Func<StatusResult> status, Secrets secrets)
         {
             return Error(id, RpcError.Failed, e.Message);
         }
+    }
+
+    private RpcResponse ReloadConfig(JsonElement id)
+    {
+        config.Reload();
+        return Result(id, new ReloadConfigResult(config.Result.Problems), ProtocolJson.Default.ReloadConfigResult);
     }
 
     private RpcResponse Stop(JsonElement id)

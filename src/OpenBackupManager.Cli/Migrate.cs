@@ -8,14 +8,11 @@ namespace OpenBackupManager.Cli;
 // obm secrets migrate: moves this home's secrets to another store
 internal static class Migrate
 {
-    // Long enough for an engine that's just starting
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
-
     public static async Task<int> RunAsync(AppPaths paths, string store, CancellationToken cancellationToken)
     {
         try
         {
-            using var engine = await EngineClient.ConnectAsync(paths, Timeout, cancellationToken);
+            using var engine = await EngineClient.ConnectAsync(paths, cancellationToken);
             if (engine is null)
             {
                 await Console.Error.WriteLineAsync("obm: the engine isn't running. Start it, then run this again");

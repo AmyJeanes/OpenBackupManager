@@ -16,6 +16,7 @@ public static class EngineProtocol
     public const string Status = "status";
     public const string Stop = "stop";
     public const string MigrateSecrets = "migrateSecrets";
+    public const string ReloadConfig = "reloadConfig";
 
 #if DEBUG
     // For testing crash reports
@@ -80,6 +81,9 @@ public sealed record MigrateSecretsParams(string Store);
 // for, nothing was moved. Left names the secrets that couldn't be removed from it. File is the file store's path
 public sealed record MigrateSecretsResult(int Moved, IReadOnlyList<string> Left, string File, string? From = null);
 
+// What reading config.toml again found, as status gives it
+public sealed record ReloadConfigResult(IReadOnlyList<ConfigProblem> Problems);
+
 // Quit in the tray app stops only an engine the app started
 [JsonConverter(typeof(JsonStringEnumConverter<EngineStarter>))]
 public enum EngineStarter
@@ -130,6 +134,7 @@ public sealed record CrashResult;
 [JsonSerializable(typeof(StopResult))]
 [JsonSerializable(typeof(MigrateSecretsParams))]
 [JsonSerializable(typeof(MigrateSecretsResult))]
+[JsonSerializable(typeof(ReloadConfigResult))]
 #if DEBUG
 [JsonSerializable(typeof(CrashParams))]
 [JsonSerializable(typeof(CrashResult))]

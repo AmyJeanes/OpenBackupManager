@@ -23,6 +23,8 @@
 | `obm service install` | macOS and Linux: starts the engine now and whenever you sign in, and again if it fails. See [The engine](#the-engine). |
 | `obm service uninstall` | macOS and Linux: stops the engine, and stops it starting when you sign in. |
 | `obm secrets migrate <store>` | Moves your secrets to another store, such as `file`, and keeps them there from now on, as [`secret-store`](settings.md#secret-store) says. It copies them all and checks each before removing them from the old store, so if anything goes wrong they're still where they were. The engine has to be running. |
+| `obm config reload` | Has the engine read `config.toml` again and says what it found, for where it can't see the file change, such as on a network drive. Exits with 1 if the file has an error, which leaves the engine using the last good settings, or if the engine isn't running. On macOS and Linux, sending `obmd` SIGHUP does the same. |
+| `obm config validate` | Checks `config.toml` for errors and warnings without the engine, such as before starting it. `--file <file>` checks another file instead, and `--env` also applies the `OBM_` environment variables set where you run it. Exits with 1 if there's an error. |
 | `obm --help` | Lists the commands, and `obm <command> --help` describes one. |
 
 ## The engine
@@ -37,7 +39,7 @@
 
 === "macOS"
 
-    There's no app yet to start the engine for you. `obm service install` starts it now and whenever you sign in, through launchd, and starts it again if it fails. It runs until you sign out, and `obm service uninstall` stops it and takes it off. Or start `obmd` yourself, such as in a terminal you leave open.
+    There's no app yet to start the engine for you. `obm service install` starts it now and whenever you sign in, through launchd, and starts it again if it fails. It runs until you sign out, and `obm service uninstall` stops it and takes it off. Or start `obmd` yourself, such as in a terminal you leave open. Closing the terminal doesn't stop it, so press ++ctrl+c++ first.
 
     macOS tells you it's added a background item, and lists it as `obmd` under Allow in the Background, in System Settings > General > Login Items & Extensions. Switching it off there stops the engine and keeps it from starting, and switching it on starts it again.
 
@@ -45,9 +47,9 @@
 
 === "Linux"
 
-    There's no app yet to start the engine for you. `obm service install` starts it now and whenever you sign in, as a systemd user service, and starts it again if it fails. `obm service uninstall` stops it and takes it off. Or start `obmd` yourself, such as in a terminal you leave open.
+    There's no app yet to start the engine for you. `obm service install` starts it now and whenever you sign in, as a systemd user service, and starts it again if it fails. `obm service uninstall` stops it and takes it off. Or start `obmd` yourself, such as in a terminal you leave open. Closing the terminal doesn't stop it, so press ++ctrl+c++ first.
 
-    The service runs while you're signed in. To keep it running when you're not, as on a server, turn on lingering with `loginctl enable-linger`, and it starts when the computer does. Secret Service is locked while you're not signed in with your password, so the engine can't read secrets kept there then. To keep them in a file only you can read instead, run `obm secrets migrate file`. `systemctl --user status openbackupmanager` shows how it's doing, and `journalctl --user -u openbackupmanager` what it printed.
+    The service runs while you're signed in. To keep it running when you're not, as on a server, turn on lingering with `loginctl enable-linger`, and it starts when the computer does. Secret Service is locked while you're not signed in with your password, so the engine can't read secrets kept there then. To keep them in a file only you can read instead, run `obm secrets migrate file`. `systemctl --user status openbackupmanager` shows how it's doing, and `journalctl --user -u openbackupmanager` what it printed. `systemctl --user reload openbackupmanager` has it read `config.toml` again, as `obm config reload` does. For a service installed by an older version, run `obm service install` again first.
 
     If you've moved `obm` and `obmd` since, run `obm service install` again. With `--home`, each folder gets its own.
 

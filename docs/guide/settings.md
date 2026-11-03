@@ -22,7 +22,7 @@ Open Backup Manager keeps this device's settings in a text file, `config.toml`. 
 
 The file is [TOML](https://toml.io): settings are `name = value`, grouped into sections such as `[updates]`, and anything after a `#` is a comment. Anything left out has its default.
 
-- **Changes apply as soon as you save,** unless the file is on a network drive, where the app can't tell when it changes. There, restart the app after editing it.
+- **Changes apply as soon as you save,** unless the file is on a network drive, where the app can't tell when it changes. There, run `obm config reload` after editing it, or restart the app.
 - **A mistake while the app is running doesn't break anything.** It keeps using the last good settings, and shows a notification saying what's wrong and on which line, with a button that shows the file. Once you fix it and save, the fixed settings apply.
 - **A mistake when the app starts stops it starting,** as there are no good settings to keep using. A message says what's wrong and where the file is, and once it's fixed, start the app again. The engine won't start either.
 - **A setting the app doesn't know is only a warning,** written to [the app's log](files.md#logs), so a typo in a setting's name is worth checking for there if a change seems to do nothing.
