@@ -11,9 +11,12 @@ var homeOption = new Option<string>("--home")
     Recursive = true,
 };
 
-var statusCommand = new Command("status", "Show whether the engine is running, and which");
+// On each command that reports something, not the root, so help only offers it where it does something
+var jsonOption = new Option<bool>("--json") { Description = "Print it as JSON, for scripts" };
+
+var statusCommand = new Command("status", "Show whether the engine is running, and which") { jsonOption };
 statusCommand.SetAction((parseResult, cancellationToken) =>
-    RefuseUnderSudo() ?? Status.RunAsync(Paths(parseResult), ServiceFor(parseResult), cancellationToken));
+    RefuseUnderSudo() ?? Status.RunAsync(Paths(parseResult), ServiceFor(parseResult), parseResult.GetValue(jsonOption), cancellationToken));
 
 var installCommand = new Command("install", "Start the engine now and whenever you sign in, and restart if it fails");
 installCommand.SetAction((parseResult, cancellationToken) =>
@@ -42,8 +45,12 @@ var secretsCommand = new Command("secrets", "Where this device keeps its secrets
     migrateCommand,
 };
 
-var reloadCommand = new Command("reload", "Have the engine read config.toml again, for when it can't see the file change, such as on a network drive");
-reloadCommand.SetAction((parseResult, cancellationToken) => RefuseUnderSudo() ?? Config.ReloadAsync(Paths(parseResult), cancellationToken));
+var reloadCommand = new Command("reload", "Have the engine read config.toml again, for when it can't see the file change, such as on a network drive")
+{
+    jsonOption,
+};
+reloadCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? Config.ReloadAsync(Paths(parseResult), parseResult.GetValue(jsonOption), cancellationToken));
 
 var fileOption = new Option<string?>("--file")
 {
@@ -58,9 +65,10 @@ var validateCommand = new Command("validate", "Check config.toml for errors and 
 {
     fileOption,
     envOption,
+    jsonOption,
 };
 validateCommand.SetAction((parseResult, cancellationToken) =>
-    RefuseUnderSudo() ?? Task.FromResult(Config.Validate(Paths(parseResult), parseResult.GetValue(fileOption), parseResult.GetValue(envOption))));
+    RefuseUnderSudo() ?? Task.FromResult(Config.Validate(Paths(parseResult), parseResult.GetValue(fileOption), parseResult.GetValue(envOption), parseResult.GetValue(jsonOption))));
 
 var configCommand = new Command("config", "This device's settings, in config.toml")
 {

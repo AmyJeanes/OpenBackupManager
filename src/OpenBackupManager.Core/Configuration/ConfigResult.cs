@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 
 namespace OpenBackupManager.Core.Configuration;
 
@@ -20,6 +21,10 @@ public sealed record ConfigProblem(int Line, ConfigProblemKind Kind, bool IsErro
         ? Format(culture, nameof(Strings.ConfigProblem_OnLine), Line, Message(culture))
         : Format(culture, nameof(Strings.ConfigProblem_InEnvVar), EnvVar, Message(culture));
 
+    // On the wire, for scripts and other programs to show. The app and obm word it themselves, in the user's language
+    [JsonPropertyName("message")]
+    public string InEnglish => Message(CultureInfo.InvariantCulture);
+
     // Tomlyn's messages are only in English, so they're passed on as they are
     public string Message(CultureInfo culture) => Kind == ConfigProblemKind.Toml ? Value! : Format(culture, Kind switch
     {
@@ -39,7 +44,7 @@ public sealed record ConfigProblem(int Line, ConfigProblemKind Kind, bool IsErro
     }, Value, Kind == ConfigProblemKind.NotAChoice ? string.Join(", ", Settings.Find(Value ?? "")?.Choices ?? []) : null);
 
     // Always in English, for logs and exceptions
-    public override string ToString() => $"{(EnvVar is null ? $"line {Line}" : $"environment variable {EnvVar}")}: {Message(CultureInfo.InvariantCulture)}";
+    public override string ToString() => $"{(EnvVar is null ? $"line {Line}" : $"environment variable {EnvVar}")}: {InEnglish}";
 
     private static string Format(CultureInfo culture, string name, params object?[] values) =>
         string.Format(culture, Strings.ResourceManager.GetString(name, culture)!, values);

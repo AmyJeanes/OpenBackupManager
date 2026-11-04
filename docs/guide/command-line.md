@@ -27,6 +27,8 @@
 | `obm config validate` | Checks `config.toml` for errors and warnings without the engine, such as before starting it. `--file <file>` checks another file instead, and `--env` also applies the `OBM_` environment variables set where you run it. Exits with 1 if there's an error. |
 | `obm --help` | Lists the commands, and `obm <command> --help` describes one. |
 
+`obm status`, `obm config reload` and `obm config validate` take `--json` too, to print what they found for scripts, as [For scripts](#for-scripts) describes.
+
 ## The engine
 
 `obmd` runs the engine in the foreground with no UI, until you press ++ctrl+c++. Only one runs at a time for each data folder, and `obm` talks to it. It takes `--home` like `obm`, and `obmd --version` shows its version.
@@ -78,6 +80,80 @@ You don't need administrator or root rights for Open Backup Manager. It backs up
 **In a container,** such as with Docker, it's Linux inside, whatever your computer runs, so the Linux tab applies. Containers often run as root, which is fine.
 
 **To back up a whole computer or a server,** use a tool made for that, such as [restic](https://restic.net), [Kopia](https://kopia.io) or [rclone](https://rclone.org). Open Backup Manager is made for your own folders.
+
+## For scripts
+
+With `--json`, `obm status`, `obm config reload` and `obm config validate` print what they found as JSON instead, as the engine gives it to `obm` and the app. New fields may be added, so a script should ignore ones it doesn't know. The exit codes are the same as without it. When there's nothing to print, such as when the engine isn't running, the error goes to stderr as usual and nothing goes to stdout, so check the exit code before reading it.
+
+`obm status --json` prints something like this:
+
+```json
+{
+  "version": "0.1.0",
+  "processId": 4321,
+  "started": "2026-11-04T09:12:44+00:00",
+  "config": "/home/me/.config/openbackupmanager",
+  "state": "/home/me/.local/state/openbackupmanager",
+  "startedBy": "service",
+  "secrets": {
+    "store": "secret-service"
+  },
+  "configProblems": []
+}
+```
+
+| Field | What it is |
+| --- | --- |
+| `version` | The engine's version. |
+| `processId` | The engine's process ID. |
+| `started` | When the engine started, with its offset from UTC. |
+| `config` | The folder `config.toml` is in. |
+| `state` | The engine's own folder. It's the same as `config` on Windows, or with `--home`. |
+| `startedBy` | `app` for the app, which stops it when you quit, `service` for its service, or `other`. |
+| `secrets.store` | Where secrets are kept, as [`secret-store`](settings.md#secret-store) names it. Left out until one is chosen. |
+| `secrets.file` | The file they're in, when `store` is `file`. |
+| `configProblems` | The errors and warnings in `config.toml`, from the engine's latest read of it. |
+
+`obm config reload --json` and `obm config validate --json` print the errors and warnings they found as `problems`. They're in the order they were found, and each has these fields:
+
+```json
+{
+  "problems": [
+    {
+      "line": 4,
+      "kind": "shouldBeTrueOrFalse",
+      "isError": true,
+      "value": "updates.prereleases",
+      "message": "updates.prereleases should be true or false"
+    }
+  ]
+}
+```
+
+| Field | What it is |
+| --- | --- |
+| `line` | The line it's on, or 0 when it's in an environment variable. |
+| `kind` | What's wrong, as one of the kinds below. More may be added. |
+| `isError` | `true` for an error, which stops the file being used, or `false` for a warning, which doesn't. |
+| `value` | The setting, section or remote ID it's about, or for `toml`, what's wrong with the TOML. Left out when it's about none of these. |
+| `envVar` | The environment variable it's in. Left out when it's in the file. |
+| `message` | What's wrong, in English, for showing to people. |
+
+| Kind | What's wrong |
+| --- | --- |
+| `toml` | The file isn't valid TOML. `value` says why. |
+| `shouldBeTrueOrFalse` | The setting should be `true` or `false`. |
+| `shouldBeWholeNumber` | The setting should be a whole number. |
+| `shouldBeText` | The setting should be text in quotes. |
+| `notAChoice` | The setting isn't one of the values it takes. |
+| `versionTooLow` | `version` should be 1 or more. |
+| `newerVersion` | A newer version of the app wrote the file. This version reads it, but won't change it. |
+| `shouldBeTable` | The section should be written as `[section]`. |
+| `shouldBeTableArray` | The section should be written as `[[section]]`. |
+| `remoteNeedsId` | A `[[remotes]]` has no `id`. |
+| `remoteIdUsedTwice` | Two remotes have the same `id`. |
+| `unknownSetting` | It isn't a setting this version knows, such as a misspelt one. |
+| `unknownSection` | It isn't a section this version knows. |
 
 ## Options
 

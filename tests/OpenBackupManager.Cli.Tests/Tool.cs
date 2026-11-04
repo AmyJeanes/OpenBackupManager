@@ -10,6 +10,8 @@ internal sealed class Tool : IDisposable
     private readonly string _name;
     private readonly Process _process;
     private readonly List<string> _lines = [];
+    private readonly List<string> _stdout = [];
+    private readonly List<string> _stderr = [];
 
     private Tool(string name, Process process)
     {
@@ -36,6 +38,29 @@ internal sealed class Tool : IDisposable
         }
     }
 
+    // Only what it prints to stdout, as a script reading it gets
+    public string Stdout
+    {
+        get
+        {
+            lock (_lines)
+            {
+                return string.Join(Environment.NewLine, _stdout);
+            }
+        }
+    }
+
+    public string Stderr
+    {
+        get
+        {
+            lock (_lines)
+            {
+                return string.Join(Environment.NewLine, _stderr);
+            }
+        }
+    }
+
     public static Tool Start(string name, params string[] args) => Start(name, new Dictionary<string, string>(), args);
 
     // With these environment variables set too
@@ -58,8 +83,8 @@ internal sealed class Tool : IDisposable
         }
 
         var tool = new Tool(name, new Process { StartInfo = start });
-        tool._process.OutputDataReceived += (_, e) => tool.Add(e.Data);
-        tool._process.ErrorDataReceived += (_, e) => tool.Add(e.Data);
+        tool._process.OutputDataReceived += (_, e) => tool.Add(e.Data, stdout: true);
+        tool._process.ErrorDataReceived += (_, e) => tool.Add(e.Data, stdout: false);
         tool._process.Start();
         tool._process.BeginOutputReadLine();
         tool._process.BeginErrorReadLine();
@@ -116,7 +141,7 @@ internal sealed class Tool : IDisposable
         _process.Dispose();
     }
 
-    private void Add(string? line)
+    private void Add(string? line, bool stdout)
     {
         if (line is null)
         {
@@ -126,6 +151,7 @@ internal sealed class Tool : IDisposable
         lock (_lines)
         {
             _lines.Add(line);
+            (stdout ? _stdout : _stderr).Add(line);
         }
     }
 }

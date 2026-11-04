@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace OpenBackupManager.Cli.Tests;
 
 public class ConfigTests
@@ -54,6 +56,20 @@ public class ConfigTests
     }
 
     [Test]
+    public void Reload_Json_HasWhatItFound()
+    {
+        using var daemon = Tool.Start("obmd", "--home", _home);
+        daemon.WaitFor("started, process");
+        File.WriteAllText(ConfigFile, "[updates]\nprereleases = \"yes\"\n");
+
+        using var obm = Tool.Start("obm", "config", "reload", "--json", "--home", _home);
+        Assert.That(obm.WaitForExit(), Is.EqualTo(1), obm.Output);
+        using var result = JsonDocument.Parse(obm.Stdout);
+
+        Assert.That(result.RootElement.GetProperty("problems")[0].GetProperty("line").GetInt32(), Is.EqualTo(2));
+    }
+
+    [Test]
     public void Reload_WithNoEngine_SaysSo()
     {
         var (exitCode, output) = Tool.Run("obm", "config", "reload", "--home", _home);
@@ -83,6 +99,22 @@ public class ConfigTests
                 "  Error on line 3: updates.prereleases should be true or false",
                 "  Warning on line 1: colour isn't a known setting")));
         }
+    }
+
+    // In the order they're found, rather than errors first, as a script can sort them itself
+    [Test]
+    public void Validate_Json_HasEveryProblem()
+    {
+        Directory.CreateDirectory(_home);
+        File.WriteAllText(ConfigFile, "colour = \"blue\"\n[updates]\nprereleases = \"yes\"\n");
+
+        using var obm = Tool.Start("obm", "config", "validate", "--json", "--home", _home);
+        Assert.That(obm.WaitForExit(), Is.EqualTo(1), obm.Output);
+        using var result = JsonDocument.Parse(obm.Stdout);
+
+        Assert.That(
+            result.RootElement.GetProperty("problems").EnumerateArray().Select(p => p.GetProperty("kind").GetString()),
+            Is.EqualTo(["unknownSetting", "shouldBeTrueOrFalse"]));
     }
 
     [Test]

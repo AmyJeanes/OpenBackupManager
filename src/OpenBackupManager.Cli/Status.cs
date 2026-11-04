@@ -11,7 +11,7 @@ namespace OpenBackupManager.Cli;
 internal static class Status
 {
     // The service, on macOS and Linux, is only for saying when it should have started the engine
-    public static async Task<int> RunAsync(AppPaths paths, EngineService? service, CancellationToken cancellationToken)
+    public static async Task<int> RunAsync(AppPaths paths, EngineService? service, bool json, CancellationToken cancellationToken)
     {
         try
         {
@@ -26,6 +26,12 @@ internal static class Status
             }
 
             var status = await engine.StatusAsync(cancellationToken);
+            if (json)
+            {
+                Console.WriteLine(Json.Format(status, ProtocolJson.Default.StatusResult));
+                return 0;
+            }
+
             Console.WriteLine("The engine is running");
             Console.WriteLine($"  Version: {status.Version}");
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  Process: {status.ProcessId}"));

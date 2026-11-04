@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Text.Json;
 using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Protocol;
 
@@ -39,6 +40,37 @@ public class StatusTests
             Assert.That(output, Does.Contain("Process: " + daemon.Id.ToString(CultureInfo.InvariantCulture)));
             Assert.That(output, Does.Contain("Started by: you or another program"));
             Assert.That(output, Does.Contain("Home: " + _home));
+        }
+    }
+
+    [Test]
+    public void Json_IsTheEnginesRecord()
+    {
+        using var daemon = Tool.Start("obmd", "--home", _home);
+        daemon.WaitFor("started, process");
+
+        using var obm = Tool.Start("obm", "status", "--json", "--home", _home);
+        Assert.That(obm.WaitForExit(), Is.Zero, obm.Output);
+        using var status = JsonDocument.Parse(obm.Stdout);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(status.RootElement.GetProperty("processId").GetInt32(), Is.EqualTo(daemon.Id));
+            Assert.That(status.RootElement.GetProperty("config").GetString(), Is.EqualTo(_home));
+        }
+    }
+
+    // A script checks the exit code, and only reads what's printed when there's a record
+    [Test]
+    public void Json_NoEngine_PrintsOnlyTheError()
+    {
+        using var obm = Tool.Start("obm", "status", "--json", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(obm.WaitForExit(), Is.EqualTo(1));
+            Assert.That(obm.Stdout, Is.Empty);
+            Assert.That(obm.Stderr, Does.Contain("the engine isn't running"));
         }
     }
 
