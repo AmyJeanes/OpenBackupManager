@@ -79,11 +79,11 @@ If the engine closes unexpectedly, it writes a report to the crash reports folde
 
 === "macOS"
 
-    Some crashes stop the engine before it can write anything. Then the next time it starts, it writes a warning in its log instead. Nothing shows the reports yet, so if it stops by itself, look in the crash reports folder. If you used `obm service install`, launchd starts the engine again.
+    Some crashes stop the engine before it can write anything. Then the next time it starts, it writes the report, with what macOS recorded about the crash and, if you used `obm service install`, what the engine printed as it closed. It doesn't if your Mac has restarted since, as the power going or a restart isn't a crash. Nothing shows the reports yet, so if it stops by itself, look in the crash reports folder. If you used `obm service install`, launchd starts the engine again.
 
 === "Linux"
 
-    Some crashes stop the engine before it can write anything. Then the next time it starts, it writes a warning in its log instead. Nothing shows the reports yet, so if it stops by itself, look in the crash reports folder. If you used `obm service install`, systemd starts the engine again.
+    Some crashes stop the engine before it can write anything. Then the next time it starts, it writes the report, with what the engine printed as it closed if you used `obm service install`. It doesn't if your computer has restarted since, as the power going or a restart isn't a crash. Nothing shows the reports yet, so if it stops by itself, look in the crash reports folder. If you used `obm service install`, systemd starts the engine again.
 
 ## The app itself
 

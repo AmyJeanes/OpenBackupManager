@@ -70,7 +70,7 @@ public sealed class CrashTests : AppTests
         LaunchAgain();
         Assert.That(Log(), Does.Contain("Quitting, as Windows is signing out or shutting down")
             .And.Contain("Stopping the app's services")
-            .And.Not.Contain("ended without quitting"));
+            .And.Not.Contain("The last run closed unexpectedly"));
     }
 
     private string Log()

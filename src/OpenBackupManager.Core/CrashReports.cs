@@ -18,7 +18,10 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
 
     private const int Kept = 10;
     private const int LogLines = 100;
+    private const int PrintedLength = 64 * 1024;
     private const string ShownFile = "shown";
+
+    private static readonly TimeSpan Repeat = TimeSpan.FromMinutes(1);
 
     private string RunningFile => Path.Combine(paths.State, name + ".running");
 
@@ -33,7 +36,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
     {
         var previous = File.Exists(RunningFile) ? Run.Parse(File.ReadAllLines(RunningFile)) : null;
         var log = NewestLog();
-        Current = new Run(processId, started, version, log?.Name, log?.Length ?? 0);
+        Current = new Run(processId, started, version, log?.Name, log?.Length ?? 0, BootId.Current());
         Directory.CreateDirectory(paths.State);
         File.WriteAllLines(RunningFile, Current.Lines());
         return previous;
@@ -44,11 +47,114 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
 
     // Writes a report on a run that closed unexpectedly, with the end of its own log. closedAt is only needed for a
     // run that closed before now
-    public string Write(string program, Run run, string details, DateTimeOffset? closedAt = null)
+    public string Write(string program, Run run, string details, DateTimeOffset? closedAt = null) =>
+        Write($"{program} closed unexpectedly at {(closedAt ?? time.GetLocalNow()):yyyy-MM-dd HH:mm:ss zzz}", run, details);
+
+    // The report a run repeats, if it closed within a minute of starting, soon after it, as one that can't get going does
+    // when it's started again and again. That first report says why, and this keeps the others from replacing older ones
+    public string? RepeatOf(Run run)
     {
-        var when = closedAt ?? time.GetLocalNow();
+        if (time.GetUtcNow() - run.Started >= Repeat || Reports().LastOrDefault(IsOwn) is not { } newest)
+        {
+            return null;
+        }
+
+        var name = Path.GetFileName(newest);
+        var written = DateTime.ParseExact(name["crash-".Length..][..19], "yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+        return written >= TimeZoneInfo.ConvertTime(run.Started - Repeat, time.LocalTimeZone).DateTime ? name : null;
+    }
+
+    // For a run that didn't stop, from what Windows recorded, which catches crashes .NET never sees. Null if there's
+    // nothing, and always on macOS and Linux. Throws EventLogException or UnauthorizedAccessException if the event log
+    // can't be read, as over SSH
+    public string? WriteRecorded(string program, Run run) =>
+        OperatingSystem.IsWindows() && CrashEvents.Find(Path.GetFileName(Environment.ProcessPath!), run.ProcessId, run.Started) is { } recorded
+            ? Write(program, run, "Windows recorded this:" + Environment.NewLine + recorded.Text, recorded.Time)
+            : null;
+
+    // For a run on macOS or Linux that ended without stopping, with what the OS kept: macOS's own crash report, and
+    // what it printed as it ended, which is the only place a FailFast's message goes
+    public string WriteEnded(string program, Run run)
+    {
+        var exe = Path.GetFileName(Environment.ProcessPath!);
+        var recorded = OperatingSystem.IsMacOS() ? DiagnosticReports.Find(exe, run) : null;
+        var printed = OperatingSystem.IsLinux() ? Journal.Printed(run)
+            : OperatingSystem.IsMacOS() && name == Engine ? Printed(ErrorOutput(paths), run)
+            : null;
+        return WriteEnded(program, run, recorded, printed);
+    }
+
+    internal string WriteEnded(string program, Run run, CrashEvent? recorded, string? printed)
+    {
+        var details = new StringBuilder();
+        if (recorded is null && printed is null)
+        {
+            details.Append("It didn't say why. It may have crashed, or been closed by the system or another program.");
+            if (WhereToLook(run) is { } where)
+            {
+                details.AppendLine().AppendLine().Append(where);
+            }
+        }
+
+        if (recorded is not null)
+        {
+            details.AppendLine("macOS recorded this:").Append(recorded.Text);
+        }
+
+        if (printed is not null)
+        {
+            details.Append(recorded is null ? "" : Environment.NewLine + Environment.NewLine)
+                .AppendLine("What it printed as it closed:")
+                .Append(printed);
+        }
+
+        string heading;
+        if (recorded is not null)
+        {
+            heading = $"{program} closed unexpectedly at {TimeZoneInfo.ConvertTime(recorded.Time, time.LocalTimeZone):yyyy-MM-dd HH:mm:ss zzz}";
+        }
+        else if (NewestLog() is { } log && log.LastWriteTimeUtc >= run.Started.UtcDateTime)
+        {
+            var written = TimeZoneInfo.ConvertTime(new DateTimeOffset(log.LastWriteTimeUtc), time.LocalTimeZone);
+            heading = $"{program} closed unexpectedly after {written:yyyy-MM-dd HH:mm:ss zzz}, when it last wrote to its log";
+        }
+        else
+        {
+            heading = $"{program} closed unexpectedly some time after it started at {TimeZoneInfo.ConvertTime(run.Started, time.LocalTimeZone):yyyy-MM-dd HH:mm:ss zzz}";
+        }
+
+        return Write(heading, run, details.ToString());
+    }
+
+    // Where launchd sends the engine's stderr when it runs as a service. Not named like its logs, which are found by name
+    public static string ErrorOutput(AppPaths paths) => Path.Combine(paths.Logs, "obmd-stderr.log");
+
+    // From .NET's last words, as a FailFast prints them, to the end
+    internal static string? Ending(string output)
+    {
+        var start = output.LastIndexOf("Process terminated.", StringComparison.Ordinal);
+        return start < 0 ? null : output[start..].TrimEnd();
+    }
+
+    // The newest report written since this was last asked, so each crash is shown once
+    public CrashReport? TakeNew()
+    {
+        var shownFile = Path.Combine(Folder, ShownFile);
+        var shown = File.Exists(shownFile) ? File.ReadAllText(shownFile).Trim() : "";
+        var newest = Reports().LastOrDefault();
+        if (newest is null || string.CompareOrdinal(Path.GetFileName(newest), shown) <= 0)
+        {
+            return null;
+        }
+
+        File.WriteAllText(shownFile, Path.GetFileName(newest));
+        return new CrashReport(Path.GetFileNameWithoutExtension(newest).EndsWith("-" + Engine, StringComparison.Ordinal) ? Engine : App, File.ReadAllText(newest));
+    }
+
+    private string Write(string heading, Run run, string details)
+    {
         var report = new StringBuilder()
-            .AppendLine(CultureInfo.InvariantCulture, $"{program} closed unexpectedly at {when:yyyy-MM-dd HH:mm:ss zzz}")
+            .AppendLine(heading)
             .AppendLine()
             .AppendLine(CultureInfo.InvariantCulture, $"Version: {run.Version}")
             .AppendLine(CultureInfo.InvariantCulture, $"OS: {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture})")
@@ -71,33 +177,40 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         return file;
     }
 
-    // For a run that didn't stop, from what Windows recorded, which catches crashes .NET never sees. False if there's
-    // nothing, and always on macOS and Linux. Throws EventLogException or UnauthorizedAccessException if the event log
-    // can't be read, as over SSH
-    public bool WriteRecorded(string program, Run run)
-    {
-        if (!OperatingSystem.IsWindows() || CrashEvents.Find(Path.GetFileName(Environment.ProcessPath!), run.ProcessId, run.Started) is not { } recorded)
-        {
-            return false;
-        }
+    private bool IsOwn(string report) => Path.GetFileNameWithoutExtension(report).EndsWith("-" + name, StringComparison.Ordinal);
 
-        Write(program, run, "Windows recorded this:" + Environment.NewLine + recorded.Text, recorded.Time);
-        return true;
-    }
-
-    // The newest report written since this was last asked, so each crash is shown once
-    public CrashReport? TakeNew()
+    // The end of a file it printed to, if it printed to it during the run. It only grows, so only the end is read
+    private static string? Printed(string file, Run run)
     {
-        var shownFile = Path.Combine(Folder, ShownFile);
-        var shown = File.Exists(shownFile) ? File.ReadAllText(shownFile).Trim() : "";
-        var newest = Reports().LastOrDefault();
-        if (newest is null || string.CompareOrdinal(Path.GetFileName(newest), shown) <= 0)
+        var info = new FileInfo(file);
+        if (!info.Exists || info.LastWriteTimeUtc < run.Started.UtcDateTime)
         {
             return null;
         }
 
-        File.WriteAllText(shownFile, Path.GetFileName(newest));
-        return new CrashReport(Path.GetFileNameWithoutExtension(newest).EndsWith("-" + Engine, StringComparison.Ordinal) ? Engine : App, File.ReadAllText(newest));
+        using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        stream.Position = Math.Max(0, stream.Length - PrintedLength);
+        using var reader = new StreamReader(stream);
+        return Ending(reader.ReadToEnd());
+    }
+
+    private static string? WhereToLook(Run run) =>
+        OperatingSystem.IsMacOS() ? "If it ran as a service, /var/log/com.apple.xpc.launchd/launchd.log may say what closed it."
+        : KeepsCoreDumps() ? string.Create(CultureInfo.InvariantCulture, $"If it crashed, coredumpctl info {run.ProcessId} may say more.")
+        : null;
+
+    // Whether systemd-coredump is what the kernel hands crashes to. Ubuntu's Apport, its usual one, ignores programs that
+    // weren't installed from a package, so it has nothing to look in
+    private static bool KeepsCoreDumps()
+    {
+        try
+        {
+            return File.ReadAllText("/proc/sys/kernel/core_pattern").Contains("systemd-coredump", StringComparison.Ordinal);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private IEnumerable<string> Reports() =>
@@ -141,8 +254,9 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
 // The report, and which program's it is: app or engine
 public sealed record CrashReport(string Name, string Text);
 
-// A run of the app or the engine, and where its log started: the newest log file and how long it was then
-public sealed record Run(int ProcessId, DateTimeOffset Started, string Version, string? LogFile, long LogLength)
+// A run of the app or the engine, and where its log started: the newest log file and how long it was then. Boot is the
+// computer's boot ID on macOS and Linux, and null on Windows or from a version that didn't note it
+public sealed record Run(int ProcessId, DateTimeOffset Started, string Version, string? LogFile, long LogLength, string? Boot = null)
 {
     internal IEnumerable<string> Lines() =>
     [
@@ -151,14 +265,17 @@ public sealed record Run(int ProcessId, DateTimeOffset Started, string Version, 
         Version,
         LogFile ?? "",
         LogLength.ToString(CultureInfo.InvariantCulture),
+        Boot ?? "",
     ];
 
     // Null if the file isn't one it wrote
     internal static Run? Parse(string[] lines) =>
-        lines.Length == 5
+        lines.Length is 5 or 6
         && int.TryParse(lines[0], CultureInfo.InvariantCulture, out var processId)
         && DateTimeOffset.TryParse(lines[1], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var started)
         && long.TryParse(lines[4], CultureInfo.InvariantCulture, out var logLength)
-            ? new Run(processId, started, lines[2], lines[3] is { Length: > 0 } logFile ? logFile : null, logLength)
+            ? new Run(processId, started, lines[2], NullIfEmpty(lines[3]), logLength, lines.Length == 6 ? NullIfEmpty(lines[5]) : null)
             : null;
+
+    private static string? NullIfEmpty(string value) => value.Length > 0 ? value : null;
 }

@@ -206,7 +206,7 @@ public class DaemonTests
         }
     }
 
-    // On Windows, from what Windows recorded. macOS and Linux keep no such record, so there it's only logged
+    // On Windows, from what Windows recorded. On macOS and Linux from the running file it left, with whatever the OS kept
     [Test]
     [Explicit("Crashes obmd, which the system records")]
     [Category("Sandbox")]
@@ -227,7 +227,11 @@ public class DaemonTests
         }
         else
         {
-            Assert.That(next.Output, Does.Contain("The last run ended without stopping"));
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(Report(home), Does.StartWith("obmd closed unexpectedly").And.Contain(Started));
+                Assert.That(next.Output, Does.Contain("The last run closed unexpectedly. Its crash report is crash-"));
+            }
         }
     }
 #endif

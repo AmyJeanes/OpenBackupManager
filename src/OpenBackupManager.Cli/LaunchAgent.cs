@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
+using OpenBackupManager.Core;
 
 namespace OpenBackupManager.Cli;
 
@@ -27,10 +28,15 @@ internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<st
 
     private string Target => $"{Domain}/{Label}";
 
+    // launchd sends stderr nowhere unless told, and it's where a FailFast's message, or why it couldn't start, goes
+    private string ErrorOutput => CrashReports.ErrorOutput(Home is null ? AppPaths.ForOS(OSPlatform.OSX, Environment) : AppPaths.InHome(Home));
+
     public override void Install()
     {
         BootOut();
         Directory.CreateDirectory(Path.GetDirectoryName(File)!);
+        // launchd won't make the folder
+        Directory.CreateDirectory(Path.GetDirectoryName(ErrorOutput)!);
         System.IO.File.WriteAllText(File, Definition());
         Run("launchctl", "bootstrap", Domain, File);
     }
@@ -57,6 +63,8 @@ internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<st
                 new XElement("array", Arguments.Select(argument => new XElement("string", argument))),
                 variables.Count == 0 ? null : Key("EnvironmentVariables"),
                 variables.Count == 0 ? null : new XElement("dict", variables.SelectMany(variable => new[] { Key(variable.Name), new XElement("string", variable.Value) })),
+                Key("StandardErrorPath"),
+                new XElement("string", ErrorOutput),
                 Key("RunAtLoad"),
                 new XElement("true"),
                 Key("KeepAlive"),

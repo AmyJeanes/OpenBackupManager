@@ -21,5 +21,5 @@ public class CrashViewModelTests
 
     [Test]
     public void TheEnginesReport_SaysItWasTheEngine() =>
-        Assert.That(new CrashViewModel(App, new CrashReport(CrashReports.Engine, "obmd closed unexpectedly at …")).Title, Is.EqualTo("Open Backup Manager's engine stopped unexpectedly"));
+        Assert.That(new CrashViewModel(App, new CrashReport(CrashReports.Engine, "obmd closed unexpectedly at …")).Title, Is.EqualTo("Open Backup Manager's engine closed unexpectedly"));
 }

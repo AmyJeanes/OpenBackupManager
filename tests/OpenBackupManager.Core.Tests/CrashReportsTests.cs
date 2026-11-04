@@ -155,7 +155,7 @@ public class CrashReportsTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(_reports.WriteRecorded("Open Backup Manager", run), Is.False);
+            Assert.That(_reports.WriteRecorded("Open Backup Manager", run), Is.Null);
             Assert.That(Directory.Exists(Path.Combine(_home, "crashes")), Is.False);
         }
     }
@@ -179,7 +179,8 @@ public class CrashReportsTests
         _reports.Start(100, started, "1.2.3");
 
         var length = new FileInfo(Path.Combine(_logs, "app-20261014.log")).Length;
-        Assert.That(_reports.Start(200, RunStarted, "1.2.4"), Is.EqualTo(new Run(100, started, "1.2.3", "app-20261014.log", length)));
+        // With the computer's boot ID on macOS and Linux, so a restart since can be told apart
+        Assert.That(_reports.Start(200, RunStarted, "1.2.4"), Is.EqualTo(new Run(100, started, "1.2.3", "app-20261014.log", length, BootId.Current())));
     }
 
     [Test]
@@ -190,6 +191,139 @@ public class CrashReportsTests
         Assert.That(_reports.Start(200, RunStarted, "1.2.3"), Is.Null);
     }
 
+    [Test]
+    public void Start_KeepsTheBootId()
+    {
+        File.WriteAllLines(Path.Combine(_home, "app.running"), ["100", RunStarted.ToString("O"), "1.2.3", "", "0", "0b1d6a3c-5c41-4b7e-9d0e-2a8f3c6e7d11"]);
+
+        Assert.That(_reports.Start(200, RunStarted, "1.2.3")?.Boot, Is.EqualTo("0b1d6a3c-5c41-4b7e-9d0e-2a8f3c6e7d11"));
+    }
+
+    // As an older version wrote it, which can't be told from a restart
+    [Test]
+    public void Start_ReadsARunningFileWithNoBootId()
+    {
+        File.WriteAllLines(Path.Combine(_home, "app.running"), ["100", RunStarted.ToString("O"), "1.2.3", "", "0"]);
+
+        Assert.That(_reports.Start(200, RunStarted, "1.2.3"), Is.EqualTo(new Run(100, RunStarted, "1.2.3", null, 0)));
+    }
+
+    [Test]
+    public void RepeatOf_ARunThatClosedSoonAfterTheLastReport_IsThatReport()
+    {
+        var report = _reports.Write("Open Backup Manager", Start(), "Something broke");
+        _time.Advance(TimeSpan.FromSeconds(20));
+
+        Assert.That(_reports.RepeatOf(RunFrom(TimeSpan.FromSeconds(10))), Is.EqualTo(Path.GetFileName(report)));
+    }
+
+    // Also when the report came after it started, as the next start writes one about a run that left its running file
+    [Test]
+    public void RepeatOf_ARunThatReportedTheLastOne()
+    {
+        var run = RunFrom(TimeSpan.Zero);
+        var report = _reports.WriteEnded("Open Backup Manager", RunFrom(TimeSpan.FromHours(1)), null, null);
+        _time.Advance(TimeSpan.FromSeconds(5));
+
+        Assert.That(_reports.RepeatOf(run), Is.EqualTo(Path.GetFileName(report)));
+    }
+
+    [Test]
+    public void RepeatOf_NotARunThatLastedAMinute()
+    {
+        _reports.Write("Open Backup Manager", Start(), "Something broke");
+        var run = RunFrom(TimeSpan.FromSeconds(10));
+        _time.Advance(TimeSpan.FromSeconds(70));
+
+        Assert.That(_reports.RepeatOf(run), Is.Null);
+    }
+
+    [Test]
+    public void RepeatOf_NotWhenTheLastReportWasLongerAgo()
+    {
+        _reports.Write("Open Backup Manager", Start(), "Something broke");
+        _time.Advance(TimeSpan.FromSeconds(90));
+        var run = RunFrom(TimeSpan.Zero);
+        _time.Advance(TimeSpan.FromSeconds(10));
+
+        Assert.That(_reports.RepeatOf(run), Is.Null);
+    }
+
+    [Test]
+    public void RepeatOf_NotAfterTheOtherProgramsReport()
+    {
+        var engine = Engine();
+        engine.Start(300, RunStarted, "1.2.3");
+        engine.Write("obmd", engine.Current!, "Something broke");
+        _time.Advance(TimeSpan.FromSeconds(20));
+
+        Assert.That(_reports.RepeatOf(RunFrom(TimeSpan.FromSeconds(10))), Is.Null);
+    }
+
+    [Test]
+    public void RepeatOf_NotTheFirst() => Assert.That(_reports.RepeatOf(RunFrom(TimeSpan.Zero)), Is.Null);
+
+    // On macOS and Linux, from the running file a run that crashed outside .NET, or was ended, left behind
+    [Test]
+    public void WriteEnded_WithNothingRecorded_SaysItDidntSayWhy()
+    {
+        var run = Start();
+        Log("app-20261014.log", new DateTime(2026, 10, 14, 16, 29, 0, DateTimeKind.Utc), "The last thing it did");
+
+        var report = File.ReadAllText(_reports.WriteEnded("obmd", run, null, null));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(report, Does.StartWith("obmd closed unexpectedly after 2026-10-14 16:29:00 +00:00, when it last wrote to its log"));
+            Assert.That(report, Does.Contain("It didn't say why. It may have crashed, or been closed by the system or another program."));
+            Assert.That(report, Does.Contain("Recent log:" + Environment.NewLine + "The last thing it did"));
+        }
+    }
+
+    [Test]
+    public void WriteEnded_WithNoLog_SaysWhenItStarted() =>
+        Assert.That(
+            File.ReadAllText(_reports.WriteEnded("obmd", Start(), null, null)),
+            Does.StartWith("obmd closed unexpectedly some time after it started at 2026-10-14 16:00:00 +00:00"));
+
+    [Test]
+    public void WriteEnded_HasWhatMacOSRecordedAndWhatItPrinted()
+    {
+        var crashed = new DateTimeOffset(2026, 10, 14, 16, 12, 30, TimeSpan.Zero);
+
+        var report = File.ReadAllText(_reports.WriteEnded(
+            "obmd",
+            Start(),
+            new CrashEvent(crashed, "EXC_CRASH (SIGABRT), sent by obmd[100]"),
+            "Process terminated. Something broke"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(report, Does.StartWith("obmd closed unexpectedly at 2026-10-14 16:12:30 +00:00"));
+            Assert.That(report, Does.Contain(string.Join(
+                Environment.NewLine,
+                "macOS recorded this:",
+                "EXC_CRASH (SIGABRT), sent by obmd[100]",
+                "",
+                "What it printed as it closed:",
+                "Process terminated. Something broke")));
+            Assert.That(report, Does.Not.Contain("It didn't say why"));
+        }
+    }
+
+    // A FailFast's message and stack, after whatever it logged to the same place
+    [Test]
+    public void Ending_IsFromWhatNETPrintedAsItEnded()
+    {
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                CrashReports.Ending("12:00:01 [INF] started, process 100\nProcess terminated. Something broke\n   at Program.Main()\n"),
+                Is.EqualTo("Process terminated. Something broke\n   at Program.Main()"));
+            Assert.That(CrashReports.Ending("12:00:01 [INF] started, process 100\n"), Is.Null);
+        }
+    }
+
     private CrashReports Engine() => new(AppPaths.InHome(_home), _time, CrashReports.Engine);
 
     private Run Start()
@@ -197,6 +331,9 @@ public class CrashReportsTests
         _reports.Start(100, RunStarted, "1.2.3");
         return _reports.Current!;
     }
+
+    // A run that started this long before now
+    private Run RunFrom(TimeSpan ago) => new(100, _time.GetUtcNow() - ago, "1.2.3", null, 0);
 
     // As the app writes its log, with the time it was last written to, which picks the newest file
     private void Log(string file, DateTime written, params string[] lines)

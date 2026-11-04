@@ -32,7 +32,13 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
             return;
         }
 
-        bool recorded;
+        if (reports.RepeatOf(previous) is { } earlier)
+        {
+            LogAgain(earlier);
+            return;
+        }
+
+        string? recorded;
         try
         {
             recorded = reports.WriteRecorded(app.Name, previous);
@@ -43,14 +49,14 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
             return;
         }
 
-        if (recorded)
+        if (recorded is not null)
         {
-            LogFoundCrash();
+            LogFoundCrash(Path.GetFileName(recorded));
         }
         else
         {
             // As when the app was ended from Task Manager or the power went, which aren't crashes
-            LogEndedWithoutQuitting();
+            LogEndedWithoutSayingWhy();
         }
     }
 
@@ -76,7 +82,12 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
         try
         {
             // Its run is only unknown if it crashed while starting, before its log started
-            reports.Write(app.Name, reports.Current ?? new Run(Environment.ProcessId, DateTimeOffset.Now, Version, null, 0), error.ToString());
+            var run = reports.Current ?? new Run(Environment.ProcessId, DateTimeOffset.Now, Version, null, 0);
+            if (reports.RepeatOf(run) is null)
+            {
+                reports.Write(app.Name, run, error.ToString());
+            }
+
             reports.Stopped();
         }
         catch (Exception)
@@ -91,13 +102,16 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
     [LoggerMessage(Level = LogLevel.Critical, Message = "Closing because of an error nothing caught")]
     private partial void LogCrash(Exception error);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly, and Windows recorded why, so it's in a crash report")]
-    private partial void LogFoundCrash();
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly. Its crash report, from what Windows recorded, is {Report}")]
+    private partial void LogFoundCrash(string report);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "The last run ended without quitting, such as when it was ended from Task Manager or the power went")]
-    private partial void LogEndedWithoutQuitting();
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly without saying why, such as when Task Manager ended it or the power went")]
+    private partial void LogEndedWithoutSayingWhy();
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "The last run ended without quitting, and Windows' event log couldn't be read to see why")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly again soon after starting, as it did in {Report}")]
+    private partial void LogAgain(string report);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly, and Windows' event log couldn't be read to see why")]
     private partial void LogCantReadEvents(Exception error);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "A background task failed and nothing waited for it")]

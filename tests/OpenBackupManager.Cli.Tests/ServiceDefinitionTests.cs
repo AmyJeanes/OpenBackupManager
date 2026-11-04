@@ -93,6 +93,7 @@ public class ServiceDefinitionTests
             Assert.That(Value(plist, "Label").Value, Is.EqualTo(agent.Label));
             Assert.That(Value(plist, "ProgramArguments").Elements().Select(argument => argument.Value), Is.EqualTo([Obmd, "--started-by", "service"]));
             Assert.That(Entries(Value(plist, "EnvironmentVariables")), Is.EqualTo(new Dictionary<string, string> { ["XDG_CONFIG_HOME"] = "/home/amy/dotfiles" }));
+            Assert.That(Value(plist, "StandardErrorPath").Value, Is.EqualTo(Path.Combine("/home/amy/Library/Logs/OpenBackupManager", "obmd-stderr.log")));
             Assert.That(Value(plist, "RunAtLoad").Name.LocalName, Is.EqualTo("true"));
             Assert.That(Entries(Value(plist, "KeepAlive")), Is.EqualTo(new Dictionary<string, string> { ["SuccessfulExit"] = "false" }));
         }
@@ -110,6 +111,7 @@ public class ServiceDefinitionTests
                 Value(plist, "ProgramArguments").Elements().Select(argument => argument.Value),
                 Is.EqualTo([Obmd, "--started-by", "service", "--home", "/Users/amy/<backups> & more"]));
             Assert.That(plist.Descendants("key").Select(key => key.Value), Does.Not.Contain("EnvironmentVariables"));
+            Assert.That(Value(plist, "StandardErrorPath").Value, Is.EqualTo(Path.Combine("/Users/amy/<backups> & more", "logs", "obmd-stderr.log")));
             Assert.That(agent.Label, Does.Match("^io\\.github\\.amyjeanes\\.openbackupmanager\\.engine\\.[0-9a-f]{16}$"));
         }
     }
