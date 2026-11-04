@@ -8,11 +8,14 @@ namespace OpenBackupManager.Cli;
 internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<string, string?> environment)
     : EngineService(home, obmd, obm, environment)
 {
+    // Longer than launchd gives a job to exit before it kills it, 20 seconds unless ExitTimeOut says otherwise
+    private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(30);
+
     public string Label => HomeKey is null ? "io.github.amyjeanes.openbackupmanager.engine" : $"io.github.amyjeanes.openbackupmanager.engine.{HomeKey}";
 
     public override string File => Path.Combine(Environment("HOME")!, "Library", "LaunchAgents", Label + ".plist");
 
-    public override string HowToCheck => $"launchctl print {Domain}/{Label}";
+    public override string HowToCheck => $"launchctl print {Target}";
 
     // launchd then won't start it at sign-in, nor say why
     public override bool SwitchedOff => IsInstalled && ServiceManagement.Status(File) == ServiceManagement.RequiresApproval;
@@ -22,10 +25,11 @@ internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<st
     // The user's own session, where agents run while they're signed in
     private static string Domain => "gui/" + NativeMethods.getuid().ToString(CultureInfo.InvariantCulture);
 
+    private string Target => $"{Domain}/{Label}";
+
     public override void Install()
     {
-        // Fails when it isn't loaded, which is fine. Otherwise it waits for the engine to stop
-        TryRun("launchctl", "bootout", $"{Domain}/{Label}");
+        BootOut();
         Directory.CreateDirectory(Path.GetDirectoryName(File)!);
         System.IO.File.WriteAllText(File, Definition());
         Run("launchctl", "bootstrap", Domain, File);
@@ -33,7 +37,7 @@ internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<st
 
     public override void Uninstall()
     {
-        TryRun("launchctl", "bootout", $"{Domain}/{Label}");
+        BootOut();
         System.IO.File.Delete(File);
     }
 
@@ -65,6 +69,23 @@ internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<st
     }
 
     private static XElement Key(string name) => new("key", name);
+
+    // Stops the engine and unloads the agent, if it's loaded. bootout returns once it's sent SIGTERM, but launchd keeps
+    // the job until the engine exits. Until then, a client can still reach the engine, and bootstrap fails with error 5
+    private void BootOut()
+    {
+        TryRun("launchctl", "bootout", Target);
+        var until = DateTime.UtcNow + StopTimeout;
+        while (TryRun("launchctl", "print", Target).ExitCode == 0)
+        {
+            if (DateTime.UtcNow > until)
+            {
+                throw new ServiceException(string.Create(CultureInfo.InvariantCulture, $"the engine didn't stop within {StopTimeout.TotalSeconds} seconds. {HowToCheck} might say why"));
+            }
+
+            Thread.Sleep(100);
+        }
+    }
 
     private static class NativeMethods
     {

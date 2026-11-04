@@ -47,6 +47,7 @@ public class ServiceTests
     public async Task Uninstall_StopsTheEngine_AndRemovesIt()
     {
         Assert.That(Tool.Run("obm", "service", "install", "--home", _home).ExitCode, Is.Zero);
+        var engine = (await StatusAsync())!;
 
         var (exitCode, output) = Tool.Run("obm", "service", "uninstall", "--home", _home);
 
@@ -55,6 +56,7 @@ public class ServiceTests
             Assert.That(exitCode, Is.Zero, output);
             Assert.That(output, Does.Contain("no longer starts when you sign in"));
             Assert.That(File.Exists(EngineService.ForThisOS(_home)!.File), Is.False);
+            Assert.That(Running(engine.ProcessId), Is.False, "The engine was still running");
             Assert.That(await StatusAsync(), Is.Null);
         }
     }
@@ -244,5 +246,18 @@ public class ServiceTests
     {
         using var engine = await EngineClient.ConnectAsync(AppPaths.InHome(_home), TimeSpan.FromSeconds(2), CancellationToken.None);
         await engine!.StopAsync(CancellationToken.None);
+    }
+
+    private static bool Running(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return !process.HasExited;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 }
