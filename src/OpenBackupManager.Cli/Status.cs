@@ -7,11 +7,26 @@ using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Cli;
 
-// obm status: whether the engine is running, and which
+// obm status: whether the engine is running, and which, and any crash reports not yet seen
 internal static class Status
 {
-    // The service, on macOS and Linux, is only for saying when it should have started the engine
+    // The service, on macOS and Linux, is only for saying when it should have started the engine. Crash reports are
+    // listed whether it's running or not, as they may say why it isn't. Scripts get them from obm crashes list
     public static async Task<int> RunAsync(AppPaths paths, EngineService? service, bool json, CancellationToken cancellationToken)
+    {
+        var exitCode = await EngineAsync(paths, service, json, cancellationToken);
+        if (!json)
+        {
+            foreach (var line in Crashes.New(paths))
+            {
+                Console.WriteLine(line);
+            }
+        }
+
+        return exitCode;
+    }
+
+    private static async Task<int> EngineAsync(AppPaths paths, EngineService? service, bool json, CancellationToken cancellationToken)
     {
         try
         {

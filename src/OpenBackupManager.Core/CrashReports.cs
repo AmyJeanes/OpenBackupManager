@@ -5,8 +5,8 @@ using System.Text;
 namespace OpenBackupManager.Core;
 
 /// <summary>
-/// Reports of the app or the engine closing unexpectedly, in the state folder's crashes folder, where the app shows
-/// both. Each is plain English text, so it can be read and shared as it is. A running file in the state folder notes
+/// Reports of the app or the engine closing unexpectedly, in the state folder's crashes folder, where the app and obm
+/// show both. Each is plain English text, so it can be read and shared as it is. A running file in the state folder notes
 /// the copy that's running, so the next start can tell when a run ended without stopping or writing a report, as one
 /// that crashed outside .NET does
 /// </summary>
@@ -20,12 +20,16 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
     private const int LogLines = 100;
     private const int PrintedLength = 64 * 1024;
     private const string ShownFile = "shown";
+    private const string WindowsRecorded = "Windows recorded this:";
+    private const string MacOSRecorded = "macOS recorded this:";
+    private const string PrintedHeading = "What it printed as it closed:";
+    private const string RecentLogHeading = "Recent log:";
 
     private static readonly TimeSpan Repeat = TimeSpan.FromMinutes(1);
 
     private string RunningFile => Path.Combine(paths.State, name + ".running");
 
-    public string Folder => Path.Combine(paths.State, "crashes");
+    public string Folder => FolderIn(paths);
 
     // This copy, once it has started
     public Run? Current { get; private set; }
@@ -69,7 +73,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
     // can't be read, as over SSH
     public string? WriteRecorded(string program, Run run) =>
         OperatingSystem.IsWindows() && CrashEvents.Find(Path.GetFileName(Environment.ProcessPath!), run.ProcessId, run.Started) is { } recorded
-            ? Write(program, run, "Windows recorded this:" + Environment.NewLine + recorded.Text, recorded.Time)
+            ? Write(program, run, WindowsRecorded + Environment.NewLine + recorded.Text, recorded.Time)
             : null;
 
     // For a run on macOS or Linux that ended without stopping, with what the OS kept: macOS's own crash report, and
@@ -98,13 +102,13 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
 
         if (recorded is not null)
         {
-            details.AppendLine("macOS recorded this:").Append(recorded.Text);
+            details.AppendLine(MacOSRecorded).Append(recorded.Text);
         }
 
         if (printed is not null)
         {
             details.Append(recorded is null ? "" : Environment.NewLine + Environment.NewLine)
-                .AppendLine("What it printed as it closed:")
+                .AppendLine(PrintedHeading)
                 .Append(printed);
         }
 
@@ -136,19 +140,70 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         return start < 0 ? null : output[start..].TrimEnd();
     }
 
-    // The newest report written since this was last asked, so each crash is shown once
+    // The newest report, if it hasn't been seen, so each crash is shown once
     public CrashReport? TakeNew()
     {
-        var shownFile = Path.Combine(Folder, ShownFile);
-        var shown = File.Exists(shownFile) ? File.ReadAllText(shownFile).Trim() : "";
-        var newest = Reports().LastOrDefault();
-        if (newest is null || string.CompareOrdinal(Path.GetFileName(newest), shown) <= 0)
+        if (List(paths) is not [{ New: true } newest, ..])
         {
             return null;
         }
 
-        File.WriteAllText(shownFile, Path.GetFileName(newest));
-        return new CrashReport(Path.GetFileNameWithoutExtension(newest).EndsWith("-" + Engine, StringComparison.Ordinal) ? Engine : App, File.ReadAllText(newest));
+        MarkSeen(paths, newest);
+        return new CrashReport(newest.Program, File.ReadAllText(newest.File));
+    }
+
+    // Newest first, numbered from 1. Those not yet seen are always the newest, as the app and obm crashes show share
+    // the one marker, the newest seen
+    public static IReadOnlyList<SavedReport> List(AppPaths paths)
+    {
+        var folder = FolderIn(paths);
+        var shown = Shown(folder);
+        return [.. Reports(folder).Reverse().Select((file, i) =>
+        {
+            var lines = File.ReadAllLines(file);
+            return new SavedReport(
+                i + 1,
+                Path.GetFileNameWithoutExtension(file).EndsWith("-" + Engine, StringComparison.Ordinal) ? Engine : App,
+                file,
+                lines is [var heading, ..] ? heading : "",
+                Summary(lines),
+                string.CompareOrdinal(Path.GetFileName(file), shown) > 0);
+        })];
+    }
+
+    // It and any older ones, so seeing an older one never brings back a newer one
+    public static void MarkSeen(AppPaths paths, SavedReport report)
+    {
+        var folder = FolderIn(paths);
+        if (string.CompareOrdinal(Path.GetFileName(report.File), Shown(folder)) > 0)
+        {
+            File.WriteAllText(Path.Combine(folder, ShownFile), Path.GetFileName(report.File));
+        }
+    }
+
+    // The newest report seen. They're named by when they were written, so all those named before it are seen too
+    private static string Shown(string folder)
+    {
+        var file = Path.Combine(folder, ShownFile);
+        return File.Exists(file) ? File.ReadAllText(file).Trim() : "";
+    }
+
+    // The first line of what went wrong. What Windows recorded starts by naming the program, so the line of .NET's
+    // entry that says why is used instead, which .NET writes in English whatever the PC's language
+    private static string Summary(string[] lines)
+    {
+        var details = lines.SkipWhile(line => !line.StartsWith(".NET: ", StringComparison.Ordinal)).Skip(1)
+            .TakeWhile(line => line != RecentLogHeading)
+            .Where(line => line.Length > 0)
+            .ToList();
+        if (details is [WindowsRecorded, ..]
+            && (details.Find(line => line.StartsWith("Exception Info: ", StringComparison.Ordinal))
+                ?? details.Find(line => line.StartsWith("Description: ", StringComparison.Ordinal))) is { } why)
+        {
+            return why;
+        }
+
+        return details.Find(line => line is not (WindowsRecorded or MacOSRecorded or PrintedHeading)) ?? "";
     }
 
     private string Write(string heading, Run run, string details)
@@ -162,7 +217,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
             .AppendLine()
             .AppendLine(details)
             .AppendLine()
-            .AppendLine("Recent log:")
+            .AppendLine(RecentLogHeading)
             .AppendLine(RecentLog(run));
 
         Directory.CreateDirectory(Folder);
@@ -213,8 +268,12 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         }
     }
 
-    private IEnumerable<string> Reports() =>
-        Directory.Exists(Folder) ? Directory.GetFiles(Folder, "crash-*.txt").Order(StringComparer.Ordinal) : [];
+    private static string FolderIn(AppPaths paths) => Path.Combine(paths.State, "crashes");
+
+    private IEnumerable<string> Reports() => Reports(Folder);
+
+    private static IEnumerable<string> Reports(string folder) =>
+        Directory.Exists(folder) ? Directory.GetFiles(folder, "crash-*.txt").Order(StringComparer.Ordinal) : [];
 
     // The one written to last, since a day's file can carry on in another once it's 10 MB
     private FileInfo? NewestLog() =>
@@ -253,6 +312,10 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
 
 // The report, and which program's it is: app or engine
 public sealed record CrashReport(string Name, string Text);
+
+// A report as obm crashes list shows it, whose heading says what closed and when. New if it hasn't been seen in the app
+// or with obm crashes show. Scripts read these names through --json
+public sealed record SavedReport(int Number, string Program, string File, string Heading, string Summary, bool New);
 
 // A run of the app or the engine, and where its log started: the newest log file and how long it was then. Boot is the
 // computer's boot ID on macOS and Linux, and null on Windows or from a version that didn't note it

@@ -19,15 +19,17 @@
 | Command | What it does |
 | --- | --- |
 | `obm --version` | Shows the version. |
-| `obm status` | Shows whether the engine is running, and if so its version, process ID, how long it's been up, what started it, its data folder, where secrets are kept, and any errors or warnings in `config.toml`. An error in an edit leaves the engine using the last good settings until it's fixed, so it's still running. Exits with 1 only if it isn't running. |
+| `obm status` | Shows whether the engine is running, and if so its version, process ID, how long it's been up, what started it, its data folder, where secrets are kept, and any errors or warnings in `config.toml`. An error in an edit leaves the engine using the last good settings until it's fixed, so it's still running. Then it lists any [crash reports](files.md#crash-reports) you haven't seen, whether or not the engine is running. Exits with 1 only if the engine isn't running. |
 | `obm service install` | macOS and Linux: starts the engine now and whenever you sign in, and again if it fails. See [The engine](#the-engine). |
 | `obm service uninstall` | macOS and Linux: stops the engine, and stops it starting when you sign in. |
 | `obm secrets migrate <store>` | Moves your secrets to another store, such as `file`, and keeps them there from now on, as [`secret-store`](settings.md#secret-store) says. It copies them all and checks each before removing them from the old store, so if anything goes wrong they're still where they were. The engine has to be running. |
 | `obm config reload` | Has the engine read `config.toml` again and says what it found, for where it can't see the file change, such as on a network drive. Exits with 1 if the file has an error, which leaves the engine using the last good settings, or if the engine isn't running. On macOS and Linux, sending `obmd` SIGHUP does the same. |
 | `obm config validate` | Checks `config.toml` for errors and warnings without the engine, such as before starting it. `--file <file>` checks another file instead, and `--env` also applies the `OBM_` environment variables set where you run it. Exits with 1 if there's an error. |
+| `obm crashes list` | Lists the crash reports, newest first and numbered, with what closed, when, the first line of what went wrong, and which you haven't seen. |
+| `obm crashes show [<number>]` | Shows a crash report, the newest unless you give its number from `obm crashes list`, with where its file is. It and any older ones then count as seen, so neither `obm status` nor the app shows them as new again. |
 | `obm --help` | Lists the commands, and `obm <command> --help` describes one. |
 
-`obm status`, `obm config reload` and `obm config validate` take `--json` too, to print what they found for scripts, as [For scripts](#for-scripts) describes.
+`obm status`, `obm config reload`, `obm config validate` and `obm crashes list` take `--json` too, to print what they found for scripts, as [For scripts](#for-scripts) describes.
 
 ## The engine
 
@@ -83,7 +85,7 @@ You don't need administrator or root rights for Open Backup Manager. It backs up
 
 ## For scripts
 
-With `--json`, `obm status`, `obm config reload` and `obm config validate` print what they found as JSON instead, as the engine gives it to `obm` and the app. New fields may be added, so a script should ignore ones it doesn't know. The exit codes are the same as without it. When there's nothing to print, such as when the engine isn't running, the error goes to stderr as usual and nothing goes to stdout, so check the exit code before reading it.
+With `--json`, `obm status`, `obm config reload`, `obm config validate` and `obm crashes list` print what they found as JSON instead. New fields may be added, so a script should ignore ones it doesn't know. The exit codes are the same as without it. When there's nothing to print, such as when the engine isn't running, the error goes to stderr as usual and nothing goes to stdout, so check the exit code before reading it.
 
 `obm status --json` prints something like this:
 
@@ -113,6 +115,8 @@ With `--json`, `obm status`, `obm config reload` and `obm config validate` print
 | `secrets.store` | Where secrets are kept, as [`secret-store`](settings.md#secret-store) names it. Left out until one is chosen. |
 | `secrets.file` | The file they're in, when `store` is `file`. |
 | `configProblems` | The errors and warnings in `config.toml`, from the engine's latest read of it. |
+
+It leaves out crash reports, which `obm crashes list --json` has.
 
 `obm config reload --json` and `obm config validate --json` print the errors and warnings they found as `problems`. They're in the order they were found, and each has these fields:
 
@@ -154,6 +158,30 @@ With `--json`, `obm status`, `obm config reload` and `obm config validate` print
 | `remoteIdUsedTwice` | Two remotes have the same `id`. |
 | `unknownSetting` | It isn't a setting this version knows, such as a misspelt one. |
 | `unknownSection` | It isn't a section this version knows. |
+
+`obm crashes list --json` prints the crash reports newest first, or `[]` when there aren't any:
+
+```json
+[
+  {
+    "number": 1,
+    "program": "engine",
+    "file": "/home/me/.local/state/openbackupmanager/crashes/crash-20261104-091203-412-engine.txt",
+    "heading": "obmd closed unexpectedly at 2026-11-04 09:12:03 +00:00",
+    "summary": "System.InvalidOperationException: Something broke",
+    "new": true
+  }
+]
+```
+
+| Field | What it is |
+| --- | --- |
+| `number` | Its number, from 1 for the newest, which `obm crashes show` takes. A new report moves the others down one. |
+| `program` | `engine` or `app`. |
+| `file` | The report's file. |
+| `heading` | The report's first line, which says what closed and when, in English. |
+| `summary` | The first line of what went wrong, in English or as the OS recorded it. |
+| `new` | `true` if it hasn't been seen with `obm crashes show` or in the app. |
 
 ## Options
 

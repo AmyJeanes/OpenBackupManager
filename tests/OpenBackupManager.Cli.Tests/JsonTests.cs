@@ -1,3 +1,4 @@
+using OpenBackupManager.Core;
 using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Protocol;
 
@@ -62,5 +63,25 @@ public class JsonTests
                     }
                   ]
                 }
+                """.ReplaceLineEndings()));
+
+    [Test]
+    public void CrashReports_KeepTheirFieldNames() =>
+        Assert.That(
+            Json.Format<IReadOnlyList<SavedReport>>(
+                [new SavedReport(1, "engine", "/home/me/crash.txt", "obmd closed unexpectedly at 2026-11-04 09:12:03 +00:00", "Something broke", New: true)],
+                CliJson.Default.IReadOnlyListSavedReport)
+                .ReplaceLineEndings(),
+            Is.EqualTo("""
+                [
+                  {
+                    "number": 1,
+                    "program": "engine",
+                    "file": "/home/me/crash.txt",
+                    "heading": "obmd closed unexpectedly at 2026-11-04 09:12:03 +00:00",
+                    "summary": "Something broke",
+                    "new": true
+                  }
+                ]
                 """.ReplaceLineEndings()));
 }

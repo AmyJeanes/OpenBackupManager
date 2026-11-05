@@ -69,21 +69,21 @@ Open Backup Manager writes what it does to logs. If something goes wrong, they'r
 
 ## Crash reports
 
-If the engine closes unexpectedly, it writes a report to the crash reports folder: what went wrong, its version, the OS version and the end of its log. Only the newest 10 are kept.
+If the engine closes unexpectedly, it writes a report to the crash reports folder: what went wrong, its version, the OS version and the end of its log. Only the newest 10 are kept. `obm status` lists those you haven't seen yet, `obm crashes list` lists them all, and `obm crashes show` shows one and counts it as seen, as [Command line](command-line.md#commands) describes.
 
 === "Windows"
 
-    The app writes one too when it closes unexpectedly. Some crashes stop either of them before they can write anything, so the next time it starts, it looks for what Windows recorded about them in Event Viewer and writes the report then. The app shows each report once, which you can copy into a bug report: its own the next time it starts, and the engine's once it has started the engine again.
+    The app writes one too when it closes unexpectedly. Some crashes stop either of them before they can write anything, so the next time it starts, it looks for what Windows recorded about them in Event Viewer and writes the report then. The app shows each report once, which you can copy into a bug report: its own the next time it starts, and the engine's once it has started the engine again. The app and `obm` share what you've seen, so a report seen in one isn't new in the other.
 
     Windows also starts the app again after a crash, as long as it had been running for at least a minute, and the app starts the engine again whenever it stops.
 
 === "macOS"
 
-    Some crashes stop the engine before it can write anything. Then the next time it starts, it writes the report, with what macOS recorded about the crash and, if you used `obm service install`, what the engine printed as it closed. It doesn't if your Mac has restarted since, as the power going or a restart isn't a crash. Nothing shows the reports yet, so if it stops by itself, look in the crash reports folder. If you used `obm service install`, launchd starts the engine again.
+    Some crashes stop the engine before it can write anything. Then the next time it starts, it writes the report, with what macOS recorded about the crash and, if you used `obm service install`, what the engine printed as it closed. It doesn't if your Mac has restarted since, as the power going or a restart isn't a crash. If you used `obm service install`, launchd starts the engine again.
 
 === "Linux"
 
-    Some crashes stop the engine before it can write anything. Then the next time it starts, it writes the report, with what the engine printed as it closed if you used `obm service install`. It doesn't if your computer has restarted since, as the power going or a restart isn't a crash. Nothing shows the reports yet, so if it stops by itself, look in the crash reports folder. If you used `obm service install`, systemd starts the engine again.
+    Some crashes stop the engine before it can write anything. Then the next time it starts, it writes the report, with what the engine printed as it closed if you used `obm service install`. It doesn't if your computer has restarted since, as the power going or a restart isn't a crash. If you used `obm service install`, systemd starts the engine again.
 
 ## The app itself
 

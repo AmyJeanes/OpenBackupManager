@@ -119,6 +119,106 @@ public class CrashReportsTests
     }
 
     [Test]
+    public void List_IsNewestFirst_WithWhichAreNew()
+    {
+        var run = Start();
+        var first = _reports.Write("Open Backup Manager", run, "First");
+        _time.Advance(TimeSpan.FromSeconds(1));
+        var engine = Engine();
+        engine.Start(300, RunStarted, "1.2.3");
+        var second = engine.Write("obmd", engine.Current!, "Second");
+        _time.Advance(TimeSpan.FromSeconds(1));
+        var third = _reports.Write("Open Backup Manager", run, "Third");
+
+        CrashReports.MarkSeen(Paths, CrashReports.List(Paths)[1]);
+
+        Assert.That(CrashReports.List(Paths), Is.EqualTo((SavedReport[])
+        [
+            new(1, CrashReports.App, third, "Open Backup Manager closed unexpectedly at 2026-10-14 16:30:02 +00:00", "Third", New: true),
+            new(2, CrashReports.Engine, second, "obmd closed unexpectedly at 2026-10-14 16:30:01 +00:00", "Second", New: false),
+            new(3, CrashReports.App, first, "Open Backup Manager closed unexpectedly at 2026-10-14 16:30:00 +00:00", "First", New: false),
+        ]));
+    }
+
+    [Test]
+    public void List_IsEmpty_BeforeAnyReport() => Assert.That(CrashReports.List(Paths), Is.Empty);
+
+    [Test]
+    public void MarkSeen_NeverBringsBackANewerOne()
+    {
+        var run = Start();
+        _reports.Write("Open Backup Manager", run, "First");
+        _time.Advance(TimeSpan.FromSeconds(1));
+        _reports.Write("Open Backup Manager", run, "Second");
+
+        var reports = CrashReports.List(Paths);
+        CrashReports.MarkSeen(Paths, reports[0]);
+        CrashReports.MarkSeen(Paths, reports[1]);
+
+        Assert.That(CrashReports.List(Paths).Select(report => report.New), Is.All.False);
+    }
+
+    // So a crash seen with obm crashes show isn't shown again in the app's window, nor one the app showed listed as new
+    [Test]
+    public void TheAppAndObm_ShareWhatsBeenSeen()
+    {
+        var run = Start();
+        _reports.Write("Open Backup Manager", run, "First");
+        _reports.TakeNew();
+        Assert.That(CrashReports.List(Paths)[0].New, Is.False);
+
+        _time.Advance(TimeSpan.FromSeconds(1));
+        _reports.Write("Open Backup Manager", run, "Second");
+        CrashReports.MarkSeen(Paths, CrashReports.List(Paths)[0]);
+        Assert.That(_reports.TakeNew(), Is.Null);
+    }
+
+    [Test]
+    public void Summary_IsTheFirstLineOfTheError() =>
+        Assert.That(Summary(_reports.Write("Open Backup Manager", Start(), Thrown().ToString())), Is.EqualTo("System.InvalidOperationException: Something broke"));
+
+    // .NET's entry follows Windows' own, which only names the program on its first line
+    [TestCase("Exception Info: System.InvalidOperationException: Something broke", ExpectedResult = "Exception Info: System.InvalidOperationException: Something broke")]
+    [TestCase("Stack:", ExpectedResult = "Description: The process was terminated due to an unhandled exception.")]
+    public string Summary_IsWhyNETSaysItEnded_FromWhatWindowsRecorded(string afterDescription) =>
+        Summary(_reports.Write("Open Backup Manager", Start(), string.Join(
+            Environment.NewLine,
+            "Windows recorded this:",
+            "Faulting application name: OpenBackupManager.exe, version: 1.2.3.0, time stamp: 0x00000000",
+            "Exception code: 0xe0434352",
+            "",
+            "Application: OpenBackupManager.exe",
+            "CoreCLR Version: 10.0.25.52411",
+            ".NET Version: 10.0.0",
+            "Description: The process was terminated due to an unhandled exception.",
+            afterDescription,
+            "   at Program.Main()")));
+
+    // Such as when .NET's entry is turned off
+    [Test]
+    public void Summary_IsWindowsFirstLine_WithoutNETsEntry() =>
+        Assert.That(
+            Summary(_reports.Write("Open Backup Manager", Start(), "Windows recorded this:" + Environment.NewLine + "Faulting application name: OpenBackupManager.exe")),
+            Is.EqualTo("Faulting application name: OpenBackupManager.exe"));
+
+    [Test]
+    public void Summary_IsWhatMacOSRecordedOrWhatItPrinted()
+    {
+        var recorded = new CrashEvent(RunStarted, "EXC_CRASH (SIGABRT), sent by obmd[100]" + Environment.NewLine + "Thread 0 crashed:");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Summary(_reports.WriteEnded("obmd", Start(), recorded, "Process terminated. Something broke")), Is.EqualTo("EXC_CRASH (SIGABRT), sent by obmd[100]"));
+            _time.Advance(TimeSpan.FromSeconds(1));
+            Assert.That(Summary(_reports.WriteEnded("obmd", Start(), null, "Process terminated. Something broke")), Is.EqualTo("Process terminated. Something broke"));
+            _time.Advance(TimeSpan.FromSeconds(1));
+            Assert.That(
+                Summary(_reports.WriteEnded("obmd", Start(), null, null)),
+                Is.EqualTo("It didn't say why. It may have crashed, or been closed by the system or another program."));
+        }
+    }
+
+    [Test]
     public void TheEnginesReport_HasTheEndOfItsOwnLog()
     {
         var engine = Engine();
@@ -324,7 +424,11 @@ public class CrashReportsTests
         }
     }
 
-    private CrashReports Engine() => new(AppPaths.InHome(_home), _time, CrashReports.Engine);
+    private AppPaths Paths => AppPaths.InHome(_home);
+
+    private CrashReports Engine() => new(Paths, _time, CrashReports.Engine);
+
+    private string Summary(string file) => CrashReports.List(Paths).Single(report => report.File == file).Summary;
 
     private Run Start()
     {

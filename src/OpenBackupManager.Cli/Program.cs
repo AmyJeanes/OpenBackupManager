@@ -14,7 +14,7 @@ var homeOption = new Option<string>("--home")
 // On each command that reports something, not the root, so help only offers it where it does something
 var jsonOption = new Option<bool>("--json") { Description = "Print it as JSON, for scripts" };
 
-var statusCommand = new Command("status", "Show whether the engine is running, and which") { jsonOption };
+var statusCommand = new Command("status", "Show whether the engine is running, and which, and any new crash reports") { jsonOption };
 statusCommand.SetAction((parseResult, cancellationToken) =>
     RefuseUnderSudo() ?? Status.RunAsync(Paths(parseResult), ServiceFor(parseResult), parseResult.GetValue(jsonOption), cancellationToken));
 
@@ -76,6 +76,29 @@ var configCommand = new Command("config", "This device's settings, in config.tom
     validateCommand,
 };
 
+var listCommand = new Command("list", "List the crash reports, newest first") { jsonOption };
+listCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? Task.FromResult(Crashes.List(Paths(parseResult), parseResult.GetValue(jsonOption))));
+
+var numberArgument = new Argument<int>("number")
+{
+    Description = "Which, as obm crashes list numbers them",
+    Arity = ArgumentArity.ZeroOrOne,
+    DefaultValueFactory = _ => 1,
+};
+var showCommand = new Command("show", "Show a crash report, the newest unless you say which, and count it and older ones as seen")
+{
+    numberArgument,
+};
+showCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? Task.FromResult(Crashes.Show(Paths(parseResult), parseResult.GetValue(numberArgument))));
+
+var crashesCommand = new Command("crashes", "Reports of the app or the engine closing unexpectedly")
+{
+    listCommand,
+    showCommand,
+};
+
 var command = new RootCommand("Open Backup Manager's command line")
 {
     homeOption,
@@ -83,6 +106,7 @@ var command = new RootCommand("Open Backup Manager's command line")
     serviceCommand,
     secretsCommand,
     configCommand,
+    crashesCommand,
 };
 
 return await command.Parse(args).InvokeAsync();
