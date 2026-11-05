@@ -493,7 +493,7 @@ jobs:
       # distros have, so it's installed first
       - name: Check it runs on older distros
         env:
-          DEBIAN: debian:12-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
+          DEBIAN: debian:12-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
           RHEL: registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:dfa0eb04abc59221544e74862432496add1f491f915c9b531880f91affc0e12c
         run: |
           check() {
