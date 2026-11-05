@@ -152,8 +152,9 @@ public sealed class EngineClient : IDisposable
             await _writing.WaitAsync(cancellationToken);
             try
             {
+                // Not flushed, as a pipe doesn't buffer, and flushing only checks it's open, which it may not be once the
+                // engine has answered stop
                 await _pipe.WriteAsync(EngineProtocol.Line(request, ProtocolJson.Default.RpcRequest), cancellationToken);
-                await _pipe.FlushAsync(cancellationToken);
             }
             catch (IOException e)
             {
