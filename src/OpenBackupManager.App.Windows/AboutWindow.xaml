@@ -8,52 +8,62 @@
     <MicaBackdrop />
   </Window.SystemBackdrop>
 
-  <StackPanel
-    Padding="24"
-    HorizontalAlignment="Center"
-    VerticalAlignment="Center"
-    Spacing="4">
-    <Image
-      x:Name="Logo"
-      Width="64"
-      Height="64"
-      Margin="0,0,0,8" />
-    <TextBlock
-      x:Name="NameText"
-      HorizontalAlignment="Center"
-      Style="{StaticResource SubtitleTextBlockStyle}"
-      Text="{x:Bind ViewModel.Name}" />
-    <TextBlock
-      x:Name="VersionText"
-      HorizontalAlignment="Center"
-      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-      Text="{x:Bind ViewModel.Version}" />
-    <Button
-      x:Name="UpdateButton"
-      Margin="0,4"
-      HorizontalAlignment="Center"
-      Command="{x:Bind ViewModel.UpdateCommand}"
-      Content="{x:Bind ViewModel.UpdateButtonText, Mode=OneWay}" />
-    <TextBlock
-      x:Name="UpdateStatusText"
-      HorizontalAlignment="Center"
-      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-      Text="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}"
-      TextAlignment="Center"
-      TextWrapping="Wrap" />
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <TitleBar x:Name="AppTitleBar" />
+
     <StackPanel
-      Margin="0,8,0,0"
+      Grid.Row="1"
+      Padding="24"
       HorizontalAlignment="Center"
-      Orientation="Horizontal">
-      <HyperlinkButton Content="{x:Bind res:Strings.About_GitHub}" NavigateUri="{x:Bind ViewModel.GitHubLink}" />
-      <HyperlinkButton Command="{x:Bind ViewModel.ShowLicenceCommand}" Content="{x:Bind res:Strings.About_Licence}" />
-      <HyperlinkButton Command="{x:Bind ViewModel.ShowThirdPartyNoticesCommand}" Content="{x:Bind res:Strings.About_ThirdPartyNotices}" />
+      VerticalAlignment="Center"
+      Spacing="4">
+      <Image
+        x:Name="Logo"
+        Width="64"
+        Height="64"
+        Margin="0,0,0,8" />
+      <TextBlock
+        x:Name="NameText"
+        HorizontalAlignment="Center"
+        Style="{StaticResource SubtitleTextBlockStyle}"
+        Text="{x:Bind ViewModel.Name}" />
+      <TextBlock
+        x:Name="VersionText"
+        HorizontalAlignment="Center"
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        Text="{x:Bind ViewModel.Version}" />
+      <Button
+        x:Name="UpdateButton"
+        Margin="0,4"
+        HorizontalAlignment="Center"
+        Command="{x:Bind ViewModel.UpdateCommand}"
+        Content="{x:Bind ViewModel.UpdateButtonText, Mode=OneWay}" />
+      <TextBlock
+        x:Name="UpdateStatusText"
+        HorizontalAlignment="Center"
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        Text="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}"
+        TextAlignment="Center"
+        TextWrapping="Wrap" />
+      <StackPanel
+        Margin="0,8,0,0"
+        HorizontalAlignment="Center"
+        Orientation="Horizontal">
+        <HyperlinkButton Content="{x:Bind res:Strings.About_GitHub}" NavigateUri="{x:Bind ViewModel.GitHubLink}" />
+        <HyperlinkButton Command="{x:Bind ViewModel.ShowLicenceCommand}" Content="{x:Bind res:Strings.About_Licence}" />
+        <HyperlinkButton Command="{x:Bind ViewModel.ShowThirdPartyNoticesCommand}" Content="{x:Bind res:Strings.About_ThirdPartyNotices}" />
+      </StackPanel>
+      <TextBlock
+        x:Name="CopyrightText"
+        HorizontalAlignment="Center"
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        Style="{StaticResource CaptionTextBlockStyle}"
+        Text="{x:Bind ViewModel.Copyright}" />
     </StackPanel>
-    <TextBlock
-      x:Name="CopyrightText"
-      HorizontalAlignment="Center"
-      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-      Style="{StaticResource CaptionTextBlockStyle}"
-      Text="{x:Bind ViewModel.Copyright}" />
-  </StackPanel>
+  </Grid>
 </Window>

@@ -17,6 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\.github\ISSUE_TEMPLATE\bug_report.yml;..\..\.github\ISSUE_TEMPLATE\crash_report.md" Link="IssueTemplates\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\OpenBackupManager.Core\OpenBackupManager.Core.csproj" />
   </ItemGroup>
 

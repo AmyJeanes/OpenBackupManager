@@ -189,9 +189,19 @@
     <comment>{0} is the app's name. The engine is the part that runs in the background and does the backing up</comment>
   </data>
   <data name="Crash_Text" xml:space="preserve">
-    <value>This report has what's known about what went wrong. If you report the problem on GitHub, include it so it can be fixed.</value>
+    <value>This report has what's known about what went wrong.</value>
   </data>
   <data name="Crash_Copy" xml:space="preserve">
     <value>Copy report</value>
+  </data>
+  <data name="Crash_Report" xml:space="preserve">
+    <value>Report on GitHub</value>
+  </data>
+  <data name="Crash_Check" xml:space="preserve">
+    <value>Sensitive details have been redacted where possible, but check the report before you submit. GitHub issues are public.</value>
+  </data>
+  <data name="Crash_PasteHere" xml:space="preserve">
+    <value>⚠️ PASTE THE CRASH REPORT HERE. It was too long to fill in, so it's on your clipboard.</value>
+    <comment>Goes under Logs in the new GitHub issue, in place of the report</comment>
   </data>
 </root>

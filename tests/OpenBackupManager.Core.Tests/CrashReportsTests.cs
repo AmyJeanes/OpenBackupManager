@@ -64,6 +64,13 @@ public class CrashReportsTests
     public void Write_WithNoLog_SaysSo() =>
         Assert.That(File.ReadAllText(_reports.Write("Open Backup Manager", Start(), "Something broke")), Does.Contain("Recent log:" + Environment.NewLine + "(none)"));
 
+    // As what Windows recorded does
+    [Test]
+    public void Write_LeavesOneBlankLineBeforeTheLog_AfterDetailsEndingInALineBreak() =>
+        Assert.That(
+            File.ReadAllText(_reports.Write("Open Backup Manager", Start(), "Something broke" + Environment.NewLine)),
+            Does.Contain("Something broke" + Environment.NewLine + Environment.NewLine + "Recent log:"));
+
     [Test]
     public void Write_ClosedAt_SaysWhenItHappened()
     {

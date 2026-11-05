@@ -27,6 +27,7 @@
 | `obm config validate` | Checks `config.toml` for errors and warnings without the engine, such as before starting it. `--file <file>` checks another file instead, and `--env` also applies the `OBM_` environment variables set where you run it. Exits with 1 if there's an error. |
 | `obm crashes list` | Lists the crash reports, newest first and numbered, with what closed, when, the first line of what went wrong, and which you haven't seen. |
 | `obm crashes show [<number>]` | Shows a crash report, the newest unless you give its number from `obm crashes list`, with where its file is. It and any older ones then count as seen, so neither `obm status` nor the app shows them as new again. |
+| `obm crashes report [<number>]` | Opens a new GitHub issue with a crash report filled in, the newest unless you give its number, after printing what it will share. Sensitive details are redacted where possible, but check it before you submit, as GitHub issues are public. Nothing is sent until you submit the issue. `--no-browser` prints the link rather than opening it. |
 | `obm --help` | Lists the commands, and `obm <command> --help` describes one. |
 
 `obm status`, `obm config reload`, `obm config validate` and `obm crashes list` take `--json` too, to print what they found for scripts, as [For scripts](#for-scripts) describes.

@@ -93,10 +93,23 @@ var showCommand = new Command("show", "Show a crash report, the newest unless yo
 showCommand.SetAction((parseResult, cancellationToken) =>
     RefuseUnderSudo() ?? Task.FromResult(Crashes.Show(Paths(parseResult), parseResult.GetValue(numberArgument))));
 
+var noBrowserOption = new Option<bool>("--no-browser")
+{
+    Description = "Print the link rather than opening it",
+};
+var reportCommand = new Command("report", "Open a new GitHub issue with a crash report filled in, the newest unless you say which")
+{
+    numberArgument,
+    noBrowserOption,
+};
+reportCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? Task.FromResult(Crashes.Report(Paths(parseResult), parseResult.GetValue(numberArgument), parseResult.GetValue(noBrowserOption))));
+
 var crashesCommand = new Command("crashes", "Reports of the app or the engine closing unexpectedly")
 {
     listCommand,
     showCommand,
+    reportCommand,
 };
 
 var command = new RootCommand("Open Backup Manager's command line")

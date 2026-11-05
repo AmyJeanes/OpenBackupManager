@@ -166,6 +166,10 @@ public abstract class AppTests
 
     protected Window WaitForWindow(string title) => WaitForWindow(w => w.Title == title);
 
+    // Its title is the app's name, so it's found by its heading
+    protected Window WaitForCrashWindow(string heading) =>
+        WaitForWindow(w => w.FindFirstDescendant(c => c.ByAutomationId("TitleText"))?.Name == heading);
+
     protected static void WaitUntilHidden(Window window) =>
         Assert.That(Retry.WhileFalse(() => NativeMethods.IsCloaked(window), Timeout).Result, Is.True);
 

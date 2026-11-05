@@ -91,7 +91,7 @@ public sealed class EngineTests : AppTests
             engine.CrashAsync(CrashParams.OnAnotherThread, CancellationToken.None).GetAwaiter().GetResult();
         }
 
-        var crash = WaitForWindow(AppName + "'s engine closed unexpectedly");
+        var crash = WaitForCrashWindow(AppName + "'s engine closed unexpectedly");
         var report = crash.FindFirstDescendant(c => c.ByAutomationId("ReportText"))!.AsTextBox().Text;
         Assert.That(report, Does.StartWith("obmd closed unexpectedly at").And.Contain("System.InvalidOperationException: Test crash on another thread"));
         crash.Close();

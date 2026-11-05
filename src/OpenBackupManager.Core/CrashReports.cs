@@ -23,7 +23,10 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
     private const string WindowsRecorded = "Windows recorded this:";
     private const string MacOSRecorded = "macOS recorded this:";
     private const string PrintedHeading = "What it printed as it closed:";
-    private const string RecentLogHeading = "Recent log:";
+    internal const string RecentLogHeading = "Recent log:";
+
+    // The lines a report's parts start with, which say what follows
+    internal static readonly string[] Headings = [WindowsRecorded, MacOSRecorded, PrintedHeading, RecentLogHeading];
 
     private static readonly TimeSpan Repeat = TimeSpan.FromMinutes(1);
 
@@ -190,7 +193,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
 
     // The first line of what went wrong. What Windows recorded starts by naming the program, so the line of .NET's
     // entry that says why is used instead, which .NET writes in English whatever the PC's language
-    private static string Summary(string[] lines)
+    internal static string Summary(string[] lines)
     {
         var details = lines.SkipWhile(line => !line.StartsWith(".NET: ", StringComparison.Ordinal)).Skip(1)
             .TakeWhile(line => line != RecentLogHeading)
@@ -215,7 +218,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
             .AppendLine(CultureInfo.InvariantCulture, $"OS: {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture})")
             .AppendLine(CultureInfo.InvariantCulture, $".NET: {RuntimeInformation.FrameworkDescription}")
             .AppendLine()
-            .AppendLine(details)
+            .AppendLine(details.TrimEnd())
             .AppendLine()
             .AppendLine(RecentLogHeading)
             .AppendLine(RecentLog(run));

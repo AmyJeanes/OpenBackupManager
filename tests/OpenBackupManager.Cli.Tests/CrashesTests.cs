@@ -111,8 +111,83 @@ public class CrashesTests
         Write(CrashReports.App, "Open Backup Manager", "First");
         Assert.That(
             Tool.Run("obm", "crashes", "show", "2", "--home", _home),
-            Is.EqualTo((1, "obm: there's no crash report 2. obm crashes list shows them")));
+            Is.EqualTo((1, "obm: there's no crash report 2. See them with obm crashes list")));
     }
+
+    [Test]
+    public void Report_PrintsWhatItShares_AndTheLink()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        Write(CrashReports.Engine, "obmd", "Can't open " + Path.Combine(home, "notes.txt"));
+
+        var (exitCode, output) = Tool.Run("obm", "crashes", "report", "--no-browser", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Does.StartWith("obmd closed unexpectedly at 2026-11-04 09:12:03 +00:00"));
+            Assert.That(output, Does.Contain("Can't open " + Path.Combine("~", "notes.txt")).And.Not.Contain(home));
+            Assert.That(output, Does.Contain(Lines(
+                "Sensitive details have been redacted where possible, but check the report before you submit. GitHub issues are public.",
+                "Open this to start a GitHub issue with it. Nothing is sent until you submit it there:",
+                "https://github.com/AmyJeanes/OpenBackupManager/issues/new?template=crash_report.md&title=obmd%20closed%20unexpectedly%3A%20Can%27t%20open%20~")));
+            Assert.That(Tool.Run("obm", "crashes", "list", "--home", _home).Output, Does.Not.Contain("(new)"));
+        }
+    }
+
+    // Where a browser would open on the computer's own screen, or as a text browser in the terminal
+    [Test]
+    public void Report_OverSSH_PrintsTheLink()
+    {
+        Write(CrashReports.Engine, "obmd", "Something broke");
+
+        var (exitCode, output) = Tool.Run(
+            "obm",
+            new Dictionary<string, string> { ["SSH_CONNECTION"] = "192.0.2.1 50000 192.0.2.2 22" },
+            "crashes",
+            "report",
+            "--home",
+            _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Does.Contain("Open this to start a GitHub issue").And.Not.Contain("Opening"));
+        }
+    }
+
+    [Test]
+    public void Report_TooLongForTheLink_HasTheWholeReportInAFile()
+    {
+        var file = Write(CrashReports.Engine, "obmd", string.Join(Environment.NewLine, Enumerable.Range(1, 500).Select(i => $"   at Frame{i}()")));
+        var whole = Path.Combine(Path.GetTempPath(), Path.GetFileName(file));
+
+        try
+        {
+            var (exitCode, output) = Tool.Run("obm", "crashes", "report", "--no-browser", "--home", _home);
+            var link = output.Split(Environment.NewLine)[^1];
+            var body = Uri.UnescapeDataString(link.Split("&body=")[^1]);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.Zero, output);
+                Assert.That(output, Does.Contain($"It's too long to fill in, so it's saved in {whole}. Paste it under Logs in the issue."));
+                Assert.That(File.ReadAllText(whole), Does.Contain("   at Frame500()"));
+                Assert.That(link, Does.StartWith("https://github.com/"));
+                Assert.That(BugReport.Length(link), Is.AtMost(BugReport.LongestLink));
+                Assert.That(body, Does.Contain("```text\n⚠️ PASTE THE CRASH REPORT HERE. It was too long to fill in, so it's saved in ").And.Contain($"{Path.GetFileName(file)}.\n```"));
+                Assert.That(body, Does.Not.Contain(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
+            }
+        }
+        finally
+        {
+            File.Delete(whole);
+        }
+    }
+
+    [Test]
+    public void Report_SaysWhenThereIsntOne() =>
+        Assert.That(Tool.Run("obm", "crashes", "report", "--no-browser", "--home", _home), Is.EqualTo((1, "obm: there aren't any crash reports")));
 
     // The engine may not be running because it crashed. A script running obm status doesn't use them up
     [Test]

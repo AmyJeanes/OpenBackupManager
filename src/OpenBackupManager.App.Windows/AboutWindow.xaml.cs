@@ -15,8 +15,9 @@ public sealed partial class AboutWindow : Window
         AppWindow.SetIcon(AppIcons.Ico);
         // Use a PNG for the Image control, as the .ico's first size that the Image control would display is too small
         Logo.Source = new BitmapImage(new Uri(AppIcons.Png));
-        Title = viewModel.Title;
-        AppWindow.TitleBar.PreferredTheme = TitleBarTheme.UseDefaultAppMode;
+        Title = AppTitleBar.Title = viewModel.Title;
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
         var presenter = OverlappedPresenter.Create();
         presenter.IsResizable = false;
         presenter.IsMaximizable = false;

@@ -17,7 +17,7 @@ public sealed class CrashTests : AppTests
         Crash(item);
 
         StartAgain();
-        var crash = WaitForWindow(AppName + " closed unexpectedly");
+        var crash = WaitForCrashWindow(AppName + " closed unexpectedly");
         var report = crash.FindFirstDescendant(c => c.ByAutomationId("ReportText"))!.AsTextBox().Text;
         using (Assert.EnterMultipleScope())
         {
@@ -48,7 +48,7 @@ public sealed class CrashTests : AppTests
         Crash("On another thread");
 
         WaitForCopyStartedSince(crashed);
-        WaitForWindow(AppName + " closed unexpectedly");
+        WaitForCrashWindow(AppName + " closed unexpectedly");
     }
 
     [Test]
