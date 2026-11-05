@@ -52,7 +52,7 @@ var reloadCommand = new Command("reload", "Have the engine read config.toml agai
 reloadCommand.SetAction((parseResult, cancellationToken) =>
     RefuseUnderSudo() ?? Config.ReloadAsync(Paths(parseResult), parseResult.GetValue(jsonOption), cancellationToken));
 
-var fileOption = new Option<string?>("--file")
+var fileOption = new Option<string?>("--file", "-f")
 {
     Description = "Check this file instead of config.toml",
     HelpName = "file",
@@ -93,7 +93,7 @@ var showCommand = new Command("show", "Show a crash report, the newest unless yo
 showCommand.SetAction((parseResult, cancellationToken) =>
     RefuseUnderSudo() ?? Task.FromResult(Crashes.Show(Paths(parseResult), parseResult.GetValue(numberArgument))));
 
-var noBrowserOption = new Option<bool>("--no-browser")
+var noBrowserOption = new Option<bool>("--no-browser", "-n")
 {
     Description = "Print the link rather than opening it",
 };

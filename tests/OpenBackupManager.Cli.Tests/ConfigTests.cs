@@ -167,7 +167,7 @@ public class ConfigTests
     {
         var file = Path.Combine(_home, "missing.toml");
 
-        var (exitCode, output) = Tool.Run("obm", "config", "validate", "--file", file);
+        var (exitCode, output) = Tool.Run("obm", "config", "validate", "-f", file);
 
         using (Assert.EnterMultipleScope())
         {

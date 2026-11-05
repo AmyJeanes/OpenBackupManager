@@ -164,7 +164,7 @@ public class CrashesTests
 
         try
         {
-            var (exitCode, output) = Tool.Run("obm", "crashes", "report", "--no-browser", "--home", _home);
+            var (exitCode, output) = Tool.Run("obm", "crashes", "report", "-n", "--home", _home);
             var link = output.Split(Environment.NewLine)[^1];
             var body = Uri.UnescapeDataString(link.Split("&body=")[^1]);
 
