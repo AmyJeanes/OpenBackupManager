@@ -17,32 +17,34 @@ internal static class Journal
             return null;
         }
 
-        var start = new ProcessStartInfo("journalctl")
+        var printed = Run(Timeout, "--user", "_PID=" + run.ProcessId.ToString(CultureInfo.InvariantCulture), "_BOOT_ID=" + run.Boot.Replace("-", "", StringComparison.Ordinal), "--output=cat", "--no-pager");
+        return printed is null ? null : CrashReports.Ending(printed.Value.Output);
+    }
+
+    // Null if it isn't there, as without systemd, or doesn't finish in time
+    internal static (string Output, string Errors)? Run(TimeSpan timeout, params string[] arguments)
+    {
+        var start = new ProcessStartInfo("journalctl", arguments)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
-        foreach (var argument in (string[])["--user", "_PID=" + run.ProcessId.ToString(CultureInfo.InvariantCulture), "_BOOT_ID=" + run.Boot.Replace("-", "", StringComparison.Ordinal), "--output=cat", "--no-pager"])
-        {
-            start.ArgumentList.Add(argument);
-        }
 
         try
         {
             using var process = Process.Start(start)!;
-            var error = process.StandardError.ReadToEndAsync();
+            var errors = process.StandardError.ReadToEndAsync();
             var output = process.StandardOutput.ReadToEndAsync();
-            if (!process.WaitForExit(Timeout))
+            if (!process.WaitForExit(timeout))
             {
                 process.Kill();
                 return null;
             }
 
-            return CrashReports.Ending(output.Result);
+            return (output.Result, errors.Result);
         }
         catch (Win32Exception)
         {
-            // No journalctl, as without systemd
             return null;
         }
     }

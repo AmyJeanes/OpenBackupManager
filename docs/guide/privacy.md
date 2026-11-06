@@ -1,6 +1,6 @@
 # Privacy
 
-Open Backup Manager doesn't collect anything about you or how you use it. There's no account, no analytics and no telemetry, and crash reports stay on your device until you choose to share one.
+Open Backup Manager doesn't collect anything about you or how you use it. There's no account, no analytics and no telemetry, and crash reports and diagnostics stay on your device until you choose to share them.
 
 ## What connects to the internet
 

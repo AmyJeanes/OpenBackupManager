@@ -33,15 +33,16 @@ internal static class DiagnosticReports
         }
     }
 
+    public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Logs", "DiagnosticReports");
+
     private static CrashEvent? Look(string exe, Run run)
     {
-        var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Logs", "DiagnosticReports");
-        if (!Directory.Exists(folder))
+        if (!Directory.Exists(Folder))
         {
             return null;
         }
 
-        foreach (var file in new DirectoryInfo(folder).GetFiles(exe + "-*.ips").Where(f => f.LastWriteTimeUtc >= run.Started.UtcDateTime))
+        foreach (var file in new DirectoryInfo(Folder).GetFiles(exe + "-*.ips").Where(f => f.LastWriteTimeUtc >= run.Started.UtcDateTime))
         {
             try
             {

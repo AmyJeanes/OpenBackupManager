@@ -2,18 +2,22 @@ using System.Text.RegularExpressions;
 
 namespace OpenBackupManager.Core;
 
-// Takes personal details out of a crash report before it's shared: the home folder, the user and computer names, and
+// Takes personal details out of a crash report or a log before it's shared: the home folder, the user and computer names, and
 // the values in web addresses, which can carry tokens. It can't know everything personal, so people check it too
 public static partial class Redaction
 {
     public static string Redact(string report) =>
         Redact(report, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Environment.UserName, Environment.MachineName);
 
+    // For what isn't a report, such as a log, which has no header to leave
+    public static string RedactAll(string text) =>
+        Redact(text, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Environment.UserName, Environment.MachineName, header: false);
+
     // The header is left as it was written, as it holds nothing personal and a name can be an ordinary word: a default
     // Ubuntu computer is named ubuntu
-    internal static string Redact(string report, string home, string user, string computer)
+    internal static string Redact(string report, string home, string user, string computer, bool header = true)
     {
-        var net = report.IndexOf("\n.NET: ", StringComparison.Ordinal);
+        var net = header ? report.IndexOf("\n.NET: ", StringComparison.Ordinal) : -1;
         var end = net < 0 ? -1 : report.IndexOf('\n', net + 1);
         var start = net < 0 ? 0 : end < 0 ? report.Length : end + 1;
 

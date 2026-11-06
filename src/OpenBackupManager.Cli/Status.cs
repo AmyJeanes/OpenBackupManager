@@ -12,28 +12,28 @@ internal static class Status
 {
     // The service, on macOS and Linux, is only for saying when it should have started the engine. Crash reports are
     // listed whether it's running or not, as they may say why it isn't. Scripts get them from obm crashes list
-    public static async Task<int> RunAsync(AppPaths paths, EngineService? service, bool json, CancellationToken cancellationToken)
+    public static async Task<int> RunAsync(AppPaths paths, EngineService? service, bool json, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
-        var exitCode = await EngineAsync(paths, service, json, cancellationToken);
+        var exitCode = await EngineAsync(paths, service, json, output, error, cancellationToken);
         if (!json)
         {
             foreach (var line in Crashes.New(paths))
             {
-                Console.WriteLine(line);
+                output.WriteLine(line);
             }
         }
 
         return exitCode;
     }
 
-    private static async Task<int> EngineAsync(AppPaths paths, EngineService? service, bool json, CancellationToken cancellationToken)
+    private static async Task<int> EngineAsync(AppPaths paths, EngineService? service, bool json, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
         try
         {
             using var engine = await EngineClient.ConnectAsync(paths, cancellationToken);
             if (engine is null)
             {
-                await Console.Error.WriteLineAsync(
+                await error.WriteLineAsync(
                     service is { SwitchedOff: true } ? $"obm: the engine isn't running, as obmd is switched off in {service.WhereToSwitchOn}. Switching it on there starts it"
                     : service is { IsInstalled: true } ? $"obm: the engine isn't running, though it's installed as a service. {service.HowToCheck} might say why"
                     : "obm: the engine isn't running");
@@ -43,36 +43,36 @@ internal static class Status
             var status = await engine.StatusAsync(cancellationToken);
             if (json)
             {
-                Console.WriteLine(Json.Format(status, ProtocolJson.Default.StatusResult));
+                output.WriteLine(Json.Format(status, ProtocolJson.Default.StatusResult));
                 return 0;
             }
 
-            Console.WriteLine("The engine is running");
-            Console.WriteLine($"  Version: {status.Version}");
-            Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  Process: {status.ProcessId}"));
-            Console.WriteLine($"  Up for: {Uptime(DateTimeOffset.UtcNow - status.Started)}");
-            Console.WriteLine("  Started by: " + StartedBy(status.StartedBy));
+            output.WriteLine("The engine is running");
+            output.WriteLine($"  Version: {status.Version}");
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  Process: {status.ProcessId}"));
+            output.WriteLine($"  Up for: {Uptime(DateTimeOffset.UtcNow - status.Started)}");
+            output.WriteLine("  Started by: " + StartedBy(status.StartedBy));
             if (status.Config == status.State)
             {
-                Console.WriteLine($"  Home: {status.Config}");
+                output.WriteLine($"  Home: {status.Config}");
             }
             else
             {
-                Console.WriteLine($"  Config: {status.Config}");
-                Console.WriteLine($"  State: {status.State}");
+                output.WriteLine($"  Config: {status.Config}");
+                output.WriteLine($"  State: {status.State}");
             }
 
-            Console.WriteLine("  Secrets: " + Secrets(status.Secrets, CurrentOS.Platform));
+            output.WriteLine("  Secrets: " + Secrets(status.Secrets, CurrentOS.Platform));
             foreach (var line in ConfigProblems(status.ConfigProblems, CultureInfo.CurrentUICulture))
             {
-                Console.WriteLine("  " + line);
+                output.WriteLine("  " + line);
             }
 
             return 0;
         }
         catch (EngineException e)
         {
-            await Console.Error.WriteLineAsync("obm: " + e.Message);
+            await error.WriteLineAsync("obm: " + e.Message);
             return 1;
         }
     }

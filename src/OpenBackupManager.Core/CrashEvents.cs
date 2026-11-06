@@ -65,7 +65,7 @@ internal static class CrashEvents
     private static CrashEvent Event(EventRecord record, DateTimeOffset started, string text) =>
         new(record.TimeCreated is { } created ? new DateTimeOffset(created) : started, text);
 
-    private static IEnumerable<EventRecord> Query(string condition, DateTimeOffset since)
+    public static IEnumerable<EventRecord> Query(string condition, DateTimeOffset since)
     {
         var time = since.UtcDateTime.ToString("o", CultureInfo.InvariantCulture);
         using var reader = new EventLogReader(new EventLogQuery("Application", PathType.LogName, $"*[System[{condition} and TimeCreated[@SystemTime>='{time}']]]"));

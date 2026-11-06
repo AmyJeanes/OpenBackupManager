@@ -16,7 +16,7 @@ var jsonOption = new Option<bool>("--json") { Description = "Print it as JSON, f
 
 var statusCommand = new Command("status", "Show whether the engine is running, and which, and any new crash reports") { jsonOption };
 statusCommand.SetAction((parseResult, cancellationToken) =>
-    RefuseUnderSudo() ?? Status.RunAsync(Paths(parseResult), ServiceFor(parseResult), parseResult.GetValue(jsonOption), cancellationToken));
+    RefuseUnderSudo() ?? Status.RunAsync(Paths(parseResult), ServiceFor(parseResult), parseResult.GetValue(jsonOption), Console.Out, Console.Error, cancellationToken));
 
 var installCommand = new Command("install", "Start the engine now and whenever you sign in, and restart if it fails");
 installCommand.SetAction((parseResult, cancellationToken) =>
@@ -68,7 +68,7 @@ var validateCommand = new Command("validate", "Check config.toml for errors and 
     jsonOption,
 };
 validateCommand.SetAction((parseResult, cancellationToken) =>
-    RefuseUnderSudo() ?? Task.FromResult(Config.Validate(Paths(parseResult), parseResult.GetValue(fileOption), parseResult.GetValue(envOption), parseResult.GetValue(jsonOption))));
+    RefuseUnderSudo() ?? Task.FromResult(Config.Validate(Paths(parseResult), parseResult.GetValue(fileOption), parseResult.GetValue(envOption), parseResult.GetValue(jsonOption), Console.Out, Console.Error)));
 
 var configCommand = new Command("config", "This device's settings, in config.toml")
 {
@@ -112,6 +112,23 @@ var crashesCommand = new Command("crashes", "Reports of the app or the engine cl
     reportCommand,
 };
 
+var outputOption = new Option<string?>("--output", "-o")
+{
+    Description = "Save it here instead of the current folder. A folder gets the usual name",
+    HelpName = "file",
+};
+var exportCommand = new Command("export", "Save a zip of the logs, crash reports, config.toml and more, to attach to an issue")
+{
+    outputOption,
+};
+exportCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? Diagnostics.ExportAsync(Paths(parseResult), ServiceFor(parseResult), parseResult.GetValue(outputOption), cancellationToken));
+
+var diagnosticsCommand = new Command("diagnostics", "What helps find out what went wrong")
+{
+    exportCommand,
+};
+
 var command = new RootCommand("Open Backup Manager's command line")
 {
     homeOption,
@@ -120,6 +137,7 @@ var command = new RootCommand("Open Backup Manager's command line")
     secretsCommand,
     configCommand,
     crashesCommand,
+    diagnosticsCommand,
 };
 
 return await command.Parse(args).InvokeAsync();

@@ -48,7 +48,7 @@ If `--home <folder>` was given, or the `OBM_HOME` environment variable is set, e
 
 ## Logs
 
-Open Backup Manager writes what it does to logs. If something goes wrong, they're the first place to look, and they're worth attaching to a bug report.
+Open Backup Manager writes what it does to logs. If something goes wrong, they're the first place to look, and they're worth attaching to a bug report, as [Sharing diagnostics](#sharing-diagnostics) describes.
 
 === "Windows"
 
@@ -84,6 +84,26 @@ If the engine closes unexpectedly, it writes a report to the crash reports folde
 === "Linux"
 
     Some crashes stop the engine before it can write anything. Then the next time it starts, it writes the report, with what the engine printed as it closed if you used `obm service install`. It doesn't if your computer has restarted since, as the power going or a restart isn't a crash. If you used `obm service install`, systemd starts the engine again.
+
+## Sharing diagnostics
+
+`obm diagnostics export` saves what helps find out what went wrong in one zip, as [Command line](command-line.md#commands) describes: the logs, the crash reports, `config.toml`, a summary, and what the OS kept from the last 7 days.
+
+=== "Windows"
+
+    What Windows recorded in Event Viewer about the app, `obmd` or `obm` crashing or not responding, in `windows-events.txt`.
+
+=== "macOS"
+
+    The crash reports macOS wrote for `obmd` or `obm`, in `diagnostic-reports`.
+
+=== "Linux"
+
+    What systemd's journal has from the engine, if you used `obm service install`, in `journal.txt`.
+
+Your secrets are never included. Sensitive details have been redacted where possible, but logs can still name your folders and files, so look inside before you share it.
+
+Attach the zip to your issue. If it has things you'd rather not post publicly, email it to the address on [AmyJeanes's GitHub profile](https://github.com/AmyJeanes) instead, and say in the issue that you've sent it.
 
 ## The app itself
 

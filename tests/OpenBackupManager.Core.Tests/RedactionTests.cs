@@ -12,6 +12,13 @@ public class RedactionTests
                 computer: "ubuntu"),
             Is.EqualTo(Report("Can't reach <computer>.local as <user>", "Keeping its state in ~/obm")));
 
+    // A log line can look like a report's header
+    [Test]
+    public void WithoutAHeader_TakesOutEverything() =>
+        Assert.That(
+            Redaction.Redact("Opened /home/amy/a.txt\n.NET: from ubuntu\nOpened /home/amy/b.txt", "/home/amy", "amy", "ubuntu", header: false),
+            Is.EqualTo("Opened ~/a.txt\n.NET: from <computer>\nOpened ~/b.txt"));
+
     [Test]
     public void TakesOutTheHomeFolder_WithEitherSlash() =>
         Assert.That(

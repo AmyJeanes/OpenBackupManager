@@ -49,6 +49,7 @@ body:
     id: logs
     attributes:
       label: Logs
+      description: Or attach the zip from `obm diagnostics export`. If it has things you'd rather not post publicly, email it to the address on [AmyJeanes's GitHub profile](https://github.com/AmyJeanes) instead, and say here that you've sent it.
       render: text
   - type: textarea
     id: ai

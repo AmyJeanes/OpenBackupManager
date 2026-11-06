@@ -25,7 +25,8 @@ internal static class Config
                 json ? [Json.Format(result, ProtocolJson.Default.ReloadConfigResult)]
                 : problems.Count == 0 ? ["config.toml's settings are applied"]
                 : Status.ConfigProblems(problems, CultureInfo.CurrentUICulture),
-                problems);
+                problems,
+                Console.Out);
         }
         catch (EngineException e)
         {
@@ -35,12 +36,12 @@ internal static class Config
     }
 
     // On its own by default, as a service, the app or CI would read it, as none of them has this shell's variables
-    public static int Validate(AppPaths paths, string? path, bool withEnvironment, bool json)
+    public static int Validate(AppPaths paths, string? path, bool withEnvironment, bool json, TextWriter output, TextWriter error)
     {
         var file = new ConfigFile(path is null ? paths.ConfigFile : Path.GetFullPath(path), withEnvironment ? Environment.GetEnvironmentVariable : _ => null);
         if (path is not null && !File.Exists(file.Path))
         {
-            Console.Error.WriteLine($"obm: there's no file at {file.Path}");
+            error.WriteLine($"obm: there's no file at {file.Path}");
             return 1;
         }
 
@@ -51,7 +52,7 @@ internal static class Config
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            Console.Error.WriteLine($"obm: {file.Path} can't be read: {e.Message}");
+            error.WriteLine($"obm: {file.Path} can't be read: {e.Message}");
             return 1;
         }
 
@@ -61,14 +62,15 @@ internal static class Config
             json ? [Json.Format(new ReloadConfigResult(problems), ProtocolJson.Default.ReloadConfigResult)]
             : problems.Count == 0 ? [$"{name} has no errors or warnings"]
             : [$"{name} has {Status.Count(problems)}:", .. Status.Lines(problems, CultureInfo.CurrentUICulture)],
-            problems);
+            problems,
+            output);
     }
 
-    private static int Print(IEnumerable<string> lines, IReadOnlyList<ConfigProblem> problems)
+    private static int Print(IEnumerable<string> lines, IReadOnlyList<ConfigProblem> problems, TextWriter output)
     {
         foreach (var line in lines)
         {
-            Console.WriteLine(line);
+            output.WriteLine(line);
         }
 
         return problems.Any(p => p.IsError) ? 1 : 0;
