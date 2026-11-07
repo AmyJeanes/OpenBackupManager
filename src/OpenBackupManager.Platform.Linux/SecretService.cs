@@ -59,7 +59,7 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
         var (unlocked, locked) = await keyring.SearchEveryKeyringAsync(new() { ["home"] = prefix });
         if (locked.Length > 0)
         {
-            throw Failed("list", "the saved secrets", "a keyring holding them is locked");
+            throw Locked("list", "the saved secrets", "a keyring holding them is locked");
         }
 
         var names = new List<string>();
@@ -91,7 +91,7 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
         var address = bus ?? Environment.GetEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS");
         if (string.IsNullOrEmpty(address))
         {
-            throw Failed(action, what, "there's no D-Bus session to reach it through, as DBUS_SESSION_BUS_ADDRESS isn't set");
+            throw Unavailable(action, what, "there's no D-Bus session to reach it through, as DBUS_SESSION_BUS_ADDRESS isn't set");
         }
 
         try
@@ -103,18 +103,18 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
             // secret-tool reports a secret in a locked keyring as missing, so this checks first, and never asks to unlock it
             if (await keyring.LockedAsync())
             {
-                throw Failed(action, what, "the keyring is locked");
+                throw Locked(action, what, "the keyring is locked");
             }
 
             return await use(keyring);
         }
         catch (DBusErrorReplyException e) when (e.ErrorName == "org.freedesktop.DBus.Error.ServiceUnknown")
         {
-            throw Failed(action, what, "nothing provides it, such as GNOME Keyring or KDE Wallet");
+            throw Unavailable(action, what, "nothing provides it, such as GNOME Keyring or KDE Wallet", e);
         }
         catch (DBusConnectFailedException e)
         {
-            throw Failed(action, what, $"D-Bus at {address} can't be reached. {e.Message}");
+            throw Unavailable(action, what, $"D-Bus at {address} can't be reached. {e.Message}", e);
         }
         catch (TimeoutException)
         {
@@ -127,6 +127,12 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
     }
 
     private static InvalidOperationException Failed(string action, string name, string reason) =>
+        new($"Secret Service couldn't {action} {name}: {reason}");
+
+    private static SecretStoreUnavailableException Unavailable(string action, string name, string reason, Exception? innerException = null) =>
+        new($"Secret Service couldn't {action} {name}: {reason}", innerException);
+
+    private static SecretStoreLockedException Locked(string action, string name, string reason) =>
         new($"Secret Service couldn't {action} {name}: {reason}");
 
     // The default collection, as secret-tool uses, through the calls the Secret Service API spec describes

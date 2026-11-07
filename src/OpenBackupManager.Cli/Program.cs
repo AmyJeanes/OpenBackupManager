@@ -129,6 +129,21 @@ var diagnosticsCommand = new Command("diagnostics", "What helps find out what we
     exportCommand,
 };
 
+var yesOption = new Option<bool>("--yes", "-y") { Description = "Don't ask first, such as in a script" };
+var removeCommand = new Command("remove", "Remove all of Open Backup Manager's data from this device, secrets included") { yesOption };
+removeCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? Data.RemoveAsync(
+        Paths(parseResult),
+        AppHome.Chosen(parseResult.GetValue(homeOption), Environment.GetEnvironmentVariable("OBM_HOME")),
+        ServiceFor(parseResult),
+        parseResult.GetValue(yesOption),
+        cancellationToken));
+
+var dataCommand = new Command("data", "Everything Open Backup Manager keeps on this device")
+{
+    removeCommand,
+};
+
 var checkOption = new Option<bool>("--check") { Description = "Only check whether there's a newer version" };
 var updateCommand = new Command("update", "Update obm and obmd to the newest version on GitHub") { checkOption };
 updateCommand.SetAction((parseResult, cancellationToken) =>
@@ -146,6 +161,7 @@ var command = new RootCommand("Open Backup Manager's command line")
     configCommand,
     crashesCommand,
     diagnosticsCommand,
+    dataCommand,
     updateCommand,
 };
 

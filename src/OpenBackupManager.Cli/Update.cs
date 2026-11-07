@@ -115,17 +115,14 @@ internal static class Update
         }
     }
 
-    // From installed-by, which a package or image puts beside the programs, as they're updated another way. A tarball
-    // has none
+    // From installed-by, which a package or image puts beside the programs, as they're updated another way
     private static string? HowToUpdateInstead(string folder, SemanticVersion current, SemanticVersion newest)
     {
-        var file = Path.Combine(folder, "installed-by");
-        if (!File.Exists(file))
+        if (InstalledBy(folder) is not { } by)
         {
             return null;
         }
 
-        var by = File.ReadAllText(file).Trim();
         var download = $"https://github.com/AmyJeanes/OpenBackupManager/releases/download/v{newest}/OpenBackupManager-{newest}-{Runtime}";
         var nl = Environment.NewLine;
         var how = by switch
@@ -136,6 +133,13 @@ internal static class Update
             _ => $"It was installed by {by}, so update it the same way",
         };
         return $"{newest} is out, and this is {current}. {how}";
+    }
+
+    // deb, rpm, docker or whatever another packager wrote, or null for a tarball
+    internal static string? InstalledBy(string folder)
+    {
+        var file = Path.Combine(folder, "installed-by");
+        return File.Exists(file) ? File.ReadAllText(file).Trim() : null;
     }
 
     private static bool CanWrite(string folder)

@@ -4,6 +4,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <!-- Matches obmd's target framework -->
     <TargetFramework Condition="$([MSBuild]::IsOSPlatform('Windows'))">net10.0-windows10.0.26100.0</TargetFramework>
+    <!-- As obmd has, for the tests that use its OS's own platform project -->
+    <DefineConstants Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(DefineConstants);MACOS</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(DefineConstants);LINUX</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

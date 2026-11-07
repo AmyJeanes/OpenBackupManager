@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Platform;
 using Tmds.DBus.Protocol;
 
 namespace OpenBackupManager.Platform.Linux.Tests;
@@ -157,9 +158,9 @@ public class SecretServiceTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(() => store.ReadAsync("rclone-config"), Throws.InvalidOperationException.With.Message.EqualTo("Secret Service couldn't read rclone-config: the keyring is locked"));
-            Assert.That(() => store.SaveAsync("rclone-config", new Secret("new")), Throws.InvalidOperationException.With.Message.EndsWith("the keyring is locked"));
-            Assert.That(() => store.RemoveAsync("rclone-config"), Throws.InvalidOperationException.With.Message.EndsWith("the keyring is locked"));
+            Assert.That(() => store.ReadAsync("rclone-config"), Throws.TypeOf<SecretStoreLockedException>().With.Message.EqualTo("Secret Service couldn't read rclone-config: the keyring is locked"));
+            Assert.That(() => store.SaveAsync("rclone-config", new Secret("new")), Throws.TypeOf<SecretStoreLockedException>().With.Message.EndsWith("the keyring is locked"));
+            Assert.That(() => store.RemoveAsync("rclone-config"), Throws.TypeOf<SecretStoreLockedException>().With.Message.EndsWith("the keyring is locked"));
         }
     }
 
@@ -198,7 +199,7 @@ public class SecretServiceTests
         Tool("busctl", null, $"--address={_address}", "call", "org.freedesktop.secrets", "/org/freedesktop/secrets",
             "org.freedesktop.Secret.Service", "Lock", "ao", "1", Login);
 
-        Assert.That(() => store.ListAsync(), Throws.InvalidOperationException.With.Message.EqualTo("Secret Service couldn't list the saved secrets: the keyring is locked"));
+        Assert.That(() => store.ListAsync(), Throws.TypeOf<SecretStoreLockedException>().With.Message.EqualTo("Secret Service couldn't list the saved secrets: the keyring is locked"));
     }
 
     [Test]
@@ -208,7 +209,7 @@ public class SecretServiceTests
         try
         {
             Assert.That(() => new SecretService(_prefix, address).ReadAsync("rclone-config"),
-                Throws.InvalidOperationException.With.Message.EqualTo("Secret Service couldn't read rclone-config: nothing provides it, such as GNOME Keyring or KDE Wallet"));
+                Throws.TypeOf<SecretStoreUnavailableException>().With.Message.EqualTo("Secret Service couldn't read rclone-config: nothing provides it, such as GNOME Keyring or KDE Wallet"));
         }
         finally
         {
@@ -224,7 +225,7 @@ public class SecretServiceTests
         var address = $"unix:path={Path.Combine(_folder, "none")}";
 
         Assert.That(() => new SecretService(_prefix, address).ReadAsync("rclone-config"),
-            Throws.InvalidOperationException.With.Message.StartsWith($"Secret Service couldn't read rclone-config: D-Bus at {address} can't be reached. "));
+            Throws.TypeOf<SecretStoreUnavailableException>().With.Message.StartsWith($"Secret Service couldn't read rclone-config: D-Bus at {address} can't be reached. "));
     }
 
     private SecretService Store() => new(_prefix, _address);

@@ -29,6 +29,7 @@
 | `obm crashes show [<number>]` | Shows a crash report, the newest unless you give its number, and counts it as seen. |
 | `obm crashes report [<number>]` | Opens a new GitHub issue with a crash report filled in. `-n` or `--no-browser` prints the link instead. |
 | `obm diagnostics export` | Saves a zip of the logs, crash reports and more to attach to a bug report, as [Sharing diagnostics](files.md#sharing-diagnostics) describes. `-o` or `--output <file>` says where. |
+| `obm data remove` | Stops the engine and removes all of Open Backup Manager's data from this device, secrets included, as [Uninstalling](files.md#uninstalling) describes. It asks first, unless you add `-y` or `--yes`. |
 | `obm update` | macOS and Linux: updates `obm` and `obmd` to the newest version, as [Updates](updates.md) describes. `--check` only says whether there's a newer one. |
 | `obm --help` | Lists the commands, and `obm <command> --help` describes one. |
 

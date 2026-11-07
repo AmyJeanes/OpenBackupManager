@@ -314,7 +314,7 @@ public class ListenerTests
 
     private async Task StartAsync(EngineStarter startedBy = EngineStarter.Other)
     {
-        _engine = EngineHost.Build(_home, startedBy);
+        _engine = EngineHost.Build(_home, new EngineOptions(startedBy));
         await _engine.StartAsync();
     }
 

@@ -99,9 +99,14 @@ internal static class Service
         }
 
         Console.WriteLine("Stopping the engine that's running, so the service can start it");
-        using var process = Process.GetProcessById(status.ProcessId);
+        await StopAsync(engine, status.ProcessId, cancellationToken);
+    }
+
+    // It closes the connection as it stops, but holds its lock until it exits, so this waits for that
+    internal static async Task StopAsync(EngineClient engine, int processId, CancellationToken cancellationToken)
+    {
+        using var process = Process.GetProcessById(processId);
         await engine.StopAsync(cancellationToken);
-        // It closes the connection as it stops, but holds its lock until it exits
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(StartTimeout);
         try

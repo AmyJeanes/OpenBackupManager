@@ -37,7 +37,8 @@ internal abstract class EngineService(string? home, string obmd, string obm, Fun
     // Named from the home's path, so each home's is found again from the same --home
     protected string? HomeKey => Home is null ? null : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Home)))[..16];
 
-    protected IEnumerable<string> Arguments => [Obmd, "--started-by", "service", .. HomeArguments];
+    // With its own file, which the engine removes if obmd is removed
+    protected IEnumerable<string> Arguments => [Obmd, "--started-by", "service", "--service-file", File, .. HomeArguments];
 
     protected IEnumerable<string> ReloadArguments => [Obm, "config", "reload", .. HomeArguments];
 

@@ -13,13 +13,13 @@ namespace OpenBackupManager.Engine;
 
 public static class EngineHost
 {
-    public static IHost Build(AppPaths paths, EngineStarter startedBy = EngineStarter.Other, Action<IServiceCollection>? platform = null)
+    public static IHost Build(AppPaths paths, EngineOptions? options = null, Action<IServiceCollection>? platform = null)
     {
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         builder.Services
             .AddSingleton(paths)
-            .AddSingleton(new EngineOptions(startedBy))
+            .AddSingleton(options ?? new EngineOptions(EngineStarter.Other))
             .AddSingleton(TimeProvider.System)
             .AddSingleton(services => new CrashReports(paths, services.GetRequiredService<TimeProvider>(), CrashReports.Engine))
             .AddSingleton<CrashCapture>()
