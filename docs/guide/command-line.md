@@ -81,7 +81,7 @@ You don't need administrator or root rights for Open Backup Manager. It backs up
 
     If you're signed in as root itself, that's fine: root gets its own engine, like any other user.
 
-**In a container,** such as with Docker, it's Linux inside, whatever your computer runs, so the Linux tab applies. Containers often run as root, which is fine.
+**In a container,** such as with Docker, it's Linux inside, whatever your computer runs, so the Linux tab applies. Containers often run as root, which is fine. The project's own image runs as a normal user, and you can choose which (see [Docker](docker.md)).
 
 **To back up a whole computer or a server,** use a tool made for that, such as [restic](https://restic.net), [Kopia](https://kopia.io) or [rclone](https://rclone.org). Open Backup Manager is made for your own folders.
 

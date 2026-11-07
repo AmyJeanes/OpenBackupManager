@@ -68,6 +68,8 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
     They need ICU, a library for text in every language, and OpenSSL, for encryption, which desktop distros already have. On a minimal or server install, add them with your package manager, such as `sudo apt install libicu72 libssl3` on Debian 12 or `sudo dnf install libicu openssl-libs` on Fedora and RHEL. Each build is checked on Debian 12 and RHEL 9, and should run on anything newer.
 
+    On a NAS or home server, you can run the engine in Docker instead. See [Docker](docker.md).
+
     !!! tip "Check it first"
 
         You can check a download came from the project's build unchanged before you run it. See [Checking a download](checking-downloads.md).

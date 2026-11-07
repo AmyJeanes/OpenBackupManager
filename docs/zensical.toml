@@ -19,6 +19,7 @@ nav = [
   { "Updates" = "updates.md" },
   { "Files and folders" = "files.md" },
   { "Command line" = "command-line.md" },
+  { "Docker" = "docker.md" },
   { "Checking a download" = "checking-downloads.md" },
   { "Privacy" = "privacy.md" },
 ]

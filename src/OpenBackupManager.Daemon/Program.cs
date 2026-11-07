@@ -53,10 +53,13 @@ static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, Cancell
         return 1;
     }
 
-    // Made first so one it can't make is explained, such as when a file has its name, rather than crashing it
+    // Made first so one it can't make or write to is explained, such as when a file has its name or it belongs to someone
+    // else, rather than crashing it
+    ProcessLock? taken;
     try
     {
         Directory.CreateDirectory(paths.State);
+        taken = ProcessLock.TryTake("engine", paths);
     }
     catch (Exception e) when (e is IOException or UnauthorizedAccessException)
     {
@@ -64,12 +67,13 @@ static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, Cancell
         return 1;
     }
 
-    using var engineLock = ProcessLock.TryTake("engine", paths);
-    if (engineLock is null)
+    if (taken is null)
     {
         await Console.Error.WriteLineAsync("obmd: the engine is already running");
         return 1;
     }
+
+    using var engineLock = taken;
 
     IHost built;
     try

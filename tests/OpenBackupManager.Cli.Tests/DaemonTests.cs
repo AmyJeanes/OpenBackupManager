@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
 
@@ -161,6 +162,33 @@ public class DaemonTests
         finally
         {
             File.Delete(home);
+        }
+    }
+
+    // As in a container whose /config belongs to another user
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void AHomeItCantWriteTo_SaysWhy()
+    {
+        Assume.That(Environment.UserName, Is.Not.EqualTo("root"), "root can write to it anyway");
+        var home = NewHome();
+        Directory.CreateDirectory(home);
+        File.SetUnixFileMode(home, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            var (exitCode, output) = Tool.Run("obmd", "--home", home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.Contain("obmd: the engine can't keep its state in " + home));
+                Assert.That(output, Does.Not.Contain("Unhandled exception"));
+            }
+        }
+        finally
+        {
+            File.SetUnixFileMode(home, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
     }
 

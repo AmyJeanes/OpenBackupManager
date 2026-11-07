@@ -1,0 +1,32 @@
+name: Release published
+
+# Moves the image's latest tag once a release is out, rather than on its tag push, when the release is still a draft
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  latest:
+    name: Tag the image latest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Reads which release is latest
+      packages: write # Tags the image
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Tag it
+        run: |
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" != "$TAG" ]; then
+              echo "$TAG isn't the latest release, so the image's latest tag stays where it is"
+              exit 0
+          fi
+
+          image=ghcr.io/${GITHUB_REPOSITORY,,}
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          # Keeps the digest, so its attestation still applies
+          docker buildx imagetools create --tag "$image:latest" "$image:${TAG#v}"
