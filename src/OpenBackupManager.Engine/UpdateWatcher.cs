@@ -8,7 +8,8 @@ namespace OpenBackupManager.Engine;
 
 // Notices when an update, such as a .deb or .rpm, has replaced obmd under the running engine. Its service restarts it
 // into the new one, but an engine started another way only says so, as nothing would start it again. If obmd is removed,
-// the engine stops. Not on Windows, where Velopack ends whatever runs from its folder before updating it
+// the engine removes its service, if it has one, and stops. Not on Windows, where Velopack ends whatever runs from its
+// folder before updating it
 public sealed partial class UpdateWatcher(
     EngineOptions options,
     IHostApplicationLifetime lifetime,
@@ -54,6 +55,11 @@ public sealed partial class UpdateWatcher(
             if (now is null)
             {
                 LogRemoved(obmd);
+                if (options.ServiceFile is { } service)
+                {
+                    RemoveService(service);
+                }
+
                 Stop(0);
                 return;
             }
@@ -80,6 +86,60 @@ public sealed partial class UpdateWatcher(
     {
         ExitCode = exitCode;
         lifetime.StopApplication();
+    }
+
+    // Or the service manager would fail to start it at each sign-in, such as once its package is removed, and only the
+    // engine knows it's there. It's not stopped through the service manager, which would stop this engine as it stops;
+    // the engine exits with 0, which neither restarts. The file goes even if systemd can't be told, as without it
+    // there's nothing to start
+    private void RemoveService(string file)
+    {
+        var problem = OperatingSystem.IsLinux() ? Systemctl("disable", Path.GetFileName(file)) : null;
+        try
+        {
+            File.Delete(file);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            LogServiceNotRemoved(file, e.Message);
+            return;
+        }
+
+        problem ??= OperatingSystem.IsLinux() ? Systemctl("daemon-reload") : null;
+        if (problem is not null)
+        {
+            LogServiceNotRemoved(file, problem);
+            return;
+        }
+
+        LogServiceRemoved(file);
+    }
+
+    // What went wrong, or null
+    private static string? Systemctl(params string[] arguments)
+    {
+        try
+        {
+            var start = new ProcessStartInfo("systemctl", ["--user", .. arguments])
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var process = Process.Start(start)!;
+            var output = process.StandardOutput.ReadToEndAsync();
+            var errors = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit(VersionTimeout))
+            {
+                process.Kill();
+                return $"systemctl --user {string.Join(' ', arguments)} didn't finish";
+            }
+
+            return process.ExitCode == 0 ? null : $"systemctl --user {string.Join(' ', arguments)} failed: {(errors.Result + output.Result).Trim()}";
+        }
+        catch (Win32Exception e)
+        {
+            return e.Message;
+        }
     }
 
     // An update brings a file built at another time, so it's told apart without reading all of it. Null once it's gone
@@ -136,4 +196,10 @@ public sealed partial class UpdateWatcher(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "{Path} has been removed, so the engine is stopping")]
     private partial void LogRemoved(string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Removed the engine's service, {File}, so it isn't started again")]
+    private partial void LogServiceRemoved(string file);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The engine's service, {File}, may not be removed completely, so the service manager may try to start it at each sign-in: {Reason}")]
+    private partial void LogServiceNotRemoved(string file, string reason);
 }

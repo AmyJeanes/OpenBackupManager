@@ -24,22 +24,33 @@ var homeOption = new Option<string>("--home")
 // The tray app starts it with app, so its Quit stops only an engine it started, and obm service install with service
 var startedByOption = new Option<EngineStarter>("--started-by") { Hidden = true };
 
+// The service's own definition, which the engine removes if obmd is removed, as nothing else would
+var serviceFileOption = new Option<string?>("--service-file") { Hidden = true };
+
+// For obm data remove, which runs it once the engine has stopped
+var removeSecretsOption = new Option<bool>("--remove-secrets") { Hidden = true };
+
 var command = new RootCommand("Open Backup Manager's engine, in the foreground with no UI. obm and the app talk to it, and one runs for each home")
 {
     homeOption,
     startedByOption,
+    serviceFileOption,
+    removeSecretsOption,
 };
-command.SetAction((parseResult, cancellationToken) => RunAsync(
-    AppHome.CommandLinePaths(parseResult.GetValue(homeOption), Installed),
-    parseResult.GetValue(startedByOption),
-    cancellationToken));
+command.SetAction((parseResult, cancellationToken) =>
+{
+    var paths = AppHome.CommandLinePaths(parseResult.GetValue(homeOption), Installed);
+    return parseResult.GetValue(removeSecretsOption)
+        ? SecretsRemoval.RunAsync(paths, services => AddPlatform(services, paths), cancellationToken)
+        : RunAsync(paths, new EngineOptions(parseResult.GetValue(startedByOption), parseResult.GetValue(serviceFileOption)), cancellationToken);
+});
 
 // The host handles Ctrl+C and SIGTERM itself. System.CommandLine's own handling would end the process if stopping took
 // over 2 seconds, so it's turned off. Its error handler too, which would print an error and exit rather than let it
 // crash, so it's reported
 return await command.Parse(args).InvokeAsync(new InvocationConfiguration { ProcessTerminationTimeout = null, EnableDefaultExceptionHandler = false });
 
-static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, CancellationToken cancellationToken)
+static async Task<int> RunAsync(AppPaths paths, EngineOptions options, CancellationToken cancellationToken)
 {
     if (OperatingSystem.IsWindows() && RunningAs.AdministratorWithNormalTokenToo())
     {
@@ -78,19 +89,7 @@ static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, Cancell
     IHost built;
     try
     {
-        built = EngineHost.Build(paths, startedBy, services =>
-        {
-            // Each OS's platform project is only referenced when obmd is built on that OS
-#if WINDOWS
-            services.AddWindowsPlatform(paths);
-#elif MACOS
-            services.AddMacOSPlatform(paths);
-#elif LINUX
-            services.AddLinuxPlatform(paths);
-#else
-            throw new PlatformNotSupportedException("obmd runs on Windows, macOS and Linux");
-#endif
-        });
+        built = EngineHost.Build(paths, options, services => AddPlatform(services, paths));
     }
     catch (ConfigException e)
     {
@@ -119,6 +118,19 @@ static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, Cancell
     // Such as 75, for its service to restart it into an update
     return update.ExitCode;
 }
+
+// Each OS's platform project is only referenced when obmd is built on that OS
+static void AddPlatform(IServiceCollection services, AppPaths paths) =>
+#if WINDOWS
+    services.AddWindowsPlatform(paths);
+#elif MACOS
+    services.AddMacOSPlatform(paths);
+#elif LINUX
+    services.AddLinuxPlatform(paths);
+#else
+    throw new PlatformNotSupportedException("obmd runs on Windows, macOS and Linux");
+#endif
+
 
 // Velopack installs obmd beside the app, so it finds the same install
 static bool Installed() => VelopackLocator.CreateDefaultForPlatform().CurrentlyInstalledVersion is not null;

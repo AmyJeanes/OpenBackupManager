@@ -72,8 +72,10 @@ internal sealed class Tool : IDisposable
             : Published is null ? Path.Combine(AppContext.BaseDirectory, file)
             : name == "obm" && OperatingSystem.IsWindows() ? Path.Combine(Published, "bin", file)
             : Path.Combine(Published, file);
+        // No terminal to read from, as in CI, whether or not the tests run in one
         var start = new ProcessStartInfo(path, args)
         {
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -88,6 +90,7 @@ internal sealed class Tool : IDisposable
         tool._process.OutputDataReceived += (_, e) => tool.Add(e.Data, stdout: true);
         tool._process.ErrorDataReceived += (_, e) => tool.Add(e.Data, stdout: false);
         tool._process.Start();
+        tool._process.StandardInput.Close();
         tool._process.BeginOutputReadLine();
         tool._process.BeginErrorReadLine();
         return tool;

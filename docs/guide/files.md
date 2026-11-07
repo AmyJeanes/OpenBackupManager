@@ -123,12 +123,16 @@ Attach the zip to your issue. If it has things you'd rather not post publicly, e
 
 === "Windows"
 
-    Uninstalling removes the app, its Start menu shortcut, its notifications and its start at login, but leaves your data, so installing it again picks up where you left off. To remove everything, delete the data folder too.
+    Uninstalling removes the app, its Start menu shortcut, its notifications and its start at login, but leaves your data and secrets, so installing it again picks up where you left off. To remove them too, quit the app and run `obm data remove` before you uninstall it.
 
 === "macOS"
 
-    There's nothing installed to remove on macOS yet. To remove everything Open Backup Manager kept, delete the folders above.
+    To remove `obm` and `obmd`, run `obm service uninstall` if you used it, then delete them. Your data and secrets stay, so installing them again picks up where you left off. To remove those too, run `obm data remove` first.
 
 === "Linux"
 
-    There's nothing installed to remove on Linux yet. To remove everything Open Backup Manager kept, delete the folders above.
+    If you installed the `.deb` or `.rpm`, remove it with `sudo apt remove openbackupmanager` or `sudo dnf remove openbackupmanager`. The engine notices, removes its service if you used `obm service install`, and stops. Otherwise, run `obm service uninstall` if you used it, then delete `obm` and `obmd`. In Docker, remove the container.
+
+    Your data and secrets stay, so installing again picks up where you left off. To remove those too, run `obm data remove` first. In Docker, they're in the `/config` volume, so remove that, such as with `docker compose down -v`.
+
+`obm data remove` stops the engine and removes its service, then removes everything above and your secrets, from wherever they're kept. It lists what it removes and asks first.

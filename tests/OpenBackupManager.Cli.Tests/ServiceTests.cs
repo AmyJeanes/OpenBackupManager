@@ -135,6 +135,47 @@ public class ServiceTests
         }
     }
 
+    // As removing the .deb or .rpm does, without obm service uninstall first
+    [Test]
+    public async Task RemovingObmd_RemovesTheService()
+    {
+        var programs = Path.Combine(_home, "programs");
+        Tool.CopyTo(programs);
+        Assert.That(Tool.Run(Path.Combine(programs, "obm"), "service", "install", "--home", _home).ExitCode, Is.Zero);
+        var service = EngineService.ForThisOS(_home)!;
+
+        File.Delete(Path.Combine(programs, "obmd"));
+
+        var until = DateTime.UtcNow + Timeout;
+        while ((File.Exists(service.File) || await StatusAsync() is not null) && DateTime.UtcNow < until)
+        {
+            await Task.Delay(500);
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(service.File, Does.Not.Exist);
+            Assert.That(await StatusAsync(), Is.Null, "The engine kept running");
+        }
+    }
+
+    [Test]
+    public async Task DataRemove_UninstallsTheService()
+    {
+        Assert.That(Tool.Run("obm", "service", "install", "--home", _home).ExitCode, Is.Zero);
+
+        var (exitCode, output) = Tool.Run("obm", "data", "remove", "--home", _home, "--yes");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Does.Contain("The engine has stopped, and no longer starts when you sign in"));
+            Assert.That(EngineService.ForThisOS(_home)!.File, Does.Not.Exist);
+            Assert.That(await StatusAsync(), Is.Null);
+            Assert.That(_home, Does.Not.Exist);
+        }
+    }
+
     [Test]
     public async Task Install_TakesOverAnEngineAlreadyRunning()
     {

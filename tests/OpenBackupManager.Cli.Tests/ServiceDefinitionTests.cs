@@ -27,7 +27,7 @@ public class ServiceDefinitionTests
         {
             Assert.That(service.Unit, Is.EqualTo("openbackupmanager.service"));
             Assert.That(service.File, Is.EqualTo(Path.Combine("/home/amy", ".config", "systemd", "user", "openbackupmanager.service")));
-            Assert.That(Lines(service.Definition()), Does.Contain("ExecStart=\"/opt/obm/obmd\" \"--started-by\" \"service\""));
+            Assert.That(Lines(service.Definition()), Does.Contain($"ExecStart=\"/opt/obm/obmd\" \"--started-by\" \"service\" \"--service-file\" {Quoted(service.File)}"));
             Assert.That(Lines(service.Definition()), Does.Contain("ExecReload=\"/opt/obm/obm\" \"config\" \"reload\""));
             Assert.That(Lines(service.Definition()), Does.Contain("Environment=\"XDG_CONFIG_HOME=/home/amy/dotfiles\""));
             Assert.That(Lines(service.Definition()), Does.Contain("Environment=\"XDG_STATE_HOME=/home/amy/state\""));
@@ -48,7 +48,7 @@ public class ServiceDefinitionTests
         {
             Assert.That(
                 Lines(service.Definition()),
-                Does.Contain(@"ExecStart=""/opt/obm/obmd"" ""--started-by"" ""service"" ""--home"" ""/home/amy/100%% \""backups\"" $$HOME\\x"""));
+                Does.Contain($@"ExecStart=""/opt/obm/obmd"" ""--started-by"" ""service"" ""--service-file"" {Quoted(service.File)} ""--home"" ""/home/amy/100%% \""backups\"" $$HOME\\x"""));
             Assert.That(
                 Lines(service.Definition()),
                 Does.Contain(@"ExecReload=""/opt/obm/obm"" ""config"" ""reload"" ""--home"" ""/home/amy/100%% \""backups\"" $$HOME\\x"""));
@@ -92,7 +92,7 @@ public class ServiceDefinitionTests
             Assert.That(agent.File, Is.EqualTo(Path.Combine("/home/amy", "Library", "LaunchAgents", "io.github.amyjeanes.openbackupmanager.engine.plist")));
             Assert.That(plist.DocumentType?.PublicId, Is.EqualTo("-//Apple//DTD PLIST 1.0//EN"));
             Assert.That(Value(plist, "Label").Value, Is.EqualTo(agent.Label));
-            Assert.That(Value(plist, "ProgramArguments").Elements().Select(argument => argument.Value), Is.EqualTo([Obmd, "--started-by", "service"]));
+            Assert.That(Value(plist, "ProgramArguments").Elements().Select(argument => argument.Value), Is.EqualTo([Obmd, "--started-by", "service", "--service-file", agent.File]));
             Assert.That(Entries(Value(plist, "EnvironmentVariables")), Is.EqualTo(new Dictionary<string, string> { ["XDG_CONFIG_HOME"] = "/home/amy/dotfiles" }));
             Assert.That(Value(plist, "StandardErrorPath").Value, Is.EqualTo(Path.Combine("/home/amy/Library/Logs/OpenBackupManager", "obmd-stderr.log")));
             Assert.That(Value(plist, "RunAtLoad").Name.LocalName, Is.EqualTo("true"));
@@ -110,7 +110,7 @@ public class ServiceDefinitionTests
         {
             Assert.That(
                 Value(plist, "ProgramArguments").Elements().Select(argument => argument.Value),
-                Is.EqualTo([Obmd, "--started-by", "service", "--home", "/Users/amy/<backups> & more"]));
+                Is.EqualTo([Obmd, "--started-by", "service", "--service-file", agent.File, "--home", "/Users/amy/<backups> & more"]));
             Assert.That(plist.Descendants("key").Select(key => key.Value), Does.Not.Contain("EnvironmentVariables"));
             Assert.That(Value(plist, "StandardErrorPath").Value, Is.EqualTo(Path.Combine("/Users/amy/<backups> & more", "logs", "obmd-stderr.log")));
             Assert.That(agent.Label, Does.Match("^io\\.github\\.amyjeanes\\.openbackupmanager\\.engine\\.[0-9a-f]{16}$"));
@@ -141,4 +141,7 @@ public class ServiceDefinitionTests
     // With <true/> and <false/> as true and false
     private static Dictionary<string, string> Entries(XElement dict) =>
         dict.Elements("key").ToDictionary(key => key.Value, key => key.ElementsAfterSelf().First() is { IsEmpty: true } flag ? flag.Name.LocalName : key.ElementsAfterSelf().First().Value);
+
+    // As the unit quotes it, as a path made on Windows has backslashes
+    private static string Quoted(string path) => '"' + path.Replace(@"\", @"\\", StringComparison.Ordinal) + '"';
 }

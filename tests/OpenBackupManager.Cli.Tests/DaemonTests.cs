@@ -265,6 +265,27 @@ public class DaemonTests
         }
     }
 
+    // So the service manager doesn't fail to start it at each sign-in, once its package is removed
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void RemovingObmd_RemovesItsService()
+    {
+        var obmd = CopyOfObmd();
+        var service = Path.Combine(Directory.CreateDirectory(NewHome()).FullName, "openbackupmanager-test.service");
+        File.WriteAllText(service, "");
+        var daemon = Tool.Start(obmd, "--home", NewHome(), "--started-by", "service", "--service-file", service);
+        _running.Add(daemon);
+        daemon.WaitFor(Started);
+
+        File.Delete(obmd);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(daemon.WaitForExit(), Is.Zero);
+            Assert.That(service, Does.Not.Exist);
+        }
+    }
+
 #if DEBUG
     [Test]
     [Explicit("Crashes obmd, which the system records")]
