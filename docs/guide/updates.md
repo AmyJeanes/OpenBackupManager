@@ -10,24 +10,16 @@
 
 === "macOS"
 
-    Nothing updates itself on macOS yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again. If you downloaded it in a browser, remove the quarantine again first, as each download is quarantined. If you used `obm service install`, run it again to restart the engine on the new version.
+    Run `obm update` to update `obm` and `obmd` to the newest version from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases). It checks the download's SHA-256 hash against the one GitHub gives for it, then replaces them where they are. If you used `obm service install`, the service restarts the engine on the new version, and `obm update` waits to say it has. If you started `obmd` yourself, restart it. `obm update --check` only says whether there's a newer version, and nothing checks by itself. To be sure the new ones came from the project's build, check them with `gh attestation verify`, as [Checking a download](checking-downloads.md) describes.
 
 === "Linux"
 
-    Nothing updates itself on Linux yet. To update `obm` and `obmd`, download the latest release and unpack it over them, as [Getting started](getting-started.md#install-it) describes, then start `obmd` again. If you used `obm service install`, run it again to restart the engine on the new version.
+    Run `obm update` to update `obm` and `obmd` to the newest version from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases). It checks the download's SHA-256 hash against the one GitHub gives for it, then replaces them where they are. If you used `obm service install`, the service restarts the engine on the new version, and `obm update` waits to say it has. If you started `obmd` yourself, restart it. `obm update --check` only says whether there's a newer version, and nothing checks by itself. To be sure the new ones came from the project's build, check them with `gh attestation verify`, as [Checking a download](checking-downloads.md) describes.
+
+    If you installed the `.deb` or `.rpm`, install the newer package instead, as `obm update` tells you. In Docker, update the image, as [Docker](docker.md) describes.
 
 ## Test versions
 
 Test versions, also called prereleases, come out before each release so new things can be tried early.
 
-=== "Windows"
-
-    If you have a test version installed, you get test versions, and if you have a release, you only get releases. To choose for yourself, set [`prereleases`](settings.md#updates.prereleases) in the settings file.
-
-=== "macOS"
-
-    Test versions are on the [releases page](https://github.com/AmyJeanes/OpenBackupManager/releases) too, marked Pre-release. Nothing picks them for you, so download whichever you want.
-
-=== "Linux"
-
-    Test versions are on the [releases page](https://github.com/AmyJeanes/OpenBackupManager/releases) too, marked Pre-release. Nothing picks them for you, so download whichever you want.
+If you have a test version, updates get you test versions, and if you have a release, only releases. To choose for yourself, set [`prereleases`](settings.md#updates.prereleases) in the settings file.

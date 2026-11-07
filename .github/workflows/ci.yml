@@ -497,6 +497,7 @@ jobs:
 
           pack() {
               for packager in deb rpm; do
+                  echo $packager > "$1/installed-by"
                   docker run --rm --volume "$PWD:/source" --workdir "/source/$1" --env VERSION="$2" --env ARCH "$NFPM" \
                       package --config nfpm.yaml --packager $packager --target "$3.$packager"
               done

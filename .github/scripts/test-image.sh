@@ -28,6 +28,11 @@ check() {
     [ "$code" = 0 ] || { echo "obmd exited with $code"; exit 1; }
 }
 
+# So obm update says to update the image instead
+container=$(docker create "$image")
+docker cp "$container:/app/installed-by" - | tar -xO | grep -qx docker || { echo "installed-by doesn't say docker"; exit 1; }
+docker rm "$container" > /dev/null
+
 check --volume "$name:/config"
 docker volume rm "$name" > /dev/null
 

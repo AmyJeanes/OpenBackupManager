@@ -44,7 +44,7 @@ Each setting goes at the top of the file, or under its section's line, such as `
 | [`start-at-login`](#start-at-login) | `true` when installed | Windows |
 | [`secret-store`](#secret-store) | The OS's own store | All |
 | [`updates.automatic`](#updates.automatic) | `true` | Windows |
-| [`updates.prereleases`](#updates.prereleases) | Follows what's installed | Windows |
+| [`updates.prereleases`](#updates.prereleases) | Follows what's installed | All |
 
 ### `start-at-login` {#start-at-login}
 
@@ -96,7 +96,7 @@ secret-store = "file"
 
 ### `[updates]` {#updates}
 
-How the app keeps itself up to date.
+How Open Backup Manager keeps itself up to date.
 
 #### `automatic` {#updates.automatic}
 
@@ -126,8 +126,6 @@ While it's off, **Check for updates** in About still checks straight away. Turni
 
 #### `prereleases` {#updates.prereleases}
 
-<span class="obm-badge" title="Works on" markdown>:fontawesome-brands-windows: Windows only</span>
-
 Gets test versions before they're released, so new things can be tried early.
 
 <div class="obm-facts" markdown>
@@ -148,6 +146,6 @@ Environment variable
 prereleases = true
 ```
 
-A change takes effect from the next [check for updates](updates.md), which the app makes every few hours, or straight away from **Check for updates** in About.
+A change takes effect from the next [check for updates](updates.md): on Windows, the app's next check, which it makes every few hours, or **Check for updates** in About, and on macOS and Linux, the next time you run `obm update`.
 
 <!-- /generated:settings -->

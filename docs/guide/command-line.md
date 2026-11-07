@@ -19,23 +19,24 @@
 | Command | What it does |
 | --- | --- |
 | `obm --version` | Shows the version. |
-| `obm status` | Shows whether the engine is running, and if so its version, any newer one installed since that runs once it's restarted, its process ID, how long it's been up, what started it, its data folder, where secrets are kept, and any errors or warnings in `config.toml`. An error in an edit leaves the engine using the last good settings until it's fixed, so it's still running. Then it lists any [crash reports](files.md#crash-reports) you haven't seen, whether or not the engine is running. Exits with 1 only if the engine isn't running. |
+| `obm status` | Shows whether the engine is running, its version and what started it, any errors in `config.toml`, and any [crash reports](files.md#crash-reports) you haven't seen. |
 | `obm service install` | macOS and Linux: starts the engine now and whenever you sign in, and again if it fails. See [The engine](#the-engine). |
 | `obm service uninstall` | macOS and Linux: stops the engine, and stops it starting when you sign in. |
-| `obm secrets migrate <store>` | Moves your secrets to another store, such as `file`, and keeps them there from now on, as [`secret-store`](settings.md#secret-store) says. It copies them all and checks each before removing them from the old store, so if anything goes wrong they're still where they were. The engine has to be running. |
-| `obm config reload` | Has the engine read `config.toml` again and says what it found, for where it can't see the file change, such as on a network drive. Exits with 1 if the file has an error, which leaves the engine using the last good settings, or if the engine isn't running. On macOS and Linux, sending `obmd` SIGHUP does the same. |
-| `obm config validate` | Checks `config.toml` for errors and warnings without the engine, such as before starting it. `-f` or `--file <file>` checks another file instead, and `--env` also applies the `OBM_` environment variables set where you run it. Exits with 1 if there's an error. |
-| `obm crashes list` | Lists the crash reports, newest first and numbered, with what closed, when, the first line of what went wrong, and which you haven't seen. |
-| `obm crashes show [<number>]` | Shows a crash report, the newest unless you give its number from `obm crashes list`, with where its file is. It and any older ones then count as seen, so neither `obm status` nor the app shows them as new again. |
-| `obm crashes report [<number>]` | Opens a new GitHub issue with a crash report filled in, the newest unless you give its number, after printing what it will share. Sensitive details are redacted where possible, but check it before you submit, as GitHub issues are public. Nothing is sent until you submit the issue. `-n` or `--no-browser` prints the link rather than opening it. |
-| `obm diagnostics export` | Saves a zip to attach to a bug report, with the logs, the crash reports, `config.toml`, what the OS kept about the app and the engine in the last 7 days, and a summary that includes what `obm status` and `obm config validate` say. It never includes your secrets. Sensitive details are redacted where possible, but logs can still name your folders and files, so look inside before you share it, as [Sharing diagnostics](files.md#sharing-diagnostics) describes. It's saved in the current folder unless `-o` or `--output <file>` says where, and a folder gets the usual name, such as `obm-diagnostics-20261106-091512.zip`. It never replaces a file that's already there. |
+| `obm secrets migrate <store>` | Moves your secrets to another [store](settings.md#secret-store), such as `file`. The engine has to be running. |
+| `obm config reload` | Has the engine read `config.toml` again, for where it can't see the file change, such as on a network drive. |
+| `obm config validate` | Checks `config.toml` for errors without the engine. `-f` or `--file <file>` checks another file, and `--env` applies the `OBM_` environment variables too. |
+| `obm crashes list` | Lists the crash reports, newest first and numbered. |
+| `obm crashes show [<number>]` | Shows a crash report, the newest unless you give its number, and counts it as seen. |
+| `obm crashes report [<number>]` | Opens a new GitHub issue with a crash report filled in. `-n` or `--no-browser` prints the link instead. |
+| `obm diagnostics export` | Saves a zip of the logs, crash reports and more to attach to a bug report, as [Sharing diagnostics](files.md#sharing-diagnostics) describes. `-o` or `--output <file>` says where. |
+| `obm update` | macOS and Linux: updates `obm` and `obmd` to the newest version, as [Updates](updates.md) describes. `--check` only says whether there's a newer one. |
 | `obm --help` | Lists the commands, and `obm <command> --help` describes one. |
 
 `obm status`, `obm config reload`, `obm config validate` and `obm crashes list` take `--json` too, to print what they found for scripts, as [For scripts](#for-scripts) describes.
 
 ## The engine
 
-`obmd` runs the engine in the foreground with no UI, until you press ++ctrl+c++. Only one runs at a time for each data folder, and `obm` talks to it. It takes `--home` like `obm`, and `obmd --version` shows its version.
+`obmd` runs the engine in the foreground with no UI, until you press ++ctrl+c++. Only one runs at a time for each data folder, and `obm` talks to it. It takes `--home` like `obm`, and `obmd --version` shows its version. On macOS and Linux, sending it SIGHUP has it read `config.toml` again, as `obm config reload` does.
 
 === "Windows"
 
@@ -87,7 +88,7 @@ You don't need administrator or root rights for Open Backup Manager. It backs up
 
 ## For scripts
 
-With `--json`, `obm status`, `obm config reload`, `obm config validate` and `obm crashes list` print what they found as JSON instead. New fields may be added, so a script should ignore ones it doesn't know. The exit codes are the same as without it. When there's nothing to print, such as when the engine isn't running, the error goes to stderr as usual and nothing goes to stdout, so check the exit code before reading it.
+With `--json`, `obm status`, `obm config reload`, `obm config validate` and `obm crashes list` print what they found as JSON instead. New fields may be added, so a script should ignore ones it doesn't know. The exit codes are the same as without it: 1 when `obm status` finds no engine, when `obm config reload` or `validate` finds an error in `config.toml`, or when any command couldn't do what it was asked. When there's nothing to print, such as when the engine isn't running, the error goes to stderr as usual and nothing goes to stdout, so check the exit code before reading it.
 
 `obm status --json` prints something like this:
 

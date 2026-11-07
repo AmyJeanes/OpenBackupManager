@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
 
@@ -8,6 +9,7 @@ namespace OpenBackupManager.Cli.Tests;
 [Explicit("Installs the engine with the OS's service manager")]
 [Category("Sandbox")]
 [Platform(Exclude = "Win")]
+[UnsupportedOSPlatform("windows")]
 public class ServiceTests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
@@ -109,6 +111,28 @@ public class ServiceTests
         }
 
         Assert.That(next?.ProcessId, Is.Not.Null.And.Not.EqualTo(first.ProcessId), "The engine wasn't restarted");
+    }
+
+    [Test]
+    public async Task ObmUpdate_WaitsForTheServiceToRestartTheEngine()
+    {
+        var programs = Path.Combine(_home, "programs");
+        Tool.CopyTo(programs);
+        var obm = Path.Combine(programs, "obm");
+        Assert.That(Tool.Run(obm, "service", "install", "--home", _home).ExitCode, Is.Zero);
+        var first = (await StatusAsync())!;
+        using var github = new FakeGitHub();
+        github.Add("0.3.0", new Asset($"OpenBackupManager-0.3.0-{FakeGitHub.Runtime}.tar.gz", FakeGitHub.NewVersionOf(programs)));
+
+        var (exitCode, output) = Tool.Run(obm, github.Environment, "update", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Does.Contain("Waiting for the service to restart the engine"));
+            Assert.That(output, Does.Contain("The engine restarted and is running "));
+            Assert.That((await StatusAsync())?.ProcessId, Is.Not.EqualTo(first.ProcessId));
+        }
     }
 
     [Test]

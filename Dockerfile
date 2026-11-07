@@ -7,6 +7,10 @@ LABEL org.opencontainers.image.source="https://github.com/AmyJeanes/OpenBackupMa
       org.opencontainers.image.licenses="MIT"
 
 COPY ${TARGETARCH}/ /app/
+# So obm update says to update the image instead
+COPY <<EOF /app/installed-by
+docker
+EOF
 # No Secret Service in a container. The check skipped at the top takes OBM_SECRET_STORE for a secret by its name
 ENV PATH="/app:${PATH}" \
     OBM_HOME=/config \

@@ -129,6 +129,14 @@ var diagnosticsCommand = new Command("diagnostics", "What helps find out what we
     exportCommand,
 };
 
+var checkOption = new Option<bool>("--check") { Description = "Only check whether there's a newer version" };
+var updateCommand = new Command("update", "Update obm and obmd to the newest version on GitHub") { checkOption };
+updateCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? (OperatingSystem.IsWindows() ? AppUpdates()
+        : Update.RunAsync(Paths(parseResult), ServiceFor(parseResult), parseResult.GetValue(checkOption), cancellationToken)));
+// Not on Windows, where the app updates itself and obm with it
+updateCommand.Hidden = OperatingSystem.IsWindows();
+
 var command = new RootCommand("Open Backup Manager's command line")
 {
     homeOption,
@@ -138,6 +146,7 @@ var command = new RootCommand("Open Backup Manager's command line")
     configCommand,
     crashesCommand,
     diagnosticsCommand,
+    updateCommand,
 };
 
 return await command.Parse(args).InvokeAsync();
@@ -164,6 +173,12 @@ static Task<int>? RefuseUnderSudo()
 static Task<int> OnWindows()
 {
     Console.Error.WriteLine("obm: on Windows, the app starts the engine when you sign in. To run the engine without the app, start obmd with Task Scheduler instead");
+    return Task.FromResult(1);
+}
+
+static Task<int> AppUpdates()
+{
+    Console.Error.WriteLine("obm: on Windows, the app updates itself, and obm with it. To check now, use Check for updates in About");
     return Task.FromResult(1);
 }
 

@@ -32,6 +32,11 @@ contents:
     dst: /usr/lib/openbackupmanager/THIRD-PARTY-NOTICES.txt
     file_info:
       mode: 0644
+  # deb or rpm, which CI writes for each, so obm update says to install the newer package instead
+  - src: installed-by
+    dst: /usr/lib/openbackupmanager/installed-by
+    file_info:
+      mode: 0644
   - src: /usr/lib/openbackupmanager/obm
     dst: /usr/bin/obm
     type: symlink
