@@ -20,6 +20,8 @@ esac
 
 install "$package"
 sh .github/scripts/test-tarball.sh /usr/lib/openbackupmanager
+# So obm update says to install the newer package instead
+grep -qx "${package##*.}" /usr/lib/openbackupmanager/installed-by || { echo "installed-by doesn't say ${package##*.}"; exit 1; }
 obm --version
 obmd --version
 remove

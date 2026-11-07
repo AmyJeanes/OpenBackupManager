@@ -38,7 +38,7 @@ public static class Settings
         },
         new("updates", SettingKind.Section)
         {
-            Summary = "How the app keeps itself up to date.",
+            Summary = "How Open Backup Manager keeps itself up to date.",
         },
         new("updates.automatic", SettingKind.Boolean)
         {
@@ -53,14 +53,13 @@ public static class Settings
         },
         new("updates.prereleases", SettingKind.Boolean)
         {
-            WorksOn = Os.Windows,
             Summary = "Gets test versions before they're released, so new things can be tried early.",
             Values = "`true` for test versions, or `false` for released versions only",
             Default = "Follows what's installed",
             DefaultInFull = "Follows what's installed, so a test version gets test versions",
             Example = "true",
-            Notes = "A change takes effect from the next [check for updates](updates.md), which the app makes every few hours, or "
-                + "straight away from **Check for updates** in About.",
+            Notes = "A change takes effect from the next [check for updates](updates.md): on Windows, the app's next check, which it "
+                + "makes every few hours, or **Check for updates** in About, and on macOS and Linux, the next `obm update`.",
         },
         // Not used by the app yet, so it's left out of the guide
         new("remotes", SettingKind.SectionList) { Hidden = true },

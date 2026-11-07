@@ -14,11 +14,11 @@ Open Backup Manager doesn't collect anything about you or how you use it. There'
 
 === "macOS"
 
-    Nothing yet. `obm` and `obmd` only talk to each other, on your Mac.
+    Only `obm update`, when you run it. It asks GitHub whether there's a newer version, and downloads it from there if so. GitHub sees your IP address and what's downloaded, as with any website. Otherwise `obm` and `obmd` only talk to each other, on your Mac.
 
 === "Linux"
 
-    Nothing yet. `obm` and `obmd` only talk to each other, on your computer.
+    Only `obm update`, when you run it. It asks GitHub whether there's a newer version, and downloads it from there if so. GitHub sees your IP address and what's downloaded, as with any website. Otherwise `obm` and `obmd` only talk to each other, on your computer.
 
 ## Your backups
 

@@ -30,6 +30,8 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
     3. Start the engine with `obm service install`, which keeps it running from when you sign in, or with `obmd` in a terminal. See [The engine](command-line.md#the-engine).
 
+    To update later, run `obm update`.
+
     !!! warning "If macOS won't open them"
 
         A browser marks what it downloads as quarantined, and macOS won't run a quarantined program that isn't signed by Apple, which these aren't yet. If it says "“obm” Not Opened", as Apple could not verify it's free of malware, remove the quarantine:
@@ -72,7 +74,7 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
     tar -xzf ~/Downloads/OpenBackupManager-<version>-linux-x64.tar.gz -C ~/.local/bin obm obmd
     ```
 
-    If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and open a new terminal. The tarball needs ICU and OpenSSL 3, which desktop distros already have. On a minimal install, add them with your package manager, such as `sudo apt install libicu72 libssl3` on Debian 12, `sudo dnf install libicu openssl-libs` on RHEL, or `sudo dnf install libicu openssl3-libs` on Fedora 45 and newer.
+    If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and open a new terminal. The tarball needs ICU and OpenSSL 3, which desktop distros already have. On a minimal install, add them with your package manager, such as `sudo apt install libicu72 libssl3` on Debian 12, `sudo dnf install libicu openssl-libs` on RHEL, or `sudo dnf install libicu openssl3-libs` on Fedora 45 and newer. To update later, run `obm update`.
 
     On a NAS or home server, you can run the engine in Docker instead. See [Docker](docker.md).
 
