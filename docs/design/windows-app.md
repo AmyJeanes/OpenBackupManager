@@ -67,6 +67,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 - **A crash closes the app rather than carrying on.** After an error nothing expected, what the app holds can't be trusted, so it closes and Windows starts it again cleanly. Windows doesn't restart it after an update or a restart of Windows, which aren't crashes.
 - **Edge builds are numbered as MinVer numbers untagged builds,** so an installed one updates to whatever release comes next, alpha and beta included, and edge builds sort in commit order. The few lines are written out in `Get-Version.ps1` rather than using MinVer itself, which would change every local build's version and needs the whole history in every CI job.
 - **Packing and releasing are separate jobs.** The package jobs can sign attestations but not change releases, and the release job the reverse, so a problem in either can't do the other's part.
+- **The package jobs wait for the tests but not the install tests,** which take longest, and only what publishes, the image's push and the release, waits for those too. Pull requests and Renovate's branches build and check the packages as well, without attesting them, so an update to an image only the package jobs use, which Renovate merges by itself, is tested first.
 - **Windows are destroyed when closed, not hidden,** so the app stays small while it sits in the tray.
 - **The tray icon and flyout follow the taskbar's theme, not the app's.** Windows lets the taskbar (Windows mode) and apps (app mode) differ, and both belong to the taskbar. Windows' own tray flyouts and EarTrumpet's do the same.
 - **The flyout uses Windows' blur with one colour over it, not WinUI's acrylic.** WinUI's acrylic adds a luminosity layer that turns dark backgrounds solid black or makes light ones too pale. The colours (`#232323` at 77% for dark, `#E3E3E3` at 86% for light) were measured from EarTrumpet's flyout over black and white, which reads well on any background.
@@ -119,7 +120,7 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 ## Releasing
 
 1. Push a tag such as `v0.1.0`, or `v0.1.0-alpha.1` for a prerelease, following [Versions](#versions).
-2. CI's package-windows job checks the tag, then builds x64 and ARM64, packs each with Velopack and attests them, and the package-macos and package-linux jobs do the same for the macOS and Linux tarballs of `obm` and `obmd` (see [Engine and command line](engine.md)). Once all of them have finished, the release job uploads everything to a draft release called `Release v0.1.0`, marked as a prerelease if the version has a `-`.
+2. CI's package-windows job checks the tag, then builds x64 and ARM64, packs each with Velopack and attests them, and the package-macos and package-linux jobs do the same for the macOS and Linux tarballs of `obm` and `obmd` (see [Engine and command line](engine.md)). Once all of them and the install tests have finished, the release job uploads everything to a draft release called `Release v0.1.0`, marked as a prerelease if the version has a `-`.
 3. Write the notes and publish the draft. Installed copies only see published releases, so nobody updates until then.
 
 The repository makes published releases immutable, so a broken release is replaced by a new version, never patched, and a release job can only be re-run before publishing.
@@ -136,8 +137,8 @@ A release's version comes from its tag alone, so nothing in the repository is bu
 
 ### Edge builds
 
-Every push to `main`, and CI run by hand on any branch, packs both architectures as for a release and uploads Setup.exe and the full package, and the macOS and Linux tarballs, to the run as `OpenBackupManager-edge-<version>-<runtime>`. After `v0.1.0`, edge builds are `0.1.1-alpha.0.<commits since it>`, and after `v0.1.0-beta.2`, `0.1.0-beta.2.<commits since it>`. So an installed edge build sorts after the release it follows and before any that can come next, which it then updates to.
+Every run except a tag's, pull requests included, packs both architectures as for a release and uploads Setup.exe and the full package, and the macOS and Linux tarballs, to the run as `OpenBackupManager-edge-<version>-<runtime>`. After `v0.1.0`, edge builds are `0.1.1-alpha.0.<commits since it>`, and after `v0.1.0-beta.2`, `0.1.0-beta.2.<commits since it>`. So an installed edge build sorts after the release it follows and before any that can come next, which it then updates to.
 
 ### Attestations
 
-The package-windows job attests the three exes, Setup.exe and this version's packages, but not the previous release it downloads for the delta. The package-macos and package-linux jobs attest each tarball and the `obm` and `obmd` in it. Anyone can check a file was built by this workflow, and from which commit, with `gh attestation verify <file> --repo AmyJeanes/OpenBackupManager`.
+The package-windows job attests the three exes, Setup.exe and this version's packages, but not the previous release it downloads for the delta. The package-macos and check-linux jobs attest each tarball, .deb and .rpm, and the `obm` and `obmd` in them. Only runs on `main`, for tags and started by hand attest. Anyone can check a file was built by this workflow, and from which commit, with `gh attestation verify <file> --repo AmyJeanes/OpenBackupManager`.

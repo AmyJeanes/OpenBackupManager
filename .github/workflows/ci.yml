@@ -23,6 +23,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  # Pull requests and Renovate's branches build and check the packages too, but only these attest them
+  SHIP: ${{ github.ref == 'refs/heads/main' || github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' }}
+
 jobs:
   test:
     name: Test (${{ matrix.os }})
@@ -242,8 +246,7 @@ jobs:
   # change releases, and the release job is the reverse, so neither can do the other's part
   package-windows:
     name: Package (${{ matrix.runtime }})
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    needs: [test, install, format]
+    needs: [test, format]
     # Each on its own architecture's runner, which has the C++ build tools NativeAOT needs for it
     runs-on: ${{ matrix.runtime == 'win-arm64' && 'windows-11-arm' || 'windows-latest' }}
     permissions:
@@ -315,6 +318,7 @@ jobs:
 
       # Checked with gh attestation verify. Not the previous release, which was only downloaded
       - name: Attest
+        if: env.SHIP == 'true'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: |
@@ -344,8 +348,7 @@ jobs:
   # obm and obmd as tarballs, since there's no app on macOS or Linux yet for Velopack to pack
   package-macos:
     name: Package (${{ matrix.runtime }})
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    needs: [test, install, format]
+    needs: [test, format]
     # Each on its own architecture's runner, so each is run where it was built
     runs-on: ${{ matrix.runtime == 'osx-x64' && 'macos-26-intel' || 'macos-latest' }}
     permissions:
@@ -396,6 +399,7 @@ jobs:
 
       # Checked with gh attestation verify, as are the programs once unpacked, since they're the same files
       - name: Attest
+        if: env.SHIP == 'true'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: |
@@ -418,30 +422,23 @@ jobs:
           path: OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
           retention-days: 1
 
+  # Built in .NET's cross-build images, against an older distro's libraries, so they run on older distros too. The
+  # images only run on x64, so check-linux checks each on its own architecture's runner
   package-linux:
     name: Package (${{ matrix.runtime }})
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    needs: [test, install, format]
+    needs: [test, format]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write # Signs the attestations
-      attestations: write # Stores them
-    # The same for both runtimes, so package-docker can take either
+    # The same for both runtimes, so the jobs after can take either
     outputs:
       version: ${{ steps.version.outputs.version }}
     strategy:
       matrix:
         include:
-          # Built in .NET's cross-build images, against an older distro's libraries, so they run on older distros too.
-          # The images run on x64 whatever they build for, and the Arm64 build is checked through QEMU
           - runtime: linux-x64
-            platform: linux/amd64
             arch: amd64
             cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-amd64@sha256:a99347c5b7a5c78f8c0642a69535e75315dba8c2909ddb567364e07dce6cd156
             sysroot: /crossrootfs/x64
           - runtime: linux-arm64
-            platform: linux/arm64
             arch: arm64
             cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-arm64@sha256:10999af8059a25e190fab3bb7c3728a67ea0ffc7964a6e4a51eab24a98b67d33
             sysroot: /crossrootfs/arm64
@@ -451,7 +448,6 @@ jobs:
     env:
       TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       RUNTIME: ${{ matrix.runtime }}
-      DEBIAN: debian:12-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -483,37 +479,12 @@ jobs:
           ${{ matrix.cross-image }}
           pwsh ./tools/Publish-App.ps1 -Output publish -Runtime $RUNTIME -Version $VERSION -SysRoot ${{ matrix.sysroot }}
 
-      - name: Pack
+      - name: Pack the tarball
         shell: pwsh
         run: ./tools/Pack-Tarball.ps1 -Publish publish -Runtime $env:RUNTIME -Version $env:VERSION
 
-      # The checks below run what's in the tarball, as it's unpacked
-      - name: Unpack it
-        run: |
-          mkdir unpacked
-          tar -xzvf "OpenBackupManager-$VERSION-$RUNTIME.tar.gz" -C unpacked
-          ls -l unpacked
-
-      # QEMU, so this x64 runner can run the Arm64 build in containers
-      - name: Let Docker run Arm64
-        if: matrix.platform == 'linux/arm64'
-        run: docker run --rm --privileged tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 --install arm64
-
-      # The oldest distros the guide names. Their slim images leave out ICU, which .NET needs on Linux and desktop
-      # distros have, so it's installed first
-      - name: Check it runs on older distros
-        env:
-          RHEL: registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:4b79c93106c14ad1c234907f83441ff0e4f8d24e78426a36e159098e9f7e6fa5
-        run: |
-          check() {
-              docker run --rm --platform ${{ matrix.platform }} --volume "$PWD:/source:ro" --workdir /source "$1" \
-                  sh -c "$2 && sh .github/scripts/test-tarball.sh unpacked"
-          }
-          check "$DEBIAN" 'apt-get update -qq && apt-get install -qq -y --no-install-recommends libicu72 libssl3 > /dev/null'
-          check "$RHEL" 'microdnf install -y libicu openssl-libs > /dev/null'
-
-      # And an older one of each from the same programs, to upgrade from below. Its obmd is dated earlier, as an older
-      # build's would be, so the engine can tell it's been replaced
+      # And an older one of each from the same programs, for check-linux to upgrade from. Its obmd is dated earlier, as
+      # an older build's would be, so the engine can tell it's been replaced
       - name: Make the .deb and .rpm
         env:
           NFPM: goreleaser/nfpm:v2.48.0@sha256:d57a1452e7a019896b355f7b1ec67262278f6c503631f652d4fce7aef9ac8df7
@@ -533,7 +504,63 @@ jobs:
           pack . "$VERSION" "OpenBackupManager-$VERSION-$RUNTIME"
           pack older 0.0.0 older
 
-      - name: Check they install and upgrade
+      - name: Hand over to check-linux
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: unchecked-${{ matrix.runtime }}
+          path: |
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.*
+            older/older.*
+          retention-days: 1
+
+  check-linux:
+    name: Check (${{ matrix.runtime }})
+    needs: package-linux
+    runs-on: ${{ matrix.runtime == 'linux-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      id-token: write # Signs the attestations
+      attestations: write # Stores them
+    strategy:
+      matrix:
+        runtime: [linux-x64, linux-arm64]
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      RUNTIME: ${{ matrix.runtime }}
+      VERSION: ${{ needs.package-linux.outputs.version }}
+      DEBIAN: debian:12-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download what package-linux made
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: unchecked-${{ matrix.runtime }}
+
+      # The checks below run what's in the tarball, as it's unpacked
+      - name: Unpack it
+        run: |
+          mkdir unpacked
+          tar -xzvf "OpenBackupManager-$VERSION-$RUNTIME.tar.gz" -C unpacked
+          ls -l unpacked
+
+      # The oldest distros the guide names. Their slim images leave out ICU, which .NET needs on Linux and desktop
+      # distros have, so it's installed first
+      - name: Check it runs on older distros
+        env:
+          RHEL: registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:4b79c93106c14ad1c234907f83441ff0e4f8d24e78426a36e159098e9f7e6fa5
+        run: |
+          check() {
+              docker run --rm --volume "$PWD:/source:ro" --workdir /source "$1" \
+                  sh -c "$2 && sh .github/scripts/test-tarball.sh unpacked"
+          }
+          check "$DEBIAN" 'apt-get update -qq && apt-get install -qq -y --no-install-recommends libicu72 libssl3 > /dev/null'
+          check "$RHEL" 'microdnf install -y libicu openssl-libs > /dev/null'
+
+      - name: Check the .deb and .rpm install and upgrade
         env:
           UBUNTU_24: ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
           UBUNTU_26: ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
@@ -541,7 +568,7 @@ jobs:
           FEDORA: fedora:45@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
         run: |
           check() {
-              docker run --rm --platform ${{ matrix.platform }} --volume "$PWD:/source:ro" --workdir /source "$1" \
+              docker run --rm --volume "$PWD:/source:ro" --workdir /source "$1" \
                   sh .github/scripts/test-package.sh "OpenBackupManager-$VERSION-$RUNTIME.$2" "older/older.$2"
           }
           check "$DEBIAN" deb
@@ -550,13 +577,14 @@ jobs:
           check "$RHEL" rpm
           check "$FEDORA" rpm
 
-      # Checked with gh attestation verify, as are the programs once unpacked, since they're the same files
+      # Checked with gh attestation verify, as are the programs once unpacked or installed, since they're the same files
       - name: Attest
+        if: env.SHIP == 'true'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: |
-            publish/obmd
-            publish/obm
+            unpacked/obmd
+            unpacked/obm
             OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
             OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.deb
             OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.rpm
@@ -582,10 +610,11 @@ jobs:
             OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.rpm
           retention-days: 1
 
-  # Only pushed from main and version tags. release-published.yml moves latest
+  # Only pushed from main and version tags, and only once the install tests have passed too, as the package jobs don't
+  # wait for them. release-published.yml moves latest
   package-docker:
     name: Package (Docker)
-    needs: package-linux
+    needs: [package-linux, check-linux, install]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -660,11 +689,12 @@ jobs:
           push-to-registry: true
 
   # Everything the package jobs made goes into one draft release, which is published by hand once its notes are written.
-  # The only job that can change releases, and it waits for every build, so a draft never has only some of them
+  # The only job that can change releases, and it waits for every build and the install tests, so a draft never has only
+  # some of them
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [package-windows, package-macos, package-linux, package-docker]
+    needs: [package-windows, package-macos, check-linux, package-docker, install]
     runs-on: windows-latest
     permissions:
       contents: write # Creates the draft release
@@ -717,7 +747,7 @@ jobs:
   all-checks:
     name: All checks
     if: always()
-    needs: [test, install, format, docs]
+    needs: [test, install, format, docs, package-windows, package-macos, package-linux, check-linux, package-docker]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions: {} # Only reads needs.*.result
