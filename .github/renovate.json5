@@ -61,8 +61,8 @@
       "abandonmentThreshold": "3 years"
     },
     {
-      // The oldest distros the Linux downloads are checked on, so only their digests update
-      "matchDepNames": ["debian", "registry.access.redhat.com/ubi9/ubi-minimal"],
+      // The distro versions the Linux downloads are checked on, so only their digests update. Fedora's newest is checked
+      "matchDepNames": ["debian", "ubuntu", "registry.access.redhat.com/ubi9/ubi-minimal", "registry.access.redhat.com/ubi9/ubi"],
       "matchUpdateTypes": ["major"],
       "enabled": false
     },

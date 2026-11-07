@@ -49,6 +49,11 @@ internal static class Status
 
             output.WriteLine("The engine is running");
             output.WriteLine($"  Version: {status.Version}");
+            if (status.Installed is { } installed)
+            {
+                output.WriteLine($"  Installed: {installed}, which runs once you restart the engine");
+            }
+
             output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  Process: {status.ProcessId}"));
             output.WriteLine($"  Up for: {Uptime(DateTimeOffset.UtcNow - status.Started)}");
             output.WriteLine("  Started by: " + StartedBy(status.StartedBy));

@@ -89,6 +89,28 @@ public class ServiceTests
         }
     }
 
+    // As a .deb or .rpm does when it's upgraded
+    [Test]
+    public async Task AnUpdate_RestartsTheEngine()
+    {
+        var programs = Path.Combine(_home, "programs");
+        Tool.CopyTo(programs);
+        Assert.That(Tool.Run(Path.Combine(programs, "obm"), "service", "install", "--home", _home).ExitCode, Is.Zero);
+        var first = (await StatusAsync())!;
+
+        Tool.Update(Path.Combine(programs, "obmd"));
+
+        // launchd waits 10 seconds between starts
+        var until = DateTime.UtcNow + Timeout;
+        StatusResult? next;
+        while (((next = await StatusAsync()) is null || next.ProcessId == first.ProcessId) && DateTime.UtcNow < until)
+        {
+            await Task.Delay(500);
+        }
+
+        Assert.That(next?.ProcessId, Is.Not.Null.And.Not.EqualTo(first.ProcessId), "The engine wasn't restarted");
+    }
+
     [Test]
     public async Task Install_TakesOverAnEngineAlreadyRunning()
     {

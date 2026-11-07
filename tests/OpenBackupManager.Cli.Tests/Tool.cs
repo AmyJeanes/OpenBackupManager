@@ -61,13 +61,15 @@ internal sealed class Tool : IDisposable
         }
     }
 
+    // Name is obm or obmd, or the path of a copy from CopyTo
     public static Tool Start(string name, params string[] args) => Start(name, new Dictionary<string, string>(), args);
 
     // With these environment variables set too
     public static Tool Start(string name, IReadOnlyDictionary<string, string> environment, params string[] args)
     {
         var file = OperatingSystem.IsWindows() ? name + ".exe" : name;
-        var path = Published is null ? Path.Combine(AppContext.BaseDirectory, file)
+        var path = Path.IsPathRooted(name) ? name
+            : Published is null ? Path.Combine(AppContext.BaseDirectory, file)
             : name == "obm" && OperatingSystem.IsWindows() ? Path.Combine(Published, "bin", file)
             : Path.Combine(Published, file);
         var start = new ProcessStartInfo(path, args)
@@ -89,6 +91,29 @@ internal sealed class Tool : IDisposable
         tool._process.BeginOutputReadLine();
         tool._process.BeginErrorReadLine();
         return tool;
+    }
+
+    // obm and obmd on macOS and Linux, in a folder of their own that a test can change as an update would. The build
+    // needs everything beside them, but what's published is only them
+    public static void CopyTo(string folder)
+    {
+        var from = Published ?? AppContext.BaseDirectory;
+        var files = Published is null ? Directory.GetFiles(from, "*", SearchOption.AllDirectories) : [Path.Combine(from, "obm"), Path.Combine(from, "obmd")];
+        foreach (var file in files)
+        {
+            var to = Path.Combine(folder, Path.GetRelativePath(from, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.Copy(file, to);
+        }
+    }
+
+    // As a package manager does, by renaming a newer file over it
+    public static void Update(string file)
+    {
+        var next = file + ".new";
+        File.Copy(file, next);
+        File.SetLastWriteTimeUtc(next, File.GetLastWriteTimeUtc(file).AddMinutes(1));
+        File.Move(next, file, overwrite: true);
     }
 
     // Runs it to the end

@@ -33,6 +33,7 @@ public class ServiceDefinitionTests
             Assert.That(Lines(service.Definition()), Does.Contain("Environment=\"XDG_STATE_HOME=/home/amy/state\""));
             Assert.That(service.Definition(), Does.Not.Contain("XDG_CACHE_HOME"));
             Assert.That(Lines(service.Definition()), Does.Contain("Restart=on-failure"));
+            Assert.That(Lines(service.Definition()), Does.Contain("RestartForceExitStatus=75").And.Contain("SuccessExitStatus=75"));
             Assert.That(Lines(service.Definition()), Does.Contain("WantedBy=default.target"));
         }
     }

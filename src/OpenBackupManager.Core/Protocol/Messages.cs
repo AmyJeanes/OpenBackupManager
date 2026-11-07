@@ -70,7 +70,9 @@ public sealed record StatusResult(
     EngineStarter StartedBy,
     SecretsStatus Secrets,
     // From the engine's latest read of config.toml. An error leaves the last good settings in use
-    IReadOnlyList<ConfigProblem> ConfigProblems);
+    IReadOnlyList<ConfigProblem> ConfigProblems,
+    // The version an update installed over the engine's own, which runs once the engine is restarted
+    string? Installed = null);
 
 // Store is the store in use, as secret-store names it, or null when none is chosen yet. File is the file store's path
 public sealed record SecretsStatus(string? Store = null, string? File = null);

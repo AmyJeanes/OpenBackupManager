@@ -18,7 +18,8 @@ public class JsonTests
             "/home/me/.local/state/openbackupmanager",
             EngineStarter.Service,
             new SecretsStatus("file", "/home/me/.local/state/openbackupmanager/secrets.json"),
-            [new ConfigProblem(0, ConfigProblemKind.ShouldBeTrueOrFalse, IsError: true, "updates.prereleases", "OBM_UPDATES_PRERELEASES")]);
+            [new ConfigProblem(0, ConfigProblemKind.ShouldBeTrueOrFalse, IsError: true, "updates.prereleases", "OBM_UPDATES_PRERELEASES")],
+            "1.3.0");
 
         Assert.That(Json.Format(status, ProtocolJson.Default.StatusResult).ReplaceLineEndings(), Is.EqualTo("""
             {
@@ -41,7 +42,8 @@ public class JsonTests
                   "envVar": "OBM_UPDATES_PRERELEASES",
                   "message": "updates.prereleases should be true or false"
                 }
-              ]
+              ],
+              "installed": "1.3.0"
             }
             """.ReplaceLineEndings()));
     }

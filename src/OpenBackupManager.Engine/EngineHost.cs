@@ -28,6 +28,9 @@ public static class EngineHost
             .AddKeyedSingleton<ISecretStore>(SecretStoreKind.File, (services, _) => services.GetRequiredService<FileStore>())
             .AddSingleton<Secrets>()
             .AddSingleton<Listener>()
+            // Before the engine, as they stop in reverse, so the engine stops answering first
+            .AddSingleton<UpdateWatcher>()
+            .AddHostedService(services => services.GetRequiredService<UpdateWatcher>())
             .AddHostedService<EngineService>()
             .AddSerilog(log => log
                 .MinimumLevel.Information()

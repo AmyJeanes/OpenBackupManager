@@ -116,7 +116,9 @@ internal sealed class SystemdService(
             "ExecReload=" + string.Join(' ', ReloadArguments.Select(argument => Quote(argument, isCommand: true))),
         };
         lines.AddRange(Variables("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME").Select(variable => "Environment=" + Quote($"{variable.Name}={variable.Value}", isCommand: false)));
-        lines.AddRange(["Restart=on-failure", "", "[Install]", "WantedBy=default.target", ""]);
+        lines.Add("Restart=on-failure");
+        // The engine exits with 75 to be restarted into an update, which isn't a failure
+        lines.AddRange(["RestartForceExitStatus=75", "SuccessExitStatus=75", "", "[Install]", "WantedBy=default.target", ""]);
         return string.Join('\n', lines);
     }
 

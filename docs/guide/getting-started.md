@@ -52,21 +52,27 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
 === "Linux"
 
-    There's no app for Linux yet, but the command line, `obm`, and its engine, `obmd`, are ready to download.
+    There's no app for Linux yet, but the command line, `obm`, and its engine, `obmd`, are ready to download from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), for Debian 12, RHEL 9 and anything newer. On an Arm computer, such as a Raspberry Pi with a 64-bit system, use the `linux-arm64` downloads.
 
-    1. Download `OpenBackupManager-<version>-linux-x64.tar.gz` from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), or `OpenBackupManager-<version>-linux-arm64.tar.gz` for an Arm computer, such as a Raspberry Pi with a 64-bit system.
-    2. Unpack them into a folder on your PATH, such as `~/.local/bin`:
+    1. Download the `.deb` for Debian and Ubuntu, or the `.rpm` for Fedora and RHEL, and install it:
 
         ```
-        mkdir -p ~/.local/bin
-        tar -xzf ~/Downloads/OpenBackupManager-<version>-linux-x64.tar.gz -C ~/.local/bin obm obmd
+        sudo apt install ./OpenBackupManager-<version>-linux-x64.deb
+        sudo dnf install ./OpenBackupManager-<version>-linux-x64.rpm
         ```
 
-        On an Arm computer, unpack `OpenBackupManager-<version>-linux-arm64.tar.gz` instead. If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and open a new terminal.
+    2. Start the engine with `obm service install`, which keeps it running from when you sign in, or with `obmd` in a terminal. See [The engine](command-line.md#the-engine).
 
-    3. Start the engine with `obm service install`, which keeps it running from when you sign in, or with `obmd` in a terminal. See [The engine](command-line.md#the-engine).
+    To update, install a newer package. The service restarts the engine into it, while an engine you started yourself runs the old version until you restart it.
 
-    They need ICU, a library for text in every language, and OpenSSL, for encryption, which desktop distros already have. On a minimal or server install, add them with your package manager, such as `sudo apt install libicu72 libssl3` on Debian 12 or `sudo dnf install libicu openssl-libs` on Fedora and RHEL. Each build is checked on Debian 12 and RHEL 9, and should run on anything newer.
+    On other distros, unpack the tarball into a folder on your PATH instead:
+
+    ```
+    mkdir -p ~/.local/bin
+    tar -xzf ~/Downloads/OpenBackupManager-<version>-linux-x64.tar.gz -C ~/.local/bin obm obmd
+    ```
+
+    If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and open a new terminal. The tarball needs ICU and OpenSSL 3, which desktop distros already have. On a minimal install, add them with your package manager, such as `sudo apt install libicu72 libssl3` on Debian 12, `sudo dnf install libicu openssl-libs` on RHEL, or `sudo dnf install libicu openssl3-libs` on Fedora 45 and newer.
 
     On a NAS or home server, you can run the engine in Docker instead. See [Docker](docker.md).
 

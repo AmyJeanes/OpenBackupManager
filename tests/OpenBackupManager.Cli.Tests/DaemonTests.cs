@@ -207,6 +207,64 @@ public class DaemonTests
         }
     }
 
+    // As a .deb or .rpm does when it's upgraded. Nothing would start it again, so it carries on with the version before
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void AnUpdate_StartedByHand_IsReported()
+    {
+        var home = NewHome();
+        var obmd = CopyOfObmd();
+        var daemon = Tool.Start(obmd, "--home", home);
+        _running.Add(daemon);
+        daemon.WaitFor(Started);
+
+        Tool.Update(obmd);
+
+        daemon.WaitFor("is installed, but this engine runs the version before it until it's restarted");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Tool.Run("obm", "status", "--home", home).Output, Does.Contain($"Installed: {AppVersion.Current}, which runs once you restart the engine"));
+            Assert.That(daemon.HasExited, Is.False);
+        }
+    }
+
+    // Its service restarts it into the new version
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void AnUpdate_StartedByItsService_Exits()
+    {
+        var obmd = CopyOfObmd();
+        var daemon = Tool.Start(obmd, "--home", NewHome(), "--started-by", "service");
+        _running.Add(daemon);
+        daemon.WaitFor(Started);
+
+        Tool.Update(obmd);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(daemon.WaitForExit(), Is.EqualTo(75));
+            Assert.That(daemon.Output, Does.Contain("is installed, so the engine is restarting to run it").And.Contain("Engine stopped"));
+        }
+    }
+
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void RemovingObmd_StopsTheEngine()
+    {
+        var obmd = CopyOfObmd();
+        var daemon = Tool.Start(obmd, "--home", NewHome(), "--started-by", "service");
+        _running.Add(daemon);
+        daemon.WaitFor(Started);
+
+        File.Delete(obmd);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(daemon.WaitForExit(), Is.Zero);
+            Assert.That(daemon.Output, Does.Contain($"{obmd} has been removed, so the engine is stopping"));
+        }
+    }
+
 #if DEBUG
     [Test]
     [Explicit("Crashes obmd, which the system records")]
@@ -305,6 +363,13 @@ public class DaemonTests
         var daemon = Tool.Start("obmd", ["--home", home, .. options]);
         _running.Add(daemon);
         return daemon;
+    }
+
+    private string CopyOfObmd()
+    {
+        var folder = NewHome();
+        Tool.CopyTo(folder);
+        return Path.Combine(folder, "obmd");
     }
 
     // Read while the engine still has it open

@@ -100,6 +100,7 @@ static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, Cancell
 
     using var host = built;
     var crashes = host.Services.GetRequiredService<CrashCapture>();
+    var update = host.Services.GetRequiredService<UpdateWatcher>();
     crashes.Start();
     using var shutdownHandler = OperatingSystem.IsWindows() ? new WindowsShutdownHandler(host) : null;
     try
@@ -115,7 +116,8 @@ static async Task<int> RunAsync(AppPaths paths, EngineStarter startedBy, Cancell
 
     // Before the shutdown handler lets Windows end the process
     crashes.Stopped();
-    return 0;
+    // Such as 75, for its service to restart it into an update
+    return update.ExitCode;
 }
 
 // Velopack installs obmd beside the app, so it finds the same install

@@ -1,0 +1,54 @@
+# The .deb and .rpm, which CI's package-linux job makes with nfpm from what it published
+name: openbackupmanager
+version: ${VERSION}
+arch: ${ARCH}
+platform: linux
+maintainer: Amy Jeanes
+description: |-
+  Open-source backup and two-way sync for your folders
+homepage: https://github.com/AmyJeanes/OpenBackupManager
+license: MIT
+section: utils
+
+# A folder of its own, so the programs that come with it later never clash with the distro's
+contents:
+  - dst: /usr/lib/openbackupmanager
+    type: dir
+    file_info:
+      mode: 0755
+  - src: publish/obm
+    dst: /usr/lib/openbackupmanager/obm
+    file_info:
+      mode: 0755
+  - src: publish/obmd
+    dst: /usr/lib/openbackupmanager/obmd
+    file_info:
+      mode: 0755
+  - src: LICENSE
+    dst: /usr/lib/openbackupmanager/LICENSE
+    file_info:
+      mode: 0644
+  - src: publish/THIRD-PARTY-NOTICES.txt
+    dst: /usr/lib/openbackupmanager/THIRD-PARTY-NOTICES.txt
+    file_info:
+      mode: 0644
+  - src: /usr/lib/openbackupmanager/obm
+    dst: /usr/bin/obm
+    type: symlink
+  - src: /usr/lib/openbackupmanager/obmd
+    dst: /usr/bin/obmd
+    type: symlink
+
+# What .NET needs. Every ICU the .deb has been checked with, as Microsoft's dotnet-runtime-deps does. libssl3t64, on
+# newer distros, provides libssl3. The .rpm asks for OpenSSL 3 by its library, as Fedora's own .NET does, since Fedora
+# 45's openssl-libs is OpenSSL 4, which .NET can't use, and openssl3-libs has 3
+overrides:
+  deb:
+    depends:
+      - libc6 (>= 2.34)
+      - libicu78 | libicu76 | libicu74 | libicu72 | libicu70
+      - libssl3
+  rpm:
+    depends:
+      - libicu
+      - libssl.so.3()(64bit)

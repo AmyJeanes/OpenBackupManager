@@ -24,6 +24,6 @@ Every download is attested by the project's build on GitHub: a signed record of 
     gh attestation verify OpenBackupManager-<version>-linux-x64.tar.gz --repo AmyJeanes/OpenBackupManager
     ```
 
-    On an Arm computer, check `OpenBackupManager-<version>-linux-arm64.tar.gz` instead. The programs can be checked the same way once they're unpacked, such as `~/.local/bin/obm`.
+    On an Arm computer, check `OpenBackupManager-<version>-linux-arm64.tar.gz` instead. The `.deb` and `.rpm` can be checked the same way, and so can the programs once they're unpacked or installed, such as `~/.local/bin/obm` or `/usr/lib/openbackupmanager/obm`.
 
 **The Docker image** is attested too. Check it with `oci://` and the image's name instead of a file, such as `gh attestation verify oci://ghcr.io/amyjeanes/openbackupmanager:latest --repo AmyJeanes/OpenBackupManager`. It has the same `obm` and `obmd` as the Linux downloads, so they can be checked the same way once they're copied out, such as with `docker cp openbackupmanager:/app/obmd .`. See [Docker](docker.md).

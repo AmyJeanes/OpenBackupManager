@@ -19,7 +19,7 @@
 | Command | What it does |
 | --- | --- |
 | `obm --version` | Shows the version. |
-| `obm status` | Shows whether the engine is running, and if so its version, process ID, how long it's been up, what started it, its data folder, where secrets are kept, and any errors or warnings in `config.toml`. An error in an edit leaves the engine using the last good settings until it's fixed, so it's still running. Then it lists any [crash reports](files.md#crash-reports) you haven't seen, whether or not the engine is running. Exits with 1 only if the engine isn't running. |
+| `obm status` | Shows whether the engine is running, and if so its version, any newer one installed since that runs once it's restarted, its process ID, how long it's been up, what started it, its data folder, where secrets are kept, and any errors or warnings in `config.toml`. An error in an edit leaves the engine using the last good settings until it's fixed, so it's still running. Then it lists any [crash reports](files.md#crash-reports) you haven't seen, whether or not the engine is running. Exits with 1 only if the engine isn't running. |
 | `obm service install` | macOS and Linux: starts the engine now and whenever you sign in, and again if it fails. See [The engine](#the-engine). |
 | `obm service uninstall` | macOS and Linux: stops the engine, and stops it starting when you sign in. |
 | `obm secrets migrate <store>` | Moves your secrets to another store, such as `file`, and keeps them there from now on, as [`secret-store`](settings.md#secret-store) says. It copies them all and checks each before removing them from the old store, so if anything goes wrong they're still where they were. The engine has to be running. |
@@ -117,6 +117,7 @@ With `--json`, `obm status`, `obm config reload`, `obm config validate` and `obm
 | `secrets.store` | Where secrets are kept, as [`secret-store`](settings.md#secret-store) names it. Left out until one is chosen. |
 | `secrets.file` | The file they're in, when `store` is `file`. |
 | `configProblems` | The errors and warnings in `config.toml`, from the engine's latest read of it. |
+| `installed` | The version an update installed, such as a newer `.deb` or `.rpm`, while the engine still runs the one before it. Left out otherwise. |
 
 It leaves out crash reports, which `obm crashes list --json` has.
 

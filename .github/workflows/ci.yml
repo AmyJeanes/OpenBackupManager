@@ -437,10 +437,12 @@ jobs:
           # The images run on x64 whatever they build for, and the Arm64 build is checked through QEMU
           - runtime: linux-x64
             platform: linux/amd64
+            arch: amd64
             cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-amd64@sha256:a99347c5b7a5c78f8c0642a69535e75315dba8c2909ddb567364e07dce6cd156
             sysroot: /crossrootfs/x64
           - runtime: linux-arm64
             platform: linux/arm64
+            arch: arm64
             cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-arm64@sha256:10999af8059a25e190fab3bb7c3728a67ea0ffc7964a6e4a51eab24a98b67d33
             sysroot: /crossrootfs/arm64
     defaults:
@@ -449,6 +451,7 @@ jobs:
     env:
       TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       RUNTIME: ${{ matrix.runtime }}
+      DEBIAN: debian:12-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -500,7 +503,6 @@ jobs:
       # distros have, so it's installed first
       - name: Check it runs on older distros
         env:
-          DEBIAN: debian:12-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
           RHEL: registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:4b79c93106c14ad1c234907f83441ff0e4f8d24e78426a36e159098e9f7e6fa5
         run: |
           check() {
@@ -510,6 +512,44 @@ jobs:
           check "$DEBIAN" 'apt-get update -qq && apt-get install -qq -y --no-install-recommends libicu72 libssl3 > /dev/null'
           check "$RHEL" 'microdnf install -y libicu openssl-libs > /dev/null'
 
+      # And an older one of each from the same programs, to upgrade from below. Its obmd is dated earlier, as an older
+      # build's would be, so the engine can tell it's been replaced
+      - name: Make the .deb and .rpm
+        env:
+          NFPM: goreleaser/nfpm:v2.48.0@sha256:d57a1452e7a019896b355f7b1ec67262278f6c503631f652d4fce7aef9ac8df7
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p older/publish
+          cp publish/obm publish/obmd publish/THIRD-PARTY-NOTICES.txt older/publish
+          cp LICENSE nfpm.yaml older
+          touch --date 2000-01-01 older/publish/obmd
+
+          pack() {
+              for packager in deb rpm; do
+                  docker run --rm --volume "$PWD:/source" --workdir "/source/$1" --env VERSION="$2" --env ARCH "$NFPM" \
+                      package --config nfpm.yaml --packager $packager --target "$3.$packager"
+              done
+          }
+          pack . "$VERSION" "OpenBackupManager-$VERSION-$RUNTIME"
+          pack older 0.0.0 older
+
+      - name: Check they install and upgrade
+        env:
+          UBUNTU_24: ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+          UBUNTU_26: ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
+          RHEL: registry.access.redhat.com/ubi9/ubi:latest@sha256:1963e00991088221a3405be7eb315a3dbc0be0f1f7440f0bd537d481cf33c83e
+          FEDORA: fedora:45@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
+        run: |
+          check() {
+              docker run --rm --platform ${{ matrix.platform }} --volume "$PWD:/source:ro" --workdir /source "$1" \
+                  sh .github/scripts/test-package.sh "OpenBackupManager-$VERSION-$RUNTIME.$2" "older/older.$2"
+          }
+          check "$DEBIAN" deb
+          check "$UBUNTU_24" deb
+          check "$UBUNTU_26" deb
+          check "$RHEL" rpm
+          check "$FEDORA" rpm
+
       # Checked with gh attestation verify, as are the programs once unpacked, since they're the same files
       - name: Attest
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
@@ -518,20 +558,28 @@ jobs:
             publish/obmd
             publish/obm
             OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.deb
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.rpm
 
       - name: Upload the edge build
         if: ${{ !env.TAG }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: OpenBackupManager-edge-${{ env.VERSION }}-${{ matrix.runtime }}
-          path: OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+          path: |
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.deb
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.rpm
 
       - name: Hand over to the release job
         if: env.TAG
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: tarball-${{ matrix.runtime }}
-          path: OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+          path: |
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.tar.gz
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.deb
+            OpenBackupManager-${{ env.VERSION }}-${{ env.RUNTIME }}.rpm
           retention-days: 1
 
   # Only pushed from main and version tags. release-published.yml moves latest
@@ -663,8 +711,8 @@ jobs:
                   --outputDir "built/releases-$runtime"
           done
 
-      - name: Upload the macOS and Linux tarballs
-        run: gh release upload "$TAG" built/tarball-*/*.tar.gz --repo "$GITHUB_REPOSITORY"
+      - name: Upload the macOS and Linux tarballs, and the .deb and .rpm
+        run: gh release upload "$TAG" built/tarball-*/* --repo "$GITHUB_REPOSITORY"
 
   all-checks:
     name: All checks
