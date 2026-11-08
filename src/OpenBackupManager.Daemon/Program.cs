@@ -78,6 +78,8 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
         return 1;
     }
 
+    // Not waited for: whatever started it starts it again, so something reading the file for a moment costs a restart,
+    // and a service manager sees quick failures and gives up while another engine holds it
     if (taken is null)
     {
         await Console.Error.WriteLineAsync("obmd: the engine is already running");

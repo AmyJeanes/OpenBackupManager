@@ -112,7 +112,8 @@ internal sealed class SystemdService(
             "",
             "[Service]",
             "ExecStart=" + string.Join(' ', Arguments.Select(argument => Quote(argument, isCommand: true))),
-            // So systemctl reload waits for the engine, and fails when config.toml has an error
+            // So systemctl reload waits for the engine, as systemd's docs ask, and fails when config.toml has an error
+            // (https://www.freedesktop.org/software/systemd/man/258/systemd.service.html#ExecReload=)
             "ExecReload=" + string.Join(' ', ReloadArguments.Select(argument => Quote(argument, isCommand: true))),
         };
         lines.AddRange(Variables("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME").Select(variable => "Environment=" + Quote($"{variable.Name}={variable.Value}", isCommand: false)));

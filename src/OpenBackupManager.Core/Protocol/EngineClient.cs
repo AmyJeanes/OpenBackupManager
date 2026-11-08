@@ -39,6 +39,7 @@ public sealed class EngineClient : IDisposable
     {
         // .NET's own check on Windows expects the pipe to belong to whoever owns what this process makes, which when it's
         // elevated is Administrators rather than the user, so obm in an admin terminal couldn't reach the engine
+        // (https://github.com/dotnet/runtime/issues/123903)
         var options = PipeOptions.Asynchronous | (OperatingSystem.IsWindows() ? PipeOptions.None : PipeOptions.CurrentUserOnly);
         var pipe = new NamedPipeClientStream(".", EngineSocket.Name(paths), PipeDirection.InOut, options);
         try

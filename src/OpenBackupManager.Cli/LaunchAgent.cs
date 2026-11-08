@@ -10,6 +10,7 @@ internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<st
     : EngineService(home, obmd, obm, environment)
 {
     // Longer than launchd gives a job to exit before it kills it, 20 seconds unless ExitTimeOut says otherwise
+    // (https://github.com/apple-oss-distributions/launchd/blob/launchd-842.92.1/man/launchd.plist.5#L230-L233)
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(30);
 
     public string Label => HomeKey is null ? "io.github.amyjeanes.openbackupmanager.engine" : $"io.github.amyjeanes.openbackupmanager.engine.{HomeKey}";

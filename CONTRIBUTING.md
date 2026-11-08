@@ -9,7 +9,7 @@ Open Backup Manager is a cross-platform backup and two-way sync app. Our own syn
 - **One focused change per pull request**, small enough to review in one sitting: a feature slice, a fix, a refactor or a set of tests. No large scaffolds or dumps of generated code.
 - **Green before review.** Build, tests and format checks pass. CI runs them on every pull request.
 - **Check the Windows app by hand.** Changes to its windows or tray also need the [checks by hand](docs/design/windows-app.md#checking-by-hand), since CI can't see display scaling or effects.
-- **Update the design doc.** Each area of the app has `docs/design/<area>.md` once it's implemented: how it works, why (decisions, rejected alternatives, evidence) and accepted limits that shouldn't be "fixed". Read it before changing that area, and update it in the same pull request. List new docs in [docs/design/README.md](docs/design/README.md).
+- **Update the design doc.** Each area of the app has `docs/design/<area>.md` once it's built. It records what the code can't show: decisions and why, rejected alternatives, accepted limits that shouldn't be "fixed", and traps. Read it before changing that area, and update it in the same pull request. [Design docs](docs/design/README.md) says what goes in one.
 - **Update the user guide.** If a change affects what people see or do, update its page in [`docs/guide/`](docs/guide/README.md) in the same pull request. A new page also goes in `nav` in `docs/zensical.toml`, or it's left out of the site's sidebar.
 
 ## Real data stays safe

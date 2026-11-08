@@ -252,6 +252,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         return Ending(reader.ReadToEnd());
     }
 
+    // coredumpctl is only named, not read, as its stacks for obmd are addresses with no names
     private static string? WhereToLook(Run run) =>
         OperatingSystem.IsMacOS() ? "If it ran as a service, /var/log/com.apple.xpc.launchd/launchd.log may say what closed it."
         : KeepsCoreDumps() ? string.Create(CultureInfo.InvariantCulture, $"If it crashed, coredumpctl info {run.ProcessId} may say more.")

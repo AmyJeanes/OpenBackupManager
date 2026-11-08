@@ -14,7 +14,8 @@ internal sealed class WindowsShutdownHandler : IDisposable
 {
     private const int CtrlCloseEvent = 2;
 
-    // Windows' limit when the console closes. Signing out waits longer, but shows its screen of apps preventing it
+    // About when Windows ends the process after its console closes, or the user signs out, shuts down or restarts,
+    // measured in Windows Sandbox (Nov 2026; https://learn.microsoft.com/en-us/windows/console/handlerroutine#timeouts)
     private static readonly TimeSpan Allowed = TimeSpan.FromSeconds(5);
 
     private readonly IHostApplicationLifetime _lifetime;

@@ -22,6 +22,7 @@ public static partial class Redaction
         var start = net < 0 ? 0 : end < 0 ? report.Length : end + 1;
 
         var details = Password().Replace(report[start..], "<removed>");
+        // Every value, as .NET's own HttpClient logs do, rather than guessing which names hold tokens
         details = Query().Replace(details, match => match.Groups["address"].Value + "?" + string.Join('&', match.Groups["query"].Value
             .Split('&')
             .Select(part => part.Length == 0 ? part : part.Split('=', 2) is [var name, _] ? name + "=<removed>" : "<removed>")));

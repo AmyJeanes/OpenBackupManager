@@ -10,7 +10,8 @@ homepage: https://github.com/AmyJeanes/OpenBackupManager
 license: MIT
 section: utils
 
-# A folder of its own, so the programs that come with it later never clash with the distro's
+# A folder of its own, so the programs that come with it later never clash with the distro's, and the path a service
+# runs stays the same through upgrades. apt and dnf make and remove the links in /usr/bin with the rest
 contents:
   - dst: /usr/lib/openbackupmanager
     type: dir
@@ -47,6 +48,7 @@ contents:
 # What .NET needs. Every ICU the .deb has been checked with, as Microsoft's dotnet-runtime-deps does. libssl3t64, on
 # newer distros, provides libssl3. The .rpm asks for OpenSSL 3 by its library, as Fedora's own .NET does, since Fedora
 # 45's openssl-libs is OpenSSL 4, which .NET can't use, and openssl3-libs has 3
+# (https://fedoraproject.org/wiki/Changes/OpenSSL40)
 overrides:
   deb:
     depends:
