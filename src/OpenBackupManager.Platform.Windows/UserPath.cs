@@ -6,7 +6,8 @@ using Windows.Win32.UI.WindowsAndMessaging;
 namespace OpenBackupManager.Platform.Windows;
 
 // Adds a folder to the user's PATH, which needs no admin rights. Everything else in it is kept exactly as it was
-// written, such as %USERPROFILE%\bin, and the value keeps its type, so those still expand
+// written, such as %USERPROFILE%\bin, and the value keeps its type, so those still expand. Not .NET's own
+// SetEnvironmentVariable, which expands them and writes a plain string (https://github.com/dotnet/runtime/issues/1442)
 public static class UserPath
 {
     private const string UserEnvironmentKey = "Environment";

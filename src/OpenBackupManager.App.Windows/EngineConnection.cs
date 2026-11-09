@@ -184,7 +184,8 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
     }
 
     // Through the shell, so it inherits none of the app's handles, which would keep whatever started the app waiting
-    // for the engine too, and with its console hidden
+    // for the engine too, and with its console hidden. .NET 11's ProcessStartInfo.InheritedHandles can do it instead
+    // (https://github.com/dotnet/runtime/issues/13943)
     private Process StartEngine()
     {
         var obmd = Path.Combine(AppContext.BaseDirectory, "obmd.exe");

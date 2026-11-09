@@ -675,6 +675,7 @@ jobs:
           tags=(--tag "$image:$VERSION")
           if [ -z "$TAG" ]; then tags+=(--tag "$image:edge"); fi
           # GHCR lists Buildx's own provenance as an unknown/unknown platform, and the attestation below covers it anyway
+          # (https://github.com/orgs/community/discussions/45969)
           docker buildx build --platform linux/amd64,linux/arm64 --file Dockerfile "${tags[@]}" \
               --label "org.opencontainers.image.version=$VERSION" --label "org.opencontainers.image.revision=$GITHUB_SHA" \
               --annotation "index:org.opencontainers.image.description=Open Backup Manager's engine, for a NAS or home server" \

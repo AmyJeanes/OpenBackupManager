@@ -4,7 +4,7 @@ namespace OpenBackupManager.App.Windows;
 
 // The UI thread's synchronization context, which async code resumes on and the app queues its own UI work through.
 // DispatcherQueue ends the app as soon as an error leaves one of its callbacks, without WinUI or .NET reporting it, so
-// this reports it first
+// this reports it first (https://github.com/microsoft/microsoft-ui-xaml/issues/8940)
 internal sealed class UiSynchronizationContext(DispatcherQueue queue, CrashCapture crashes) : SynchronizationContext
 {
     // The one place work is queued directly, which BannedSymbols.txt stops anywhere else

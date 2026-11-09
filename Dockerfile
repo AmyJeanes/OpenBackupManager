@@ -13,6 +13,7 @@ COPY <<EOF /app/installed-by
 docker
 EOF
 # No Secret Service in a container. The check skipped at the top takes OBM_SECRET_STORE for a secret by its name
+# (https://github.com/moby/buildkit/issues/5775)
 ENV PATH="/app:${PATH}" \
     OBM_HOME=/config \
     OBM_SECRET_STORE=file

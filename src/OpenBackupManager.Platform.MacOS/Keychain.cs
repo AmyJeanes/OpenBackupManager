@@ -15,6 +15,7 @@ public sealed class Keychain(string prefix, string file) : ISecretStore
     public static readonly string Login = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Keychains", "login.keychain-db");
 
     // security -i reads up to 4,095 bytes of a line and runs the rest as another command, so the newline must fit too
+    // https://github.com/apple-oss-distributions/Security/blob/Security-61901.120.67/SecurityTool/macOS/security.c#L79
     internal const int MaxCommand = 4094;
 
     // errSecItemNotFound, and errSecInteractionNotAllowed for a keychain locked where the tool can't ask to unlock it,
