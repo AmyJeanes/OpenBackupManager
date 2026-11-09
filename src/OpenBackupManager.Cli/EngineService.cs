@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using OpenBackupManager.Core;
 
 namespace OpenBackupManager.Cli;
 
@@ -77,7 +78,7 @@ internal abstract class EngineService(string? home, string obmd, string obm, Fun
     // Its exit code and everything it printed
     protected static (int ExitCode, string Output) TryRun(string program, params string[] arguments)
     {
-        var start = new ProcessStartInfo(program, arguments)
+        var start = new ProcessStartInfo(SystemPrograms.Find(program), arguments)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,

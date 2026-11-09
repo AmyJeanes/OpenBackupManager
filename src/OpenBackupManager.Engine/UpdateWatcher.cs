@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Engine;
@@ -19,7 +20,7 @@ public sealed partial class UpdateWatcher(
     // EX_TEMPFAIL, which the service restarts without counting as a failure
     public const int RestartExitCode = 75;
 
-    // Checked rather than watched, as macOS's file events can miss a file replaced soon after it was made
+    // Checked rather than watched: works on every file system, and a file still being written needs a timer anyway
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
 
     private static readonly TimeSpan VersionTimeout = TimeSpan.FromSeconds(10);
@@ -120,7 +121,7 @@ public sealed partial class UpdateWatcher(
     {
         try
         {
-            var start = new ProcessStartInfo("systemctl", ["--user", .. arguments])
+            var start = new ProcessStartInfo(SystemPrograms.Find("systemctl"), ["--user", .. arguments])
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

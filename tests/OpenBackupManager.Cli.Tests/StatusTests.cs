@@ -74,6 +74,28 @@ public class StatusTests
         }
     }
 
+    // .NET looks for a bare name in the current folder first, so a program of the same name there would run instead
+    [Test]
+    [Platform("Linux")]
+    [SupportedOSPlatform("linux")]
+    public void NoEngine_DoesntRunAProgramInTheCurrentFolder()
+    {
+        var folder = Path.Combine(_home, "here");
+        Directory.CreateDirectory(folder);
+        var planted = Path.Combine(folder, "systemctl");
+        File.WriteAllText(planted, "#!/bin/sh\ntouch \"$0.ran\"\n");
+        File.SetUnixFileMode(planted, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+
+        var (exitCode, output) = Tool.RunIn(folder, "obm", "status", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1), output);
+            Assert.That(output, Does.Contain("the engine isn't running"));
+            Assert.That(planted + ".ran", Does.Not.Exist);
+        }
+    }
+
     [Test]
     public void SaysTheAppStartedIt()
     {

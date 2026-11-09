@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using OpenBackupManager.Core;
 
 namespace OpenBackupManager.Cli;
 
@@ -18,7 +19,7 @@ internal static class Browser
     public static bool TryOpen(string link)
     {
         var start = OperatingSystem.IsWindows() ? new ProcessStartInfo(link) { UseShellExecute = true }
-            : new ProcessStartInfo(OperatingSystem.IsMacOS() ? "open" : "xdg-open", [link]);
+            : new ProcessStartInfo(SystemPrograms.Find(OperatingSystem.IsMacOS() ? "open" : "xdg-open"), [link]);
         try
         {
             using var process = Process.Start(start);

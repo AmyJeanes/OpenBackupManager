@@ -126,7 +126,7 @@ public sealed class Keychain(string prefix, string file) : ISecretStore
     private static async Task<(int ExitCode, string Output, string Error)> SecurityAsync(
         string action, string name, string? input, string[] arguments, CancellationToken cancellationToken)
     {
-        var start = new ProcessStartInfo("/usr/bin/security")
+        var start = new ProcessStartInfo(SystemPrograms.Find("security"))
         {
             RedirectStandardInput = input is not null,
             RedirectStandardOutput = true,

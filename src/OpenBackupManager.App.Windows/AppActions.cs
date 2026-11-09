@@ -93,7 +93,7 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
     }
 
     // Opens the folder with the file selected, since .toml files often have no app to open them
-    public void ShowConfigFile() => Process.Start("explorer.exe", $"/select,\"{_paths.ConfigFile}\"")?.Dispose();
+    public void ShowConfigFile() => Process.Start(SystemPrograms.Find("explorer.exe"), $"/select,\"{_paths.ConfigFile}\"")?.Dispose();
 
     // The installed copies, which match this version, unlike GitHub's, which can list what this version doesn't have
     public void ShowLicence() => OpenBesideTheApp("LICENSE.txt");

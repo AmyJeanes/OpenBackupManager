@@ -65,7 +65,17 @@ internal sealed class Tool : IDisposable
     public static Tool Start(string name, params string[] args) => Start(name, new Dictionary<string, string>(), args);
 
     // With these environment variables set too
-    public static Tool Start(string name, IReadOnlyDictionary<string, string> environment, params string[] args)
+    public static Tool Start(string name, IReadOnlyDictionary<string, string> environment, params string[] args) =>
+        StartIn(null, name, environment, args);
+
+    // Run from this folder rather than the tests'
+    public static (int ExitCode, string Output) RunIn(string folder, string name, params string[] args)
+    {
+        using var tool = StartIn(folder, name, new Dictionary<string, string>(), args);
+        return (tool.WaitForExit(), tool.Output);
+    }
+
+    private static Tool StartIn(string? folder, string name, IReadOnlyDictionary<string, string> environment, string[] args)
     {
         var file = OperatingSystem.IsWindows() ? name + ".exe" : name;
         var path = Path.IsPathRooted(name) ? name
@@ -79,6 +89,7 @@ internal sealed class Tool : IDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+            WorkingDirectory = folder ?? "",
         };
         start.Environment.Remove("OBM_HOME");
         foreach (var (variable, value) in environment)

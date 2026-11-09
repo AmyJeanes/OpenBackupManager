@@ -24,7 +24,7 @@ internal static class Journal
     // Null if it isn't there, as without systemd, or doesn't finish in time
     internal static (string Output, string Errors)? Run(TimeSpan timeout, params string[] arguments)
     {
-        var start = new ProcessStartInfo("journalctl", arguments)
+        var start = new ProcessStartInfo(SystemPrograms.Find("journalctl"), arguments)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
