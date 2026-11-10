@@ -80,6 +80,8 @@ public class ConfigFileTests
     [TestCase("version = 0", 1, "version should be 1 or more")]
     [TestCase("[remotes]\nid = \"a\"", 1, "remotes should be [[remotes]]")]
     [TestCase("[[updates]]\nprereleases = true", 1, "updates should be [updates]")]
+    [TestCase("version = 1\nupdates = { automatic = false }", 2, "updates should be [updates]")]
+    [TestCase("remotes = { id = \"a\" }", 1, "remotes should be [[remotes]]")]
     [TestCase("[[remotes]]\nname = \"A\"", 1, "each [[remotes]] needs an id")]
     [TestCase("[[remotes]]\nid = \"a\"\n[[remotes]]\nid = \"a\"", 4, "the remote id \"a\" is used twice")]
     public void Parse_Mistake_IsAnErrorNamingTheLine(string text, int line, string message)
@@ -207,6 +209,28 @@ public class ConfigFileTests
     public void Parse_AnEmptyEnvVar_IsLeftOut() =>
         Assert.That(ConfigFile.Parse("secret-store = \"file\"", EnvVars(("OBM_SECRET_STORE", ""))).Config!.SecretStore, Is.EqualTo("file"));
 
+    // Hand-written files often end without a line break, which editors such as VS Code and Notepad leave out
+    [TestCase("version = 1")]
+    [TestCase("version = 1 # mine")]
+    public void Parse_AnEnvVar_AfterALastLineWithNoLineBreak(string text) =>
+        Assert.That(ConfigFile.Parse(text, EnvVars(("OBM_SECRET_STORE", "file"))).Config!.SecretStore, Is.EqualTo("file"));
+
+    [Test]
+    public void Parse_AnEnvVar_InAnEmptySection() =>
+        Assert.That(ConfigFile.Parse("version = 1\n[updates]\n", EnvVars(("OBM_UPDATES_AUTOMATIC", "false"))).Config!.Updates.Automatic, Is.False);
+
+    [Test]
+    public void Parse_AnEnvVar_BesideASectionsDottedKeys()
+    {
+        var result = ConfigFile.Parse("updates.automatic = false\n", EnvVars(("OBM_UPDATES_PRERELEASES", "true")));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Config!.Updates.Automatic, Is.False);
+            Assert.That(result.Config.Updates.Prereleases, Is.True);
+        }
+    }
+
     [TestCase("OBM_UPDATES_AUTOMATIC", "maybe", "updates.automatic should be true or false")]
     [TestCase("OBM_SECRET_STORE", "vault", "secret-store should be one of: {stores}")]
     public void Parse_AnEnvVarWithAMistake_IsAnErrorNamingIt(string envVar, string value, string message)
@@ -241,6 +265,30 @@ public class ConfigFileTests
         Assert.That(
             ConfigFile.Edit("version = 1\n\n[updates]\nprereleases = true\n", null, "start-at-login", false),
             Is.EqualTo("version = 1\nstart-at-login = false\n\n[updates]\nprereleases = true\n"));
+
+    [TestCase("version = 1", "version = 1\nsecret-store = \"file\"\n")]
+    [TestCase("version = 1 # mine", "version = 1 # mine\nsecret-store = \"file\"\n")]
+    public void Edit_AddsAfterALastLineWithNoLineBreak(string text, string edited) =>
+        Assert.That(ConfigFile.Edit(text, null, "secret-store", "file"), Is.EqualTo(edited));
+
+    [Test]
+    public void Edit_AddsToTheEndOfASectionWithNoLineBreak() =>
+        Assert.That(ConfigFile.Edit("[updates]\nautomatic = false", "updates", "prereleases", true), Is.EqualTo("[updates]\nautomatic = false\nprereleases = true\n"));
+
+    [TestCase("version = 1\n\n# about updates\n[updates]\n# none yet\n", "version = 1\n\n# about updates\n[updates]\nautomatic = false\n# none yet\n")]
+    [TestCase("[updates]", "[updates]\nautomatic = false\n")]
+    public void Edit_AddsToAnEmptySection(string text, string edited) =>
+        Assert.That(ConfigFile.Edit(text, "updates", "automatic", false), Is.EqualTo(edited));
+
+    [Test]
+    public void Edit_AddsBesideASectionsDottedKeys() =>
+        Assert.That(
+            ConfigFile.Edit("version = 1\nupdates.automatic = false\n", "updates", "prereleases", true),
+            Is.EqualTo("version = 1\nupdates.automatic = false\nupdates.prereleases = true\n"));
+
+    [Test]
+    public void Edit_ChangesADottedKey() =>
+        Assert.That(ConfigFile.Edit("updates.automatic = false\n", "updates", "automatic", true), Is.EqualTo("updates.automatic = true\n"));
 
     [Test]
     public void Edit_RemovesASetting() =>
@@ -358,6 +406,7 @@ public class ConfigFileTests
 
     [TestCase("version = 1\nprereleases = tru\n", "can't be changed until it's fixed")]
     [TestCase("version = 2\n", "newer version")]
+    [TestCase("updates = { automatic = false }\n", "updates should be [updates]")]
     public void Set_LeavesTheFileAlone_WhenItCantBeChanged(string text, string reason)
     {
         File.WriteAllText(FilePath, text);

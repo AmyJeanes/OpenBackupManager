@@ -86,7 +86,7 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
         }
         catch (TomlException e)
         {
-            // Only for shapes the checks above leave alone, such as a section written as an inline table
+            // Only for shapes the checks above leave alone
             problems.Add(new ConfigProblem(e.Line ?? 1, ConfigProblemKind.Toml, IsError: true, e.Message));
             return new ConfigResult(null, problems);
         }
@@ -127,8 +127,10 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
     {
         var document = SyntaxParser.Parse(text);
         var section = table is null ? null : document.Tables.OfType<TableSyntax>().FirstOrDefault(t => Name(t.Name) == table);
-        IEnumerable<KeyValueSyntax> items = table is null ? document.KeyValues : section?.Items ?? [];
-        var existing = items.FirstOrDefault(kv => Name(kv.Key) == key);
+        // A section's settings can also be written at the top as dotted keys, such as updates.automatic = false
+        var path = table is null ? key : $"{table}.{key}";
+        var existing = section?.Items.FirstOrDefault(kv => Name(kv.Key) == key)
+            ?? document.KeyValues.FirstOrDefault(kv => Name(kv.Key) == path);
         if (existing is not null)
         {
             if (value is null)
@@ -152,15 +154,29 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
 
         var newLine = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
         var line = $"{key} = {Value(value)}{newLine}";
+
+        // On a line of its own after the node, even when the file's last line has no line break
+        string After(SyntaxNode node, string added)
+        {
+            var end = LineEnd(text, node.Span.End.Offset);
+            return text.Insert(end, end == text.Length && !text.EndsWith('\n') ? newLine + added : added);
+        }
+
         if (table is null)
         {
-            return document.KeyValues.LastOrDefault() is { } last ? text.Insert(LineEnd(text, last.Span.End.Offset), line) : line + text;
+            return document.KeyValues.LastOrDefault() is { } last ? After(last, line) : line + text;
         }
 
         if (section is not null)
         {
-            var after = section.Items.LastOrDefault() is { } lastItem ? lastItem.Span.End.Offset : section.Span.Start.Offset;
-            return text.Insert(LineEnd(text, after), line);
+            // An empty section's header is where its settings start
+            return section.Items.LastOrDefault() is { } lastItem ? After(lastItem, line)
+                : After(section.CloseBracket!, line);
+        }
+
+        if (document.KeyValues.LastOrDefault(kv => Name(kv.Key).StartsWith(table + ".", StringComparison.Ordinal)) is { } dotted)
+        {
+            return After(dotted, $"{path} = {Value(value)}{newLine}");
         }
 
         var ending = text.Length == 0 || text.EndsWith('\n') ? "" : newLine;
@@ -236,9 +252,11 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
             return;
         }
 
-        // A section written as a dotted key or inline table is left to the reader
+        // A section on one line, as updates = { ... }, has to be [updates], where each of its settings is checked
         if (setting.IsSection)
         {
+            problems.Add(new ConfigProblem(
+                Line(kv), setting.Kind == SettingKind.SectionList ? ConfigProblemKind.ShouldBeTableArray : ConfigProblemKind.ShouldBeTable, IsError: true, path));
             return;
         }
 
