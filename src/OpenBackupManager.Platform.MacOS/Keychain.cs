@@ -138,6 +138,8 @@ public sealed class Keychain(string prefix, string file) : ISecretStore
         }
 
         using var process = Process.Start(start)!;
+        using var stdout = process.StandardOutput;
+        using var stderr = process.StandardError;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(Timeout);
         try
@@ -148,8 +150,8 @@ public sealed class Keychain(string prefix, string file) : ISecretStore
                 process.StandardInput.Close();
             }
 
-            var error = process.StandardError.ReadToEndAsync(timeout.Token);
-            var output = await process.StandardOutput.ReadToEndAsync(timeout.Token);
+            var error = stderr.ReadToEndAsync(timeout.Token);
+            var output = await stdout.ReadToEndAsync(timeout.Token);
             await process.WaitForExitAsync(timeout.Token);
             return (process.ExitCode, output, await error);
         }

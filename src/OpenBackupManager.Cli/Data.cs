@@ -152,8 +152,10 @@ internal static class Data
             RedirectStandardError = true,
         };
         using var process = Process.Start(start)!;
-        var errors = process.StandardError.ReadToEndAsync();
-        Console.Write(process.StandardOutput.ReadToEnd());
+        using var stdout = process.StandardOutput;
+        using var stderr = process.StandardError;
+        var errors = stderr.ReadToEndAsync();
+        Console.Write(stdout.ReadToEnd());
         process.WaitForExit();
         Console.Error.Write(errors.Result);
         return process.ExitCode;

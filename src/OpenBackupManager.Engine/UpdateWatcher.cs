@@ -127,8 +127,10 @@ public sealed partial class UpdateWatcher(
                 RedirectStandardError = true,
             };
             using var process = Process.Start(start)!;
-            var output = process.StandardOutput.ReadToEndAsync();
-            var errors = process.StandardError.ReadToEndAsync();
+            using var stdout = process.StandardOutput;
+            using var stderr = process.StandardError;
+            var output = stdout.ReadToEndAsync();
+            var errors = stderr.ReadToEndAsync();
             if (!process.WaitForExit(VersionTimeout))
             {
                 process.Kill();
@@ -162,8 +164,10 @@ public sealed partial class UpdateWatcher(
         try
         {
             using var process = Process.Start(start)!;
-            var errors = process.StandardError.ReadToEndAsync();
-            var output = process.StandardOutput.ReadToEndAsync();
+            using var stdout = process.StandardOutput;
+            using var stderr = process.StandardError;
+            var errors = stderr.ReadToEndAsync();
+            var output = stdout.ReadToEndAsync();
             if (!process.WaitForExit(VersionTimeout))
             {
                 process.Kill();
