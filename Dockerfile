@@ -1,7 +1,7 @@
 # check=skip=SecretsUsedInArgOrEnv
 # CI's package-docker job builds it from the Linux tarballs, unpacked into amd64/ and arm64/. The base's own non-root
 # user runs obmd, unless Docker's user picks another
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled-extra@sha256:56b6c354a140e50e09d45a397b43f9f9d31012c325020239e602e06d1594f8ff
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled-extra@sha256:bf8715422b59a65719605d4fe2b8f3f0eb96209b84cb2ed6bf3b5af7d879f148
 
 ARG TARGETARCH
 LABEL org.opencontainers.image.source="https://github.com/AmyJeanes/OpenBackupManager" \
