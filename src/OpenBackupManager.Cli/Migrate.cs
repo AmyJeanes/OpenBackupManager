@@ -15,7 +15,7 @@ internal static class Migrate
             using var engine = await EngineClient.ConnectAsync(paths, cancellationToken);
             if (engine is null)
             {
-                await Console.Error.WriteLineAsync("obm: the engine isn't running. Start it, then run this again");
+                await Console.Error.WriteLineAsync("obm: the engine isn't running. Start it, then run this again", cancellationToken);
                 return 1;
             }
 
@@ -29,7 +29,7 @@ internal static class Migrate
             if (result.Left.Count > 0)
             {
                 await Console.Error.WriteLineAsync(
-                    $"obm: {Where(result.From!, result)} still has {string.Join(", ", result.Left)}, which couldn't be removed from it. Remove them there by hand");
+                    $"obm: {Where(result.From!, result)} still has {string.Join(", ", result.Left)}, which couldn't be removed from it. Remove them there by hand", cancellationToken);
                 return 1;
             }
 
@@ -37,7 +37,7 @@ internal static class Migrate
         }
         catch (EngineException e)
         {
-            await Console.Error.WriteLineAsync("obm: " + e.Message);
+            await Console.Error.WriteLineAsync("obm: " + e.Message, cancellationToken);
             return 1;
         }
     }

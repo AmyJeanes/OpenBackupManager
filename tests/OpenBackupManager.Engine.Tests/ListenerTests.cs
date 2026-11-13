@@ -367,7 +367,7 @@ public class ListenerTests
         {
             await _writer.WriteLineAsync(line);
             var response = await ReadLineAsync() ?? throw new AssertionException("The engine closed the connection");
-            return JsonDocument.Parse(response).RootElement;
+            return JsonElement.Parse(response);
         }
 
         public async Task<string?> ReadLineAsync()

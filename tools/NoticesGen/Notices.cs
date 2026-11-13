@@ -49,7 +49,7 @@ public static class Notices
     {
         using var assets = JsonDocument.Parse(File.ReadAllText(assetsFile));
         var root = assets.RootElement;
-        // Restoring for a runtime adds a target for the framework and runtime together, such as net10.0/linux-x64,
+        // Restoring for a runtime adds a target for the framework and runtime together, such as net11.0/linux-x64,
         // where each package's files are those for that runtime alone
         var targets = root.GetProperty("targets").EnumerateObject()
             .Where(target => target.Name.EndsWith($"/{runtime}", StringComparison.Ordinal))

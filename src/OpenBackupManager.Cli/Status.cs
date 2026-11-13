@@ -36,7 +36,7 @@ internal static class Status
                 await error.WriteLineAsync(
                     service is { SwitchedOff: true } ? $"obm: the engine isn't running, as obmd is switched off in {service.WhereToSwitchOn}. Switching it on there starts it"
                     : service is { IsInstalled: true } ? $"obm: the engine isn't running, though it's installed as a service. {service.HowToCheck} might say why"
-                    : "obm: the engine isn't running");
+                    : "obm: the engine isn't running", cancellationToken);
                 return 1;
             }
 
@@ -77,7 +77,7 @@ internal static class Status
         }
         catch (EngineException e)
         {
-            await error.WriteLineAsync("obm: " + e.Message);
+            await error.WriteLineAsync("obm: " + e.Message, cancellationToken);
             return 1;
         }
     }

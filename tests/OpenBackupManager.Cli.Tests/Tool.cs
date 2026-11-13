@@ -89,6 +89,8 @@ internal sealed class Tool : IDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+            // Windows opens a console window for each otherwise, when the test host has none of its own
+            CreateNoWindow = true,
             WorkingDirectory = folder ?? "",
         };
         start.Environment.Remove("OBM_HOME");

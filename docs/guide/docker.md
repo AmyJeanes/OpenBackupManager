@@ -1,6 +1,6 @@
 # Docker
 
-The engine, `obmd`, also comes as a Docker image, for a NAS or home server such as Unraid, Synology or TrueNAS. It has the same `obm` and `obmd` as the Linux downloads, for x64 and Arm64. Backing up isn't built yet, so for now the engine only runs and answers `obm`.
+The engine, `obmd`, also comes as a Docker image, for a NAS or home server such as Unraid, Synology or TrueNAS. It has the same `obm` and `obmd` as the Linux downloads, for x64 and Arm64. On x64 it needs a processor from about 2009 or newer (x86-64-v2), which leaves out some older Atom-based NAS boxes. Backing up isn't built yet, so for now the engine only runs and answers `obm`.
 
 !!! warning "Linux only"
 

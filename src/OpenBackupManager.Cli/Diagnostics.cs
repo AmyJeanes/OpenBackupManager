@@ -20,7 +20,7 @@ internal static class Diagnostics
         var file = Path.GetFullPath(output is null ? name : Directory.Exists(output) ? Path.Combine(output, name) : output);
         if (File.Exists(file))
         {
-            await Console.Error.WriteLineAsync($"obm: there's already a file at {file}");
+            await Console.Error.WriteLineAsync($"obm: there's already a file at {file}", cancellationToken);
             return 1;
         }
 
@@ -36,7 +36,7 @@ internal static class Diagnostics
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            await Console.Error.WriteLineAsync($"obm: {file} can't be saved: {e.Message}");
+            await Console.Error.WriteLineAsync($"obm: {file} can't be saved: {e.Message}", cancellationToken);
             return 1;
         }
 
@@ -67,7 +67,7 @@ internal static class Diagnostics
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             File.Delete(file);
-            await Console.Error.WriteLineAsync($"obm: {file} can't be saved: {e.Message}");
+            await Console.Error.WriteLineAsync($"obm: {file} can't be saved: {e.Message}", cancellationToken);
             return 1;
         }
 

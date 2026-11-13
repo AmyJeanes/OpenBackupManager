@@ -15,7 +15,7 @@ internal static class Config
             using var engine = await EngineClient.ConnectAsync(paths, cancellationToken);
             if (engine is null)
             {
-                await Console.Error.WriteLineAsync("obm: the engine isn't running, so there's nothing to reload");
+                await Console.Error.WriteLineAsync("obm: the engine isn't running, so there's nothing to reload", cancellationToken);
                 return 1;
             }
 
@@ -30,7 +30,7 @@ internal static class Config
         }
         catch (EngineException e)
         {
-            await Console.Error.WriteLineAsync("obm: " + e.Message);
+            await Console.Error.WriteLineAsync("obm: " + e.Message, cancellationToken);
             return 1;
         }
     }

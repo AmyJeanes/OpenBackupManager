@@ -54,7 +54,7 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
 === "Linux"
 
-    There's no app for Linux yet, but the command line, `obm`, and its engine, `obmd`, are ready to download from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), for Debian 12, RHEL 9 and anything newer. On an Arm computer, such as a Raspberry Pi with a 64-bit system, use the `linux-arm64` downloads.
+    There's no app for Linux yet, but the command line, `obm`, and its engine, `obmd`, are ready to download from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), for Debian 12, RHEL 9 and anything newer. On an Arm computer, such as a Raspberry Pi with a 64-bit system, use the `linux-arm64` downloads. The `linux-x64` ones need a processor from about 2009 or newer (x86-64-v2).
 
     1. Download the `.deb` for Debian and Ubuntu, or the `.rpm` for Fedora and RHEL, and install it:
 

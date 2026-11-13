@@ -30,9 +30,9 @@ public class NoticesTests
         var notices = Write(Assets(
             Package("Runs", License("MIT")),
             Package("Native", License("MIT"), kind: "native", file: "runtimes/linux-x64/native/libnative.so"),
-            Package("Translations", License("MIT"), kind: "resource", file: "lib/net10.0/de/Translations.resources.dll"),
+            Package("Translations", License("MIT"), kind: "resource", file: "lib/net11.0/de/Translations.resources.dll"),
             Package("Analyzer", License("MIT"), kind: "build", file: "build/Analyzer.targets"),
-            Package("Empty", License("MIT"), file: "lib/net10.0/_._")));
+            Package("Empty", License("MIT"), file: "lib/net11.0/_._")));
 
         using (Assert.EnterMultipleScope())
         {
@@ -58,7 +58,7 @@ public class NoticesTests
         var linux = Package("Tmds.DBus.Protocol", License("MIT"));
         var windows = Package("Microsoft.Win32.SystemEvents", License("MIT"));
         var assets = Assets(linux);
-        AddTarget(assets, "net10.0/win-x64", windows);
+        AddTarget(assets, "net11.0/win-x64", windows);
 
         var notices = Write(assets);
 
@@ -185,11 +185,11 @@ public class NoticesTests
     {
         var assets = new Dictionary<string, object>
         {
-            ["targets"] = new Dictionary<string, object> { ["net10.0"] = new Dictionary<string, object>() },
+            ["targets"] = new Dictionary<string, object> { ["net11.0"] = new Dictionary<string, object>() },
             ["libraries"] = new Dictionary<string, object>(),
             ["packageFolders"] = new Dictionary<string, object> { [Path.Combine(_folder, "packages") + Path.DirectorySeparatorChar] = new { } },
         };
-        AddTarget(assets, $"net10.0/{Runtime}", libraries);
+        AddTarget(assets, $"net11.0/{Runtime}", libraries);
         return assets;
     }
 
@@ -240,7 +240,7 @@ public class NoticesTests
             File.WriteAllText(Path.Combine(folder, name), text);
         }
 
-        return new Library($"{id}/1.0.0", path, type, kind, file ?? $"lib/net10.0/{id}.dll");
+        return new Library($"{id}/1.0.0", path, type, kind, file ?? $"lib/net11.0/{id}.dll");
     }
 
     private sealed record Library(string Name, string Path, string Type, string Kind, string File);

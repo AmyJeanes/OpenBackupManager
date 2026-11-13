@@ -15,7 +15,7 @@ internal static class SecretsRemoval
         using var engineLock = ProcessLock.TryTake("engine", paths);
         if (engineLock is null)
         {
-            await Console.Error.WriteLineAsync("obmd: the engine is running, so its secrets can't be removed");
+            await Console.Error.WriteLineAsync("obmd: the engine is running, so its secrets can't be removed", cancellationToken);
             return 1;
         }
 
@@ -45,11 +45,11 @@ internal static class SecretsRemoval
             }
             catch (SecretStoreLockedException)
             {
-                await Console.Error.WriteLineAsync($"obmd: {title} is locked, so any secrets kept there are still in it. Unlock it and run obm data remove again to remove them");
+                await Console.Error.WriteLineAsync($"obmd: {title} is locked, so any secrets kept there are still in it. Unlock it and run obm data remove again to remove them", cancellationToken);
             }
             catch (Exception e) when (e is InvalidOperationException or IOException or UnauthorizedAccessException)
             {
-                await Console.Error.WriteLineAsync($"obmd: couldn't look in {title}, so any secrets kept there may still be in it: {e.Message}");
+                await Console.Error.WriteLineAsync($"obmd: couldn't look in {title}, so any secrets kept there may still be in it: {e.Message}", cancellationToken);
             }
         }
 

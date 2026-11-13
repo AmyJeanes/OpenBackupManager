@@ -55,7 +55,7 @@ internal static class Service
         }
         catch (Exception e) when (e is ServiceException or EngineException)
         {
-            await Console.Error.WriteLineAsync("obm: " + e.Message);
+            await Console.Error.WriteLineAsync("obm: " + e.Message, cancellationToken);
             return 1;
         }
     }

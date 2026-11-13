@@ -54,13 +54,13 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
 {
     if (OperatingSystem.IsWindows() && RunningAs.AdministratorWithNormalTokenToo())
     {
-        await Console.Error.WriteLineAsync("obmd: this is running as administrator, so the tray app and obm in a normal terminal couldn't reach the engine. Run it again from a normal terminal");
+        await Console.Error.WriteLineAsync("obmd: this is running as administrator, so the tray app and obm in a normal terminal couldn't reach the engine. Run it again from a normal terminal", cancellationToken);
         return 1;
     }
 
     if (!OperatingSystem.IsWindows() && RunningAs.SwitchedFromAnotherUser())
     {
-        await Console.Error.WriteLineAsync("obmd: sudo or similar started this as another user, so the engine would run as them instead of you. Run it again without sudo");
+        await Console.Error.WriteLineAsync("obmd: sudo or similar started this as another user, so the engine would run as them instead of you. Run it again without sudo", cancellationToken);
         return 1;
     }
 
@@ -74,7 +74,7 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
     }
     catch (Exception e) when (e is IOException or UnauthorizedAccessException)
     {
-        await Console.Error.WriteLineAsync($"obmd: the engine can't keep its state in {paths.State}. {e.Message}");
+        await Console.Error.WriteLineAsync($"obmd: the engine can't keep its state in {paths.State}. {e.Message}", cancellationToken);
         return 1;
     }
 
@@ -82,7 +82,7 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
     // and a service manager sees quick failures and gives up while another engine holds it
     if (taken is null)
     {
-        await Console.Error.WriteLineAsync("obmd: the engine is already running");
+        await Console.Error.WriteLineAsync("obmd: the engine is already running", cancellationToken);
         return 1;
     }
 
@@ -95,7 +95,7 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
     }
     catch (ConfigException e)
     {
-        await Console.Error.WriteLineAsync($"obmd: {e.Message}. The engine won't start until it's fixed");
+        await Console.Error.WriteLineAsync($"obmd: {e.Message}. The engine won't start until it's fixed", cancellationToken);
         return 1;
     }
 
@@ -111,7 +111,7 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
     catch (EngineException e)
     {
         crashes.Stopped();
-        await Console.Error.WriteLineAsync("obmd: " + e.Message);
+        await Console.Error.WriteLineAsync("obmd: " + e.Message, cancellationToken);
         return 1;
     }
 

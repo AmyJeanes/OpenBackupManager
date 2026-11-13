@@ -114,6 +114,8 @@ jobs:
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
+          # For vpk, which runs on .NET 10 until Velopack releases one for 11
+          dotnet-version: 10.0.x
 
       - name: Restore tools
         run: dotnet tool restore
@@ -273,6 +275,8 @@ jobs:
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
+          # For vpk, which runs on .NET 10 until Velopack releases one for 11
+          dotnet-version: 10.0.x
 
       - name: Restore tools
         run: dotnet tool restore
@@ -436,11 +440,11 @@ jobs:
         include:
           - runtime: linux-x64
             arch: amd64
-            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-amd64@sha256:3d9b12839eb1352678e577c3fada879ea1e92fe5923da4d260786e7b6d7b0075
+            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-amd64@sha256:2c0ee3ba3023323cdeb5c8f6dc18de70dda1c34e1a36b212e931eee572bf49f4
             sysroot: /crossrootfs/x64
           - runtime: linux-arm64
             arch: arm64
-            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-arm64@sha256:15c15aac729f136bc69c32bdb2582324a226f19bcabf24cb4d283b1bacbc2ff9
+            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-arm64@sha256:ba8fcb1fd0b01a0909cbc61fdc5a2e7f03392159c5bc02218f64e6bd822e47f9
             sysroot: /crossrootfs/arm64
     defaults:
       run:
@@ -714,6 +718,8 @@ jobs:
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
+          # For vpk, which runs on .NET 10 until Velopack releases one for 11
+          dotnet-version: 10.0.x
 
       - name: Restore tools
         run: dotnet tool restore

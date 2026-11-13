@@ -38,7 +38,7 @@ internal static class Update
             var folder = Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory);
             if (HowToUpdateInstead(folder, current, newest.Version) is { } instead)
             {
-                await Console.Error.WriteLineAsync("obm: " + instead);
+                await Console.Error.WriteLineAsync("obm: " + instead, cancellationToken);
                 return check ? 0 : 1;
             }
 
@@ -92,7 +92,7 @@ internal static class Update
         }
         catch (Exception e) when (e is UpdateException or EngineException)
         {
-            await Console.Error.WriteLineAsync("obm: " + e.Message);
+            await Console.Error.WriteLineAsync("obm: " + e.Message, cancellationToken);
             return 1;
         }
     }

@@ -89,7 +89,7 @@ internal abstract class EngineService(string? home, string obmd, string obm, Fun
             using var process = Process.Start(start)!;
             // Disposing the process leaves open the streams it handed out, so each run would keep two files open until
             // a GC. Waiting for an engine to stop runs launchctl ten times a second, and macOS allows 256 open files
-            // (https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Diagnostics.Process/src/System/Diagnostics/Process.cs#L893)
+            // (https://github.com/dotnet/runtime/blob/v11.0.0/src/libraries/System.Diagnostics.Process/src/System/Diagnostics/Process.cs#L844)
             using var stdout = process.StandardOutput;
             using var stderr = process.StandardError;
             var output = stdout.ReadToEndAsync();

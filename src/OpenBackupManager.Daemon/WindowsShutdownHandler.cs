@@ -25,12 +25,14 @@ internal sealed class WindowsShutdownHandler : IDisposable
     public WindowsShutdownHandler(IHost host)
     {
         _lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
-        _consoleHandler = OnConsoleEvent;
-        NativeMethods.SetConsoleCtrlHandler(_consoleHandler, true);
         // .NET loads user32.dll, so Windows tells the process about signing out and shutting down through a window
         // rather than the console. Subscribing makes SystemEvents create a hidden window, on a thread of its own, to
         // receive it
         SystemEvents.SessionEnded += OnSessionEnded;
+        // After SystemEvents adds its own console handler, as Windows calls the last added first and this one ends the
+        // call. NativeAOT ends the process when it calls SystemEvents', as that returns a bool
+        _consoleHandler = OnConsoleEvent;
+        NativeMethods.SetConsoleCtrlHandler(_consoleHandler, true);
     }
 
     // Once the host has stopped

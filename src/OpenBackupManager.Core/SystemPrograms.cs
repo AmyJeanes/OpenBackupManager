@@ -3,7 +3,7 @@ namespace OpenBackupManager.Core;
 // A program by a full path: given a bare name, Windows, and .NET on macOS and Linux, look in the program's own folder
 // and the current one before PATH, so a program of that name there would run instead, and on macOS and Linux a deleted
 // current folder throws
-// (https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Diagnostics.Process/src/System/Diagnostics/Process.Unix.cs#L688)
+// (https://github.com/dotnet/runtime/blob/v11.0.0/src/libraries/System.Diagnostics.Process/src/System/Diagnostics/ProcessUtils.Unix.cs#L288)
 public static class SystemPrograms
 {
     private static readonly string[] UnixFolders = ["/usr/bin", "/bin", "/usr/sbin", "/sbin"];
