@@ -365,7 +365,7 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
     }
 }
 
-public sealed class ConfigException(string message, ConfigProblem? problem = null) : Exception(message)
+public sealed class ConfigException(string message, ConfigProblem? problem = null, Exception? inner = null) : Exception(message, inner)
 {
     public ConfigProblem? Problem { get; } = problem;
 }

@@ -60,6 +60,30 @@ public class ConfigWatcherTests
                 $"OBM_SECRET_STORE has an error: secret-store should be one of: {string.Join(", ", SecretStoreKinds.NamesOn(CurrentOS.Platform))}"));
 
     [Test]
+    public void WontStart_WhenTheFileCantBeRead()
+    {
+        Write("[updates]\nprereleases = true\n");
+        using var held = Hold();
+
+        Assert.That(
+            () => new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance),
+            Throws.TypeOf<ConfigException>()
+                .With.Message.StartsWith(_file.Path + " can't be read: ")
+                .And.Property(nameof(ConfigException.Problem)).Null);
+    }
+
+    // Such as a dotfiles link to a drive that isn't there yet. Edits then apply only when it's read again
+    [Test]
+    public void Starts_WhenItCantWatchWhereALinkPoints()
+    {
+        Link(() => File.CreateSymbolicLink(_file.Path, Path.Combine(_folder, "missing", "obm.toml")));
+
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
+
+        Assert.That(watcher.Config, Is.EqualTo(new AppConfig()));
+    }
+
+    [Test]
     public void AppliesAnEditWhenItsSaved()
     {
         Write("[updates]\nprereleases = false\n");
@@ -108,6 +132,31 @@ public class ConfigWatcherTests
             Assert.That(watcher.Result.HasErrors, Is.False);
             Assert.That(watcher.Config.Updates.Prereleases, Is.False);
         }
+    }
+
+    // Saved by another program that keeps others out until it's done, so the watcher sees it while it can't be read
+    [Test]
+    public void KeepsTheLastGoodSettings_WhileTheFileCantBeRead()
+    {
+        Write("[updates]\nprereleases = true\n");
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
+
+        using (var held = Hold())
+        {
+            held.SetLength(0);
+            held.Write("[updates]\nprereleases = false\n"u8);
+            held.Flush();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(watcher.Reload, Throws.TypeOf<ConfigException>().With.Message.StartsWith(_file.Path + " can't be read: "));
+                Assert.That(watcher.TryReload, Throws.Nothing);
+                Assert.That(watcher.Config.Updates.Prereleases, Is.True);
+            }
+        }
+
+        watcher.Reload();
+        Assert.That(watcher.Config.Updates.Prereleases, Is.False);
     }
 
     [Test]
@@ -218,6 +267,9 @@ public class ConfigWatcherTests
     }
 
     private void Write(string text) => File.WriteAllText(_file.Path, text);
+
+    // Open with nothing shared, which keeps others from reading it on every OS, even as root
+    private FileStream Hold() => new(_file.Path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 
     // Windows only lets an admin, or Developer Mode, make symbolic links. CI's runners run as admin
     private static void Link(Action create)

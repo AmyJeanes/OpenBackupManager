@@ -23,7 +23,7 @@ internal sealed partial class EngineService(Listener listener, ConfigWatcher con
             {
                 context.Cancel = true;
                 LogHangUp();
-                config.Reload();
+                config.TryReload();
             });
         }
 

@@ -157,7 +157,7 @@ internal sealed partial class Listener(
         {
             try
             {
-                var connection = new Connection(Status, config, secrets);
+                var connection = new Connection(Status, config, secrets, logger);
                 using var reader = new StreamReader(pipe, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
                 while (!connection.Closing && await reader.ReadLineAsync(cancellationToken) is { } line)
                 {

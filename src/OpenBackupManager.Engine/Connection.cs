@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Protocol;
@@ -7,7 +8,7 @@ using OpenBackupManager.Core.Protocol;
 namespace OpenBackupManager.Engine;
 
 // What the engine says to one client, a line at a time. It closes the connection once it's refused a client
-internal sealed class Connection(Func<StatusResult> status, ConfigWatcher config, Secrets secrets)
+internal sealed partial class Connection(Func<StatusResult> status, ConfigWatcher config, Secrets secrets, ILogger logger)
 {
     private bool _greeted;
 
@@ -45,18 +46,27 @@ internal sealed class Connection(Func<StatusResult> status, ConfigWatcher config
             return Error(id, RpcError.HelloFirst, $"Send {EngineProtocol.Hello} first");
         }
 
-        return method switch
+        try
         {
-            EngineProtocol.Hello => Hello(id, request.Params),
-            EngineProtocol.Status => Result(id, status(), ProtocolJson.Default.StatusResult),
-            EngineProtocol.Stop => Stop(id),
-            EngineProtocol.MigrateSecrets => await MigrateSecretsAsync(id, request.Params, cancellationToken),
-            EngineProtocol.ReloadConfig => ReloadConfig(id),
+            return method switch
+            {
+                EngineProtocol.Hello => Hello(id, request.Params),
+                EngineProtocol.Status => Result(id, status(), ProtocolJson.Default.StatusResult),
+                EngineProtocol.Stop => Stop(id),
+                EngineProtocol.MigrateSecrets => await MigrateSecretsAsync(id, request.Params, cancellationToken),
+                EngineProtocol.ReloadConfig => ReloadConfig(id),
 #if DEBUG
-            EngineProtocol.Crash => Crash(id, request.Params),
+                EngineProtocol.Crash => Crash(id, request.Params),
 #endif
-            _ => Error(id, RpcError.MethodNotFound, $"There's no method called {method}"),
-        };
+                _ => Error(id, RpcError.MethodNotFound, $"There's no method called {method}"),
+            };
+        }
+        catch (Exception e) when (e is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            // Answered rather than left to close the connection, which would also make stopping the engine fail
+            LogFailed(logger, method, e);
+            return Error(id, RpcError.Failed, e.Message);
+        }
     }
 
     private RpcResponse Hello(JsonElement id, JsonElement? parameters)
@@ -99,7 +109,15 @@ internal sealed class Connection(Func<StatusResult> status, ConfigWatcher config
 
     private RpcResponse ReloadConfig(JsonElement id)
     {
-        config.Reload();
+        try
+        {
+            config.Reload();
+        }
+        catch (ConfigException e)
+        {
+            return Error(id, RpcError.Failed, e.Message + ", so the last good settings stay in use");
+        }
+
         return Result(id, new ReloadConfigResult(config.Result.Problems), ProtocolJson.Default.ReloadConfigResult);
     }
 
@@ -146,4 +164,7 @@ internal sealed class Connection(Func<StatusResult> status, ConfigWatcher config
         new("2.0", id, JsonSerializer.SerializeToElement(result, type), null);
 
     private static RpcResponse Error(JsonElement? id, int code, string message) => new("2.0", id, null, new RpcError(code, message));
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Couldn't answer {Method}")]
+    private static partial void LogFailed(ILogger logger, string method, Exception exception);
 }

@@ -69,7 +69,7 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
             {
                 await StoreFor(to).ListAsync(cancellationToken);
             }
-            catch (Exception e) when (e is InvalidOperationException or IOException or UnauthorizedAccessException)
+            catch (Exception e) when (e is InvalidOperationException or InvalidDataException or IOException or UnauthorizedAccessException)
             {
                 throw new EngineException(e.Message, e);
             }

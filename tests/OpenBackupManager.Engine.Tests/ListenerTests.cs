@@ -77,6 +77,21 @@ public class ListenerTests
         Assert.That(async () => await running.WaitAsync(Timeout), Throws.Nothing);
     }
 
+    // As FileStore says, rather than the connection closing with no answer and stopping then failing
+    [Test]
+    public async Task ACallThatFails_SaysWhy_AndTheEngineStillStops()
+    {
+        Directory.CreateDirectory(_home.State);
+        await File.WriteAllTextAsync(Path.Combine(_home.State, "secrets.json"), "{\"rclone-config\": \"x\",}");
+        var running = EngineHost.Build(_home).RunAsync();
+        using var client = await ConnectAsync();
+
+        Assert.That(() => client.MigrateSecretsAsync("file", CancellationToken.None), Throws.TypeOf<EngineException>().With.Message.Contains("isn't valid JSON"));
+        await client.StopAsync(CancellationToken.None);
+
+        Assert.That(async () => await running.WaitAsync(Timeout), Throws.Nothing);
+    }
+
     [Test]
     public async Task Closed_WhenTheEngineStops()
     {

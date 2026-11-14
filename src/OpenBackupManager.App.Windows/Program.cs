@@ -117,7 +117,9 @@ public static class Program
         }
         catch (ConfigException e)
         {
-            ShowMessage(Strings.Launch_ConfigMistake, e.Problem!.Describe(CultureInfo.CurrentUICulture), AppPaths.InHome(Home).ConfigFile);
+            // With no problem when it can't be read, where the OS's own reason is in the user's language
+            var reason = e.Problem?.Describe(CultureInfo.CurrentUICulture) ?? e.InnerException!.Message;
+            ShowMessage(Strings.Launch_ConfigMistake, reason, AppPaths.InHome(Home).ConfigFile);
             return;
         }
 

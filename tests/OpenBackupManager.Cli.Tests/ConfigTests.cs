@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using System.Text.Json;
 
 namespace OpenBackupManager.Cli.Tests;
@@ -67,6 +68,49 @@ public class ConfigTests
         using var result = JsonDocument.Parse(obm.Stdout);
 
         Assert.That(result.RootElement.GetProperty("problems")[0].GetProperty("line").GetInt32(), Is.EqualTo(2));
+    }
+
+    // As when root has taken it over. The engine goes on with what it read last
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void Reload_AFileItCantRead_SaysWhy()
+    {
+        Assume.That(Environment.UserName, Is.Not.EqualTo("root"), "root can read it anyway");
+        using var daemon = Tool.Start("obmd", "--home", _home);
+        daemon.WaitFor("started, process");
+        File.WriteAllText(ConfigFile, "secret-store = \"file\"\n");
+        File.SetUnixFileMode(ConfigFile, UnixFileMode.None);
+        daemon.WaitFor("so the last good settings stay in use");
+
+        var (exitCode, output) = Tool.Run("obm", "config", "reload", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1), output);
+            Assert.That(output, Does.Contain($"obm: {ConfigFile} can't be read: "));
+            Assert.That(daemon.HasExited, Is.False, daemon.Output);
+        }
+    }
+
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void Start_AFileItCantRead_SaysWhy()
+    {
+        Assume.That(Environment.UserName, Is.Not.EqualTo("root"), "root can read it anyway");
+        Directory.CreateDirectory(_home);
+        File.WriteAllText(ConfigFile, "");
+        File.SetUnixFileMode(ConfigFile, UnixFileMode.None);
+
+        var (exitCode, output) = Tool.Run("obmd", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Does.Contain($"obmd: {ConfigFile} can't be read: "));
+            Assert.That(output, Does.Not.Contain("Unhandled exception"));
+        }
     }
 
     [Test]
