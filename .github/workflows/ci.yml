@@ -115,7 +115,7 @@ jobs:
         with:
           global-json-file: global.json
           # For vpk, which runs on .NET 10 until Velopack releases one for 11
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
 
       - name: Restore tools
         run: dotnet tool restore
@@ -276,7 +276,7 @@ jobs:
         with:
           global-json-file: global.json
           # For vpk, which runs on .NET 10 until Velopack releases one for 11
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
 
       - name: Restore tools
         run: dotnet tool restore
@@ -719,7 +719,7 @@ jobs:
         with:
           global-json-file: global.json
           # For vpk, which runs on .NET 10 until Velopack releases one for 11
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
 
       - name: Restore tools
         run: dotnet tool restore
