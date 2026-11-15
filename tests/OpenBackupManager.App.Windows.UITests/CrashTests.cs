@@ -1,5 +1,6 @@
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Exceptions;
+using FlaUI.Core.Tools;
 using Windows.Win32.System.Recovery;
 
 namespace OpenBackupManager.App.Windows.UITests;
@@ -31,6 +32,37 @@ public sealed class CrashTests : AppTests
         Quit();
         // Opens the flyout, which it only does when there's no new crash to show
         LaunchAgain();
+    }
+
+    // Clipboard managers and remote desktop have the clipboard open for moments, which can be as Copy report is clicked
+    [Test]
+    public void CopyReport_WhileAnotherAppHasTheClipboard_SaysSo_AndCopiesOnceItsFree()
+    {
+        Crash("On the UI thread");
+        StartAgain();
+        var crash = WaitForCrashWindow(AppName + " closed unexpectedly");
+        var copy = crash.FindFirstDescendant(c => c.ByAutomationId("CopyButton"))!.AsButton();
+
+        NativeMethods.HoldClipboard();
+        try
+        {
+            // An error in the click comes back to the test, failing it, where a real click would close the app
+            copy.Invoke();
+            Assert.That(Retry.WhileNull(() => CantCopy(crash), Timeout).Result, Is.Not.Null, "It didn't say it couldn't copy");
+        }
+        finally
+        {
+            NativeMethods.LetGoOfClipboard();
+        }
+
+        copy.Invoke();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Retry.WhileFalse(() => CantCopy(crash) is null, Timeout).Result, Is.True, "It still says it couldn't copy");
+            Assert.That(App.HasExited, Is.False);
+        }
+
+        crash.Close();
     }
 
     // Windows only restarts a copy that has run for 60 seconds, so this takes over a minute
@@ -72,6 +104,9 @@ public sealed class CrashTests : AppTests
             .And.Contain("Stopping the app's services")
             .And.Not.Contain("The last run closed unexpectedly"));
     }
+
+    // Only there while it's shown, as UI Automation leaves out what's collapsed
+    private static AutomationElement? CantCopy(Window crash) => crash.FindFirstDescendant(c => c.ByAutomationId("CantCopyText"));
 
     private string Log()
     {

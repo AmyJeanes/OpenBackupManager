@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using OpenBackupManager.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
@@ -8,6 +9,11 @@ namespace OpenBackupManager.App.Windows;
 
 public sealed partial class CrashWindow : Window
 {
+    // CLIPBRD_E_CANT_OPEN, as another app has the clipboard open. Clipboard managers and remote desktop do, for moments
+    private const int ClipboardBusy = unchecked((int)0x800401D0);
+    private const int CopyTries = 5;
+    private static readonly TimeSpan CopyRetry = TimeSpan.FromMilliseconds(50);
+
     public CrashWindow(CrashViewModel viewModel)
     {
         ViewModel = viewModel;
@@ -23,22 +29,40 @@ public sealed partial class CrashWindow : Window
 
     public CrashViewModel ViewModel { get; }
 
-    private void OnCopy(object sender, RoutedEventArgs e) => Copy(ViewModel.Report);
+    private async void OnCopy(object sender, RoutedEventArgs e) => await CopyAsync(ViewModel.Report);
 
-    private void OnReport(object sender, RoutedEventArgs e)
+    private async void OnReport(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.ToPaste is { } report)
+        // The issue would only say to paste the report
+        if (ViewModel.ToPaste is { } report && !await CopyAsync(report))
         {
-            Copy(report);
+            return;
         }
 
         Process.Start(new ProcessStartInfo(ViewModel.GitHubLink) { UseShellExecute = true })?.Dispose();
     }
 
-    private static void Copy(string text)
+    private async Task<bool> CopyAsync(string text)
     {
         var package = new DataPackage();
         package.SetText(text);
-        Clipboard.SetContent(package);
+        for (var tries = 1; ; tries++)
+        {
+            try
+            {
+                Clipboard.SetContent(package);
+                CantCopyText.Visibility = Visibility.Collapsed;
+                return true;
+            }
+            catch (COMException e) when (e.HResult == ClipboardBusy && tries < CopyTries)
+            {
+                await Task.Delay(CopyRetry);
+            }
+            catch (COMException e) when (e.HResult == ClipboardBusy)
+            {
+                CantCopyText.Visibility = Visibility.Visible;
+                return false;
+            }
+        }
     }
 }

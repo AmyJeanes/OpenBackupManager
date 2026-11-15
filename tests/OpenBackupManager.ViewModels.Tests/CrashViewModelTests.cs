@@ -19,6 +19,16 @@ public class CrashViewModelTests
         }
     }
 
+    // So what's shown is what Copy report and Report on GitHub share, and what's copied from it by hand
+    [Test]
+    public void ShowsTheReport_WithoutTheHomeFolder()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var crash = new CrashViewModel(App, new CrashReport(CrashReports.App, Report("Can't open " + Path.Combine(home, "notes.txt"))));
+
+        Assert.That(crash.Report, Does.Contain("Can't open " + Path.Combine("~", "notes.txt")).And.Not.Contain(home));
+    }
+
     [Test]
     public void TheEnginesReport_SaysItWasTheEngine() =>
         Assert.That(new CrashViewModel(App, new CrashReport(CrashReports.Engine, "obmd closed unexpectedly at …")).Title, Is.EqualTo("Open Backup Manager's engine closed unexpectedly"));

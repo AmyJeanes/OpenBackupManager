@@ -46,6 +46,10 @@
         ScrollViewer.VerticalScrollBarVisibility="Auto"
         Text="{x:Bind ViewModel.Report}" />
       <Grid Grid.Row="3" ColumnSpacing="12">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="Auto" />
@@ -70,6 +74,18 @@
             Content="{x:Bind res:Strings.Crash_Report}"
             Style="{StaticResource AccentButtonStyle}" />
         </StackPanel>
+        <!-- A margin rather than row spacing, which would leave a gap while it's hidden -->
+        <TextBlock
+          x:Name="CantCopyText"
+          Grid.Row="1"
+          Grid.ColumnSpan="2"
+          Margin="0,8,0,0"
+          HorizontalAlignment="Right"
+          Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+          Style="{StaticResource CaptionTextBlockStyle}"
+          Text="{x:Bind res:Strings.Crash_CantCopy}"
+          TextWrapping="Wrap"
+          Visibility="Collapsed" />
       </Grid>
     </Grid>
   </Grid>

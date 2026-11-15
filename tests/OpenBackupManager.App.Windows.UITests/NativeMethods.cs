@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Input;
+using FlaUI.Core.Tools;
 using FlaUI.Core.WindowsAPI;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -42,6 +43,18 @@ internal static class NativeMethods
         _ = PInvoke.SendMessageTimeout(hwnd, PInvoke.WM_QUERYENDSESSION, 0, logOff, SEND_MESSAGE_TIMEOUT_FLAGS.SMTO_ABORTIFHUNG, 5000, out _);
         _ = PInvoke.SendMessageTimeout(hwnd, PInvoke.WM_ENDSESSION, 1, logOff, SEND_MESSAGE_TIMEOUT_FLAGS.SMTO_ABORTIFHUNG, 5000, out _);
     }
+
+    // As an app reading the clipboard does, which keeps every other app from setting it until it's let go. Waits for
+    // another that has it, such as remote desktop passing on what was last copied
+    public static void HoldClipboard()
+    {
+        if (!Retry.WhileFalse(() => (bool)PInvoke.OpenClipboard(HWND.Null), TimeSpan.FromSeconds(10)).Result)
+        {
+            throw new InvalidOperationException("Another app kept the clipboard open");
+        }
+    }
+
+    public static void LetGoOfClipboard() => PInvoke.CloseClipboard();
 
     // Windows only lets the process that had the last input bring a window to the front, so this presses Alt first.
     // Alt is let go once the window is in front, so the window that had focus doesn't take it as a menu key

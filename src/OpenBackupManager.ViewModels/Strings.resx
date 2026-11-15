@@ -197,6 +197,9 @@
   <data name="Crash_Report" xml:space="preserve">
     <value>Report on GitHub</value>
   </data>
+  <data name="Crash_CantCopy" xml:space="preserve">
+    <value>Couldn't copy the report, as another app is using the clipboard. Try again.</value>
+  </data>
   <data name="Crash_Check" xml:space="preserve">
     <value>Sensitive details have been redacted where possible, but check the report before you submit. GitHub issues are public.</value>
   </data>
