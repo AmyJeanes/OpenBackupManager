@@ -125,6 +125,19 @@ public class CrashReportsTests
         Assert.That(_reports.TakeNew(), Is.EqualTo(new CrashReport(CrashReports.Engine, report)));
     }
 
+    // As the app does when it reaches the engine, while a crash on another thread may be writing its own report
+    [Test]
+    public void TakeNew_ForOneProgram_LeavesAnothersForLater()
+    {
+        var report = File.ReadAllText(_reports.Write("Open Backup Manager", Start(), "Something broke"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_reports.TakeNew(CrashReports.Engine), Is.Null);
+            Assert.That(_reports.TakeNew(), Is.EqualTo(new CrashReport(CrashReports.App, report)));
+        }
+    }
+
     [Test]
     public void List_IsNewestFirst_WithWhichAreNew()
     {

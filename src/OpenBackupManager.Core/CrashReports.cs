@@ -143,10 +143,10 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         return start < 0 ? null : output[start..].TrimEnd();
     }
 
-    // The newest report, if it hasn't been seen, so each crash is shown once
-    public CrashReport? TakeNew()
+    // The newest report, if it hasn't been seen, so each crash is shown once. Given a program, only if it's that one's
+    public CrashReport? TakeNew(string? program = null)
     {
-        if (List(paths) is not [{ New: true } newest, ..])
+        if (List(paths) is not [{ New: true } newest, ..] || program is not null && newest.Program != program)
         {
             return null;
         }

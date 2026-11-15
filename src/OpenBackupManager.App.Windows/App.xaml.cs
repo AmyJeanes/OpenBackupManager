@@ -43,10 +43,11 @@ public sealed partial class App : Application
         // and reaching it could otherwise take this report first, before startup gets to showing it
         var crash = crashes.TakeNew();
         // An engine that crashed while the app was running has a report by the time the app reaches it again, written
-        // as it crashed, or by the engine started after it from what Windows recorded
+        // as it crashed, or by the engine started after it from what Windows recorded. A new report of the app's own is
+        // this run's, written while it's crashing, which is left for the next start to show
         engine.Connected += (_, _) =>
         {
-            if (crashes.TakeNew() is { } report)
+            if (crashes.TakeNew(CrashReports.Engine) is { } report)
             {
                 actions.ShowCrash(report);
             }
