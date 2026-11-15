@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
@@ -106,18 +106,16 @@ public class DaemonTests
     }
 
     // As Ctrl+C and service managers ask it to. Windows can't send these to another process, so there it's checked by hand
-    [TestCase("INT")]
-    [TestCase("TERM")]
+    [TestCase(PosixSignal.SIGINT)]
+    [TestCase(PosixSignal.SIGTERM)]
     [Platform(Exclude = "Win")]
-    public void Stops_WhenAsked(string signal)
+    [UnsupportedOSPlatform("windows")]
+    public void Stops_WhenAsked(PosixSignal signal)
     {
         var daemon = Daemon(NewHome());
         daemon.WaitFor(Started);
 
-        using (var kill = Process.Start("kill", ["-" + signal, daemon.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)]))
-        {
-            kill.WaitForExit();
-        }
+        daemon.Signal(signal);
 
         using (Assert.EnterMultipleScope())
         {
@@ -129,16 +127,14 @@ public class DaemonTests
     // As a daemon does, where SIGHUP would otherwise end it
     [Test]
     [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
     public void ReadsConfigAgain_OnSIGHUP()
     {
         var home = NewHome();
         var daemon = Daemon(home);
         daemon.WaitFor(Started);
 
-        using (var kill = Process.Start("kill", ["-HUP", daemon.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)]))
-        {
-            kill.WaitForExit();
-        }
+        daemon.Signal(PosixSignal.SIGHUP);
 
         daemon.WaitFor("Reading config.toml again, as SIGHUP asks");
         Assert.That(Tool.Run("obm", "status", "--home", home).ExitCode, Is.Zero, daemon.Output);

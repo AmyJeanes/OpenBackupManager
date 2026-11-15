@@ -95,7 +95,13 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
     // Until it exits it holds its lock, so a copy started straight after would find it still running
     private static async Task StopAsync(EngineClient engine, int processId, CancellationToken cancellationToken)
     {
-        using var process = Process.GetProcessById(processId);
+        // Already gone, as it can be since it said which process it is
+        if (!Process.TryGetProcessById(processId, out var found))
+        {
+            return;
+        }
+
+        using var process = found;
         await engine.StopAsync(cancellationToken);
         await process.WaitForExitAsync(cancellationToken);
     }
@@ -183,17 +189,16 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
         return null;
     }
 
-    // Through the shell, so it inherits none of the app's handles, which would keep whatever started the app waiting
-    // for the engine too, and with its console hidden. .NET 11's ProcessStartInfo.InheritedHandles can do it instead
-    // (https://github.com/dotnet/runtime/issues/13943)
+    // With no console and none of the app's handles, which would keep whatever started the app waiting for the engine
     private Process StartEngine()
     {
         var obmd = Path.Combine(AppContext.BaseDirectory, "obmd.exe");
         LogStarting(obmd);
-        return Process.Start(new ProcessStartInfo(obmd, $"--home \"{_home}\" --started-by app")
+        return Process.Start(new ProcessStartInfo(obmd)
         {
-            UseShellExecute = true,
-            WindowStyle = ProcessWindowStyle.Hidden,
+            ArgumentList = { "--home", _home, "--started-by", "app" },
+            StartDetached = true,
+            InheritedHandles = [],
         })!;
     }
 

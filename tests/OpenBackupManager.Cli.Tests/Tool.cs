@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace OpenBackupManager.Cli.Tests;
 
@@ -166,6 +168,9 @@ internal sealed class Tool : IDisposable
         _process.WaitForExit();
         return _process.ExitCode;
     }
+
+    [UnsupportedOSPlatform("windows")]
+    public void Signal(PosixSignal signal) => Assert.That(_process.Signal(signal), Is.True, $"{_name} had already exited");
 
     public void Kill()
     {

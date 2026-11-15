@@ -155,13 +155,13 @@ public abstract class AppTests
         return engine?.StatusAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    // As someone would from a terminal, rather than the app. Through the shell, so it doesn't inherit the test's output,
-    // which would keep dotnet test waiting for it
+    // As someone would from a terminal, rather than the app. With none of the test's handles, as its output would keep
+    // dotnet test waiting for it
     protected Process StartEngineByHand() =>
-        Process.Start(new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(AppPath)!, "obmd.exe"), $"--home \"{Home}\"")
+        Process.Start(new ProcessStartInfo(Path.Combine(Path.GetDirectoryName(AppPath)!, "obmd.exe"), ["--home", Home])
         {
-            UseShellExecute = true,
-            WindowStyle = ProcessWindowStyle.Hidden,
+            StartDetached = true,
+            InheritedHandles = [],
         })!;
 
     protected Window WaitForWindow(string title) => WaitForWindow(w => w.Title == title);

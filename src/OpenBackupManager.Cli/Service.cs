@@ -105,7 +105,13 @@ internal static class Service
     // It closes the connection as it stops, but holds its lock until it exits, so this waits for that
     internal static async Task StopAsync(EngineClient engine, int processId, CancellationToken cancellationToken)
     {
-        using var process = Process.GetProcessById(processId);
+        // Already gone, as it can be since it said which process it is
+        if (!Process.TryGetProcessById(processId, out var found))
+        {
+            return;
+        }
+
+        using var process = found;
         await engine.StopAsync(cancellationToken);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(StartTimeout);
