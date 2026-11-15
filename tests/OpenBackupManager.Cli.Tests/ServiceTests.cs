@@ -347,10 +347,14 @@ public class ServiceTests
         return engine is null ? null : await engine.StatusAsync(CancellationToken.None);
     }
 
+    // Until it exits, as one still stopping takes a connection and closes it
     private async Task StopAsync()
     {
         using var engine = await EngineClient.ConnectAsync(AppPaths.InHome(_home), TimeSpan.FromSeconds(2), CancellationToken.None);
-        await engine!.StopAsync(CancellationToken.None);
+        using var process = Process.GetProcessById((await engine!.StatusAsync(CancellationToken.None)).ProcessId);
+        await engine.StopAsync(CancellationToken.None);
+        using var timeout = new CancellationTokenSource(Timeout);
+        await process.WaitForExitAsync(timeout.Token);
     }
 
     private static bool Running(int processId)
