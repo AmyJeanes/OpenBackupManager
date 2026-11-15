@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.Exceptions;
@@ -28,6 +29,9 @@ public sealed class InstallTests : AppTests
     // Holds only obm, which installing puts on PATH
     private static readonly string CommandLineFolder = Path.Combine(InstallFolder, "current", "bin");
 
+    // Where the installed app checks for updates, read as it starts
+    private static readonly string UpdateSource = Path.Combine(InstallFolder, "update-source");
+
     private string _releases = "";
     private string _feed = "";
     private List<string> _registrations = [];
@@ -45,7 +49,7 @@ public sealed class InstallTests : AppTests
         _feed = Directory.CreateTempSubdirectory("obm-feed-").FullName;
         AddToFeed("0.0.1");
         Run(Directory.GetFiles(_feed, "*-Setup.exe").Single(), "--silent");
-        File.WriteAllText(Path.Combine(InstallFolder, "update-source"), _feed);
+        File.WriteAllText(UpdateSource, _feed);
     }
 
     [OneTimeTearDown]
@@ -130,6 +134,9 @@ public sealed class InstallTests : AppTests
         Directory.Move(_feed, away);
         CheckForUpdates(about, "Couldn't check for updates");
         Directory.Move(away, _feed);
+        // As a web filter's page in place of the package, which fails Velopack's checksum
+        AddToFeed("0.0.2", broken: true);
+        CheckForUpdates(about, "Couldn't check for updates");
         AddToFeed("0.0.2");
         CheckForUpdates(about, "Version 0.0.2 is ready to install");
         var stops = EngineStops();
@@ -156,6 +163,12 @@ public sealed class InstallTests : AppTests
         LaunchAgain();
         FindNotification("Update available", "Version 0.0.3 is ready to install");
         ClearNotifications();
+        // A newer version's download that fails leaves the update that's waiting
+        AddToFeed("0.0.4", broken: true);
+        var config = Path.Combine(Home, "config.toml");
+        WaitForLog("Checks for updates automatically: false", () => File.WriteAllText(config, "version = 1\nstart-at-login = true\n\n[updates]\nautomatic = false\n"));
+        // Turned back on, it checks straight away
+        WaitForLog("Couldn't check for updates", () => File.WriteAllText(config, "version = 1\nstart-at-login = true\n"));
         engine = EngineOf("0.0.2");
         stops = EngineStops();
         Quit();
@@ -169,8 +182,24 @@ public sealed class InstallTests : AppTests
 
         AddToFeed("0.0.4");
         // Turned off, it doesn't check as it starts, and turned back on, it checks straight away
-        var config = Path.Combine(Home, "config.toml");
         File.WriteAllText(config, "version = 1\nstart-at-login = true\n\n[updates]\nautomatic = false\n");
+        // Quitting part way through About's download
+        using (var held = new HeldFeed(_feed))
+        {
+            File.WriteAllText(UpdateSource, held.Url);
+            LaunchAgain();
+            ChooseFromTrayMenu("About");
+            about = WaitForWindow("About " + AppName);
+            UpdateButton(about, "Check for updates").Invoke();
+            Assert.That(
+                Retry.WhileFalse(() => Text(about, "UpdateStatusText")?.StartsWith("Downloading update", StringComparison.Ordinal) is true, Timeout).Result,
+                Is.True,
+                "It should start downloading");
+            Quit();
+        }
+
+        File.WriteAllText(UpdateSource, _feed);
+        Assert.That(Directory.GetFiles(Home, "crash-*.txt", SearchOption.AllDirectories), Is.Empty, "Quitting shouldn't crash");
         LaunchAgain();
         engine = EngineOf("0.0.3");
         ChooseFromTrayMenu("About");
@@ -265,14 +294,34 @@ public sealed class InstallTests : AppTests
         return (key.GetValue("Path", "", RegistryValueOptions.DoNotExpandEnvironmentNames) as string ?? "").Split(';');
     }
 
-    // Puts a version in the feed the installed app checks
-    private void AddToFeed(string version)
+    // Puts a version in the feed the installed app checks. Broken, its packages are cut short
+    private void AddToFeed(string version, bool broken = false)
     {
         foreach (var file in Directory.GetFiles(Path.Combine(_releases, version)))
         {
-            File.Copy(file, Path.Combine(_feed, Path.GetFileName(file)), overwrite: true);
+            var target = Path.Combine(_feed, Path.GetFileName(file));
+            File.Copy(file, target, overwrite: true);
+            if (broken && Path.GetExtension(file) == ".nupkg")
+            {
+                using var package = File.OpenWrite(target);
+                package.SetLength(package.Length / 2);
+            }
         }
     }
+
+    // Once the app has logged the text again
+    private void WaitForLog(string text, Action action)
+    {
+        var before = Logged(text);
+        action();
+        Assert.That(Retry.WhileFalse(() => Logged(text) > before, Timeout).Result, Is.True, $"The app should log \"{text}\"");
+    }
+
+    private int Logged(string text) => Directory.GetFiles(Path.Combine(Home, "logs"), "app-*.log").Sum(file =>
+    {
+        using var reader = new StreamReader(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete));
+        return Regex.Count(reader.ReadToEnd(), Regex.Escape(text));
+    });
 
     // The updater runs the app for a moment for each of its hooks, then starts it again
     private void WaitForRestartAfterUpdate(DateTime since)

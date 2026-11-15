@@ -43,7 +43,7 @@ public sealed partial class Updater : IUpdater, IDisposable
         }
         else
         {
-            _manager = new UpdateManager(source);
+            _manager = new Manager(source);
         }
 
         _automatic = config.Config.Updates.Automatic;
@@ -83,7 +83,8 @@ public sealed partial class Updater : IUpdater, IDisposable
         }
     }
 
-    // Called twice on Quit, since the services dispose it as both Updater and IUpdater
+    // Called twice on Quit, since the services dispose it as both Updater and IUpdater. _stop and _checking stay
+    // undisposed, as a check that's still running uses them, and neither holds anything that needs it
     public void Dispose()
     {
         if (_disposed)
@@ -94,8 +95,6 @@ public sealed partial class Updater : IUpdater, IDisposable
         _disposed = true;
         _config.Changed -= OnConfigChanged;
         _stop.Cancel();
-        _stop.Dispose();
-        _checking.Dispose();
     }
 
     // A folder or URL to check instead of GitHub, for trying updates locally
@@ -115,7 +114,7 @@ public sealed partial class Updater : IUpdater, IDisposable
     private static bool Prereleases(AppConfig config) =>
         config.Updates.Prereleases ?? VelopackLocator.Current.CurrentlyInstalledVersion?.IsPrerelease ?? false;
 
-    private UpdateManager FromGitHub(bool prereleases) => new(new GithubSource(_app.Repository.ToString(), null, prereleases));
+    private Manager FromGitHub(bool prereleases) => new(new GithubSource(_app.Repository.ToString(), null, prereleases));
 
     private void OnConfigChanged(ConfigResult _)
     {
@@ -182,8 +181,17 @@ public sealed partial class Updater : IUpdater, IDisposable
 
     private async Task<UpdateCheckResult> Check(bool notify, Action<int>? downloading)
     {
-        // So two downloads never run at once
-        await _checking.WaitAsync(_stop.Token);
+        try
+        {
+            // So two downloads never run at once
+            await _checking.WaitAsync(_stop.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Quitting
+            return UpdateCheckResult.Failed;
+        }
+
         var manager = _manager;
         try
         {
@@ -210,10 +218,15 @@ public sealed partial class Updater : IUpdater, IDisposable
 
             return UpdateCheckResult.UpdateReady;
         }
-        catch (Exception e) when (e is HttpRequestException or IOException)
+        catch (Exception e) when (!_stop.IsCancellationRequested)
         {
             LogCheckFailed(e);
-            // Offline or GitHub is down. The next check tries again
+            // Such as offline, GitHub down, or a web filter's page in place of the package. The next check tries again
+            return UpdateCheckResult.Failed;
+        }
+        catch (Exception)
+        {
+            // Quitting
             return UpdateCheckResult.Failed;
         }
         finally
@@ -242,4 +255,28 @@ public sealed partial class Updater : IUpdater, IDisposable
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Installing version {Version} once the app exits")]
     private partial void LogInstallingOnExit(SemanticVersion version);
+
+    // Velopack clears out other packages even after a download fails or is cancelled, which would delete an update
+    // that's waiting to install
+    // TODO: remove once a Velopack release has https://github.com/velopack/velopack/pull/1167
+    private sealed class Manager : UpdateManager
+    {
+        public Manager(string urlOrPath)
+            : base(urlOrPath)
+        {
+        }
+
+        public Manager(IUpdateSource source)
+            : base(source)
+        {
+        }
+
+        protected override void CleanPackagesExcept(string? assetToKeep)
+        {
+            if (assetToKeep is null || File.Exists(assetToKeep))
+            {
+                base.CleanPackagesExcept(assetToKeep);
+            }
+        }
+    }
 }

@@ -116,6 +116,7 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
     private void Exit()
     {
         LogStopping();
+        UiSynchronizationContext.Stop();
         _host.Dispose();
         Application.Current.Exit();
     }
