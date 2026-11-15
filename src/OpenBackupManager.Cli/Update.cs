@@ -249,6 +249,12 @@ internal static class Update
                     return 0;
                 }
             }
+            // Only the new engine can refuse this obm, which is the version before it
+            catch (EngineException e) when (e.Problem == EngineProblem.AnotherVersion)
+            {
+                Console.WriteLine($"The engine restarted and is running {version}");
+                return 0;
+            }
             // As it stops, it can close the connection before answering
             catch (EngineException)
             {

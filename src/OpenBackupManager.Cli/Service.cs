@@ -84,8 +84,8 @@ internal static class Service
         return 0;
     }
 
-    // The service's engine wouldn't start, and its service manager would try again until it gave up. Without this shell's
-    // variables, as the service doesn't have them
+    // The service's engine wouldn't start, and its service manager would try again until it gave up. Without this
+    // shell's variables, as the service doesn't have them
     private static void CheckConfig(AppPaths paths)
     {
         ConfigProblem? error;

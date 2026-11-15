@@ -114,6 +114,28 @@ public class UpdateTests
         }
     }
 
+    // The restarted engine refuses this obm, which is the version before it
+    [Test]
+    public void Update_ToAnotherProtocol_WithTheServicesEngine_SaysItRestarted()
+    {
+        var daemon = Tool.Start(Obmd, "--home", _home, "--started-by", "service");
+        _running.Add(daemon);
+        daemon.WaitFor("started, process");
+        _github.Add("0.3.0", new Asset(Tarball, FakeGitHub.NewVersionOf(_programs)));
+
+        using var update = Tool.Start(Obm, _github.Environment, "update", "--home", _home);
+        // For its service to start the new obmd, which this stands in for
+        daemon.WaitForExit();
+        using var restarted = new AnotherProtocolEngine(_home);
+        var exitCode = update.WaitForExit();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, update.Output);
+            Assert.That(update.Output, Does.Contain("The engine restarted and is running 0.3.0"));
+        }
+    }
+
     [Test]
     public void Check_SaysThereIsANewerOne_AndChangesNothing()
     {
