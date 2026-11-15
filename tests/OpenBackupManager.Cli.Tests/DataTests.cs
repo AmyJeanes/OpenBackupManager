@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Runtime.Versioning;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Platform;
@@ -48,6 +49,39 @@ public class DataTests
             Assert.That(output, Does.Contain("Removed all of Open Backup Manager's data"));
             Assert.That(daemon.HasExited, Is.True);
             Assert.That(Directory.GetFileSystemEntries(_home).Select(Path.GetFileName), Is.EqualTo((string[])["notes.txt"]));
+        }
+    }
+
+    // A home is a folder someone chose, so the folders made in it may hold their files too
+    [Test]
+    public void Remove_LeavesSomeonesOwnFiles_InTheFoldersItMakes()
+    {
+        string[] made = ["logs/engine-20261107.log", "logs/app-20261107.log", "logs/obmd-stderr.log", "crashes/crash-20261107-101500-000-engine.txt", "crashes/shown", "run/engine.sock"];
+        string[] theirs = ["logs/build.log", "crashes/core.txt", "run/start.sh", "cache/big.dat"];
+        foreach (var file in made.Concat(theirs))
+        {
+            var path = Path.Combine(_home, file);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            if (file == "run/engine.sock" && !OperatingSystem.IsWindows())
+            {
+                // As an engine that's gone leaves it. On macOS, a plain file there reads as a socket obm can't open
+                using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+                socket.Bind(new UnixDomainSocketEndPoint(path));
+            }
+            else
+            {
+                File.WriteAllText(path, "");
+            }
+        }
+
+        var (exitCode, output) = Tool.Run("obm", "data", "remove", "--home", _home, "--yes");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(
+                Directory.GetFiles(_home, "*", SearchOption.AllDirectories).Select(file => Path.GetRelativePath(_home, file).Replace(Path.DirectorySeparatorChar, '/')),
+                Is.EquivalentTo(theirs));
         }
     }
 

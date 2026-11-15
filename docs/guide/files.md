@@ -135,4 +135,4 @@ Attach the zip to your issue. If it has things you'd rather not post publicly, e
 
     Your data and secrets stay, so installing again picks up where you left off. To remove those too, run `obm data remove` first. In Docker, they're in the `/config` volume, so remove that, such as with `docker compose down -v`.
 
-`obm data remove` stops the engine and removes its service, then removes everything above and your secrets, from wherever they're kept. It lists what it removes and asks first.
+`obm data remove` stops the engine and removes its service, then removes everything above and your secrets, from wherever they're kept. In a home folder, it removes only its own files, and leaves anything else there. It lists what it removes and asks first.

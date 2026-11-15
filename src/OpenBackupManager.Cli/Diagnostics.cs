@@ -25,7 +25,7 @@ internal static class Diagnostics
         }
 
         var summary = await SummaryAsync(paths, service, now, cancellationToken);
-        var logs = Directory.Exists(paths.Logs) ? Directory.GetFiles(paths.Logs, "*.log").Order(StringComparer.Ordinal).ToList() : [];
+        var logs = Directory.Exists(paths.Logs) ? AppPaths.LogFiles.SelectMany(pattern => Directory.GetFiles(paths.Logs, pattern)).Order(StringComparer.Ordinal).ToList() : [];
         var crashes = CrashReports.List(paths);
         var config = File.Exists(paths.ConfigFile);
 

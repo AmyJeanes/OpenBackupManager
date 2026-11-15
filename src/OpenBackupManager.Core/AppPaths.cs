@@ -8,6 +8,9 @@ namespace OpenBackupManager.Core;
 /// </summary>
 public sealed record AppPaths(string Config, string State, string Logs, string Cache)
 {
+    // What the programs write in Logs, as a home's logs folder may hold someone's own files too
+    public static readonly string[] LogFiles = ["app-*.log", "engine-*.log", "obmd-stderr.log"];
+
     public string ConfigFile => Path.Combine(Config, "config.toml");
 
     // For --home and OBM_HOME

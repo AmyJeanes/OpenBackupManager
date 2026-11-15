@@ -12,7 +12,13 @@ internal static class Data
     private static readonly string[] MadeInAHome =
     [
         "config.toml", "config.toml.bak", "config.toml.tmp", "secrets.json", "secrets.json.tmp", "last-version",
-        "app.lock", "app.running", "engine.lock", "engine.running", "logs", "cache", "crashes", "run",
+        "app.lock", "app.running", "engine.lock", "engine.running",
+    ];
+
+    // And in the folders they make there, which may hold theirs too. Nothing writes in cache yet
+    private static readonly (string Folder, string[] Files)[] MadeInAHomesFolders =
+    [
+        ("logs", AppPaths.LogFiles), ("crashes", ["crash-*.txt", "shown"]), ("run", ["engine.sock"]), ("cache", []),
     ];
 
     public static async Task<int> RemoveAsync(AppPaths paths, string? home, EngineService? service, bool yes, CancellationToken cancellationToken)
@@ -103,25 +109,41 @@ internal static class Data
         return folders.Where(f => Directory.Exists(f) && !folders.Any(other => other != f && f.StartsWith(other + Path.DirectorySeparatorChar, StringComparison.Ordinal)));
     }
 
-    // And the folder itself if that leaves it empty
+    // And each folder, and the home itself, if that leaves it empty
     private static void RemoveFromHome(string home)
     {
         foreach (var name in MadeInAHome)
         {
-            var path = Path.Combine(home, name);
-            if (Directory.Exists(path))
+            if (File.Exists(Path.Combine(home, name)))
             {
-                Directory.Delete(path, recursive: true);
-            }
-            else
-            {
-                File.Delete(path);
+                File.Delete(Path.Combine(home, name));
             }
         }
 
-        if (Directory.Exists(home) && !Directory.EnumerateFileSystemEntries(home).Any())
+        foreach (var (name, files) in MadeInAHomesFolders)
         {
-            Directory.Delete(home);
+            var folder = Path.Combine(home, name);
+            if (!Directory.Exists(folder))
+            {
+                continue;
+            }
+
+            foreach (var file in files.SelectMany(pattern => Directory.GetFiles(folder, pattern)))
+            {
+                File.Delete(file);
+            }
+
+            RemoveIfEmpty(folder);
+        }
+
+        RemoveIfEmpty(home);
+    }
+
+    private static void RemoveIfEmpty(string folder)
+    {
+        if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
+        {
+            Directory.Delete(folder);
         }
     }
 

@@ -59,6 +59,23 @@ public class DiagnosticsTests
         }
     }
 
+    // A home's logs folder may hold someone's own
+    [Test]
+    public void Export_TakesOnlyTheProgramsLogs()
+    {
+        File.WriteAllText(Path.Combine(_home, "logs", "engine-20261106.log"), "Started");
+        File.WriteAllText(Path.Combine(_home, "logs", "obmd-stderr.log"), "");
+        File.WriteAllText(Path.Combine(_home, "logs", "build.log"), "Someone's own log");
+
+        var (exitCode, output) = Tool.Run("obm", "diagnostics", "export", "--home", _home, "-o", _saveIn);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(Entries(Saved()).Where(entry => entry.StartsWith("logs/", StringComparison.Ordinal)), Is.EquivalentTo(["logs/engine-20261106.log", "logs/obmd-stderr.log"]));
+        }
+    }
+
     [Test]
     public void Export_TakesOutTheHomeFolder()
     {
