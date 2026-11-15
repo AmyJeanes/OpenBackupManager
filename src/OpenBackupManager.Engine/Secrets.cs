@@ -188,7 +188,7 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
         {
             return await use(Chosen is { } kind
                 ? StoreFor(kind)
-                : throw new EngineException("No store for secrets has been chosen. Set secret-store in config.toml or OBM_SECRET_STORE"));
+                : throw new EngineException("No store for secrets has been chosen. Set secret-store in config.toml"));
         }
         finally
         {

@@ -238,7 +238,7 @@ public class StatusTests
 
     [TestCase("credential-manager", null, "in Credential Manager")]
     [TestCase("keychain", null, "in the login Keychain")]
-    [TestCase(null, null, "no store chosen yet. Choose one with secret-store in config.toml or OBM_SECRET_STORE: secret-service or file")]
+    [TestCase(null, null, "no store chosen yet. Choose one with secret-store in config.toml: secret-service or file")]
     public void Secrets(string? store, string? file, string expected) =>
         Assert.That(Status.Secrets(new SecretsStatus(store, file), OSPlatform.Linux), Is.EqualTo(expected));
 

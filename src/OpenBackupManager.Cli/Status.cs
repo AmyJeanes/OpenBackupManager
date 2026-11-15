@@ -95,7 +95,8 @@ internal static class Status
     {
         if (secrets.Store is null)
         {
-            return "no store chosen yet. Choose one with secret-store in config.toml or OBM_SECRET_STORE: "
+            // Not OBM_SECRET_STORE, which a shell's profile sets for obm but never for the engine a service starts
+            return "no store chosen yet. Choose one with secret-store in config.toml: "
                 + string.Join(" or ", SecretStoreKinds.NamesOn(os));
         }
 

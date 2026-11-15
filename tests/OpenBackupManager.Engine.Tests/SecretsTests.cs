@@ -134,6 +134,17 @@ public class SecretsTests
         Assert.That(secrets.Chosen, Is.Null);
     }
 
+    // Not OBM_SECRET_STORE, which never reaches the engine a service starts
+    [Test]
+    public void NothingChosen_UsingSecrets_SaysToSetSecretStore()
+    {
+        Assume.That(SecretStoreKinds.DefaultOn(CurrentOS.Platform), Is.Null, "Only Linux has no store until one is chosen");
+        var secrets = SecretsWith("");
+
+        Assert.That(() => secrets.ReadAsync("rclone-config"),
+            Throws.InstanceOf<EngineException>().With.Message.EqualTo("No store for secrets has been chosen. Set secret-store in config.toml"));
+    }
+
     [Test]
     public async Task ACopyThatReadsBackDifferently_IsPutBack()
     {
