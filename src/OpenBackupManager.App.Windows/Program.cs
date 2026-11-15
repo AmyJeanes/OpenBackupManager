@@ -59,12 +59,10 @@ public static class Program
         VelopackApp.Build()
             .OnAfterInstallFastCallback(_ => UserPath.Add(CommandLineFolder))
             .OnBeforeUpdateFastCallback(_ => EngineConnection.StopFor(HookHome))
-            .OnBeforeUninstallFastCallback(_ =>
-            {
-                WindowsNotifier.Unregister();
-                RunKey.RemoveFor(Environment.ProcessPath!);
-                UserPath.Remove(CommandLineFolder);
-            })
+            .OnBeforeUninstallFastCallback(_ => CleanUp(
+                () => RunKey.RemoveFor(Environment.ProcessPath!),
+                () => UserPath.Remove(CommandLineFolder),
+                WindowsNotifier.Unregister))
             .Run();
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Installed = VelopackLocator.Current.CurrentlyInstalledVersion is not null;
@@ -135,6 +133,23 @@ public static class Program
         });
     }
 
+    // Each on its own, so one that fails doesn't leave the rest behind. Velopack deletes the install folder whatever
+    // happens, so what would point into it goes first
+    private static void CleanUp(params Action[] steps)
+    {
+        foreach (var step in steps)
+        {
+            try
+            {
+                step();
+            }
+            // Nothing can be shown while uninstalling, so it goes on with the rest
+            catch (Exception)
+            {
+            }
+        }
+    }
+
     internal static IHost BuildHost(string home)
     {
         var paths = AppPaths.InHome(home);
@@ -156,7 +171,11 @@ public static class Program
             // App opens the crash window through AppActions itself, which view models never need
             .AddSingleton<AppActions>()
             .AddSingleton<IAppActions>(services => services.GetRequiredService<AppActions>())
-            .AddSingleton<INotifier>(_ => new WindowsNotifier(AppName, AppIcons.Ico, $"--home \"{home}\""))
+            .AddSingleton<INotifier>(services => new WindowsNotifier(
+                AppName,
+                AppIcons.Ico,
+                $"--home \"{home}\"",
+                services.GetRequiredService<ILogger<WindowsNotifier>>()))
             .AddSingleton<AppNotifications>()
             .AddSingleton<IStartAtLogin>(_ => new RunKey(AppHome.InstanceKey(home), $"\"{Environment.ProcessPath}\" --home \"{home}\" {AtLoginArgument}"))
             .AddSingleton(services => new StartAtLoginSetting(

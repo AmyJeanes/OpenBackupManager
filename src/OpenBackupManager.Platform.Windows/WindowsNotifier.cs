@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using OpenBackupManager.Core.Platform;
 using Windows.Data.Xml.Dom;
@@ -10,8 +12,12 @@ namespace OpenBackupManager.Platform.Windows;
 
 // Notifications through Windows' own toast API. Their buttons come back to this copy of the app, or start it if it
 // isn't running
-public sealed class WindowsNotifier : INotifier, IDisposable
+public sealed partial class WindowsNotifier : INotifier, IDisposable
 {
+    // WPN_E_PLATFORM_UNAVAILABLE, as when Windows' notification services are turned off, which debloating tools and some
+    // organisations' policies do
+    private const int PlatformUnavailable = unchecked((int)0x803E0105);
+
     // Windows groups notifications by the app's ID. Velopack gives the installed app its Start menu shortcut's ID,
     // and a copy that wasn't installed gets one from its path, so copies in different folders keep their own
     private static readonly string AppId = NativeMethods.ExplicitAppId()
@@ -23,13 +29,29 @@ public sealed class WindowsNotifier : INotifier, IDisposable
     // Clicks arrive on a COM thread, and are passed on through this
     private readonly SynchronizationContext? _context = SynchronizationContext.Current;
     private readonly uint _activator;
-    private readonly ToastNotifier _notifier;
+    private readonly ToastNotifier? _notifier;
+    private readonly ILogger _logger;
 
     // launchArguments are what Windows starts the app with to deliver a click when it isn't running
-    public WindowsNotifier(string appName, string iconPath, string launchArguments)
+    public WindowsNotifier(string appName, string iconPath, string launchArguments, ILogger<WindowsNotifier> logger)
+        : this(appName, iconPath, launchArguments, logger, () => ToastNotificationManager.CreateToastNotifier(AppId))
     {
+    }
+
+    internal WindowsNotifier(string appName, string iconPath, string launchArguments, ILogger logger, Func<ToastNotifier> createNotifier)
+    {
+        _logger = logger;
         Register(appName, iconPath, launchArguments);
-        _notifier = ToastNotificationManager.CreateToastNotifier(AppId);
+        // Without notifications, the rest of the app still works
+        try
+        {
+            _notifier = createNotifier();
+        }
+        catch (COMException e) when (e.HResult == PlatformUnavailable)
+        {
+            LogUnavailable(e);
+        }
+
         _activator = NotificationActivator.Register(ActivatorId, OnActivated);
     }
 
@@ -40,15 +62,36 @@ public sealed class WindowsNotifier : INotifier, IDisposable
 
     public void Show(Notification notification)
     {
+        if (_notifier is null)
+        {
+            return;
+        }
+
         var xml = new XmlDocument();
         xml.LoadXml(Toast(notification).ToString());
-        _notifier.Show(new ToastNotification(xml));
+        try
+        {
+            _notifier.Show(new ToastNotification(xml));
+        }
+        // Its services can be stopped while the app runs
+        catch (COMException e) when (e.HResult == PlatformUnavailable)
+        {
+            LogUnavailable(e);
+        }
     }
 
     // When uninstalling, so nothing is left behind
     public static void Unregister()
     {
-        ToastNotificationManager.History.Clear(AppId);
+        try
+        {
+            ToastNotificationManager.History.Clear(AppId);
+        }
+        // Its registration still goes
+        catch (COMException e) when (e.HResult == PlatformUnavailable)
+        {
+        }
+
         Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\AppUserModelId\{AppId}", throwOnMissingSubKey: false);
         Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\CLSID\{ActivatorId:B}", throwOnMissingSubKey: false);
     }
@@ -104,4 +147,7 @@ public sealed class WindowsNotifier : INotifier, IDisposable
             _context.Post(_ => Clicked?.Invoke(arguments), null);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Windows' notification platform is unavailable, so notifications won't show")]
+    private partial void LogUnavailable(Exception exception);
 }
