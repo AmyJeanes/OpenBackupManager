@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
@@ -116,6 +117,11 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
         catch (OperationCanceledException)
         {
         }
+        // So Quit and restarting to update still finish
+        catch (Exception e)
+        {
+            LogStoppedConnecting(e);
+        }
     }
 
     private async Task KeepConnectedAsync(CancellationToken cancellationToken)
@@ -133,6 +139,11 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
             {
                 LogCantReach(e);
                 problem = e.Problem;
+            }
+            // Anything else, so it keeps trying rather than saying Starting for good
+            catch (Exception e) when (!cancellationToken.IsCancellationRequested)
+            {
+                LogCantReach(e);
             }
 
             if (engine is not null)
@@ -194,12 +205,20 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
     {
         var obmd = Path.Combine(AppContext.BaseDirectory, "obmd.exe");
         LogStarting(obmd);
-        return Process.Start(new ProcessStartInfo(obmd)
+        try
         {
-            ArgumentList = { "--home", _home, "--started-by", "app" },
-            StartDetached = true,
-            InheritedHandles = [],
-        })!;
+            return Process.Start(new ProcessStartInfo(obmd)
+            {
+                ArgumentList = { "--home", _home, "--started-by", "app" },
+                StartDetached = true,
+                InheritedHandles = [],
+            })!;
+        }
+        // Such as when antivirus has quarantined it
+        catch (Win32Exception e)
+        {
+            throw new EngineException(EngineProblem.CantStart, $"Couldn't start the engine, {obmd}: {e.Message}", e);
+        }
     }
 
     private void Show(EngineState state, EngineProblem? problem = null) => _ui.Post(
@@ -227,6 +246,9 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Can't reach the engine")]
     private partial void LogCantReach(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Stopped connecting to the engine because of an error")]
+    private partial void LogStoppedConnecting(Exception exception);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Stopped the engine")]
     private partial void LogStopped();

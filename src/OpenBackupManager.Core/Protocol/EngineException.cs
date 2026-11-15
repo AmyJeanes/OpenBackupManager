@@ -29,4 +29,5 @@ public enum EngineProblem
     Other,
     AnotherUserOrAdmin,
     AnotherVersion,
+    CantStart,
 }

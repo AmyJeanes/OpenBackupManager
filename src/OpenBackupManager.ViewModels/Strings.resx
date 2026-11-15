@@ -101,6 +101,9 @@
   <data name="Status_EngineAnotherVersion" xml:space="preserve">
     <value>Another version of the engine is still running. Signing out and back in restarts it.</value>
   </data>
+  <data name="Status_EngineCantStart" xml:space="preserve">
+    <value>The app couldn't start its engine. Reinstalling the app should fix this.</value>
+  </data>
   <data name="Status_SyncNow" xml:space="preserve">
     <value>Sync now</value>
   </data>

@@ -36,6 +36,7 @@ public sealed partial class StatusViewModel(AppInfo app, IAppActions actions) : 
     {
         EngineProblem.AnotherUserOrAdmin => Strings.Status_EngineAnotherUserOrAdmin,
         EngineProblem.AnotherVersion => Strings.Status_EngineAnotherVersion,
+        EngineProblem.CantStart => Strings.Status_EngineCantStart,
         _ => "",
     };
 

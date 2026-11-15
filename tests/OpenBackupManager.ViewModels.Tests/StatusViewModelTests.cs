@@ -48,6 +48,7 @@ public class StatusViewModelTests
 
     [TestCase(EngineProblem.AnotherUserOrAdmin, "Another user or an administrator started the engine for this home, so the app can't use it.")]
     [TestCase(EngineProblem.AnotherVersion, "Another version of the engine is still running. Signing out and back in restarts it.")]
+    [TestCase(EngineProblem.CantStart, "The app couldn't start its engine. Reinstalling the app should fix this.")]
     [TestCase(EngineProblem.Other, "")]
     [TestCase(null, "")]
     public void Detail_SaysWhyTheEngineCantBeReached(EngineProblem? problem, string detail) =>
