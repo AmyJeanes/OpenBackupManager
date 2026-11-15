@@ -383,6 +383,32 @@ public class CrashReportsTests
     [Test]
     public void RepeatOf_NotTheFirst() => Assert.That(_reports.RepeatOf(RunFrom(TimeSpan.Zero)), Is.Null);
 
+    // As one renamed by hand, which mustn't stop the next start
+    [Test]
+    public void RepeatOf_NotAReportItCantReadTheTimeOf()
+    {
+        Directory.CreateDirectory(_reports.Folder);
+        File.WriteAllText(Path.Combine(_reports.Folder, "crash-mine-app.txt"), "");
+
+        Assert.That(_reports.RepeatOf(RunFrom(TimeSpan.Zero)), Is.Null);
+    }
+
+    // As on a Mac set to Thailand's region, whose calendar is the Buddhist one, where it's 2569
+    [Test]
+    [SetCulture("th-TH")]
+    public void Write_InAnotherCalendar_IsNamedInUtc_AndSaysTheLocalTimeInTheGregorianOne()
+    {
+        _time.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("Bangkok", TimeSpan.FromHours(7), "Bangkok", "Bangkok"));
+
+        var file = _reports.Write("Open Backup Manager", Start(), "Something broke");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Path.GetFileName(file), Is.EqualTo("crash-20261014-163000-000-app.txt"));
+            Assert.That(File.ReadAllText(file), Does.StartWith("Open Backup Manager closed unexpectedly at 2026-10-14 23:30:00 +07:00"));
+        }
+    }
+
     // On macOS and Linux, from the running file a run that crashed outside .NET, or was ended, left behind
     [Test]
     public void WriteEnded_WithNothingRecorded_SaysItDidntSayWhy()

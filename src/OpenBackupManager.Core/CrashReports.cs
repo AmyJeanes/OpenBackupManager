@@ -20,6 +20,9 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
     private const int LogLines = 100;
     private const int PrintedLength = 64 * 1024;
     private const string ShownFile = "shown";
+
+    // When a report was written, in its name
+    private const string Stamp = "yyyyMMdd-HHmmss-fff";
     private const string WindowsRecorded = "Windows recorded this:";
     private const string MacOSRecorded = "macOS recorded this:";
     private const string PrintedHeading = "What it printed as it closed:";
@@ -55,7 +58,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
     // Writes a report on a run that closed unexpectedly, with the end of its own log. closedAt is only needed for a
     // run that closed before now
     public string Write(string program, Run run, string details, DateTimeOffset? closedAt = null) =>
-        Write($"{program} closed unexpectedly at {(closedAt ?? time.GetLocalNow()):yyyy-MM-dd HH:mm:ss zzz}", run, details);
+        Write($"{program} closed unexpectedly at {Local(closedAt ?? time.GetUtcNow())}", run, details);
 
     // The report a run repeats, if it closed within a minute of starting, soon after it, as one that can't get going does
     // when it's started again and again. That first report says why, and this keeps the others from replacing older ones
@@ -66,9 +69,12 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
             return null;
         }
 
+        // One it can't read the time from, as one renamed by hand, is no repeat, so it can't stop a start
         var name = Path.GetFileName(newest);
-        var written = DateTime.ParseExact(name["crash-".Length..][..19], "yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
-        return written >= TimeZoneInfo.ConvertTime(run.Started - Repeat, time.LocalTimeZone).DateTime ? name : null;
+        var stamp = name["crash-".Length..];
+        return stamp.Length >= Stamp.Length
+            && DateTime.TryParseExact(stamp[..Stamp.Length], Stamp, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var written)
+            && written >= (run.Started - Repeat).UtcDateTime ? name : null;
     }
 
     // For a run that didn't stop, from what Windows recorded, which catches crashes .NET never sees. Null if there's
@@ -118,16 +124,15 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         string heading;
         if (recorded is not null)
         {
-            heading = $"{program} closed unexpectedly at {TimeZoneInfo.ConvertTime(recorded.Time, time.LocalTimeZone):yyyy-MM-dd HH:mm:ss zzz}";
+            heading = $"{program} closed unexpectedly at {Local(recorded.Time)}";
         }
         else if (NewestLog() is { } log && log.LastWriteTimeUtc >= run.Started.UtcDateTime)
         {
-            var written = TimeZoneInfo.ConvertTime(new DateTimeOffset(log.LastWriteTimeUtc), time.LocalTimeZone);
-            heading = $"{program} closed unexpectedly after {written:yyyy-MM-dd HH:mm:ss zzz}, when it last wrote to its log";
+            heading = $"{program} closed unexpectedly after {Local(new DateTimeOffset(log.LastWriteTimeUtc))}, when it last wrote to its log";
         }
         else
         {
-            heading = $"{program} closed unexpectedly some time after it started at {TimeZoneInfo.ConvertTime(run.Started, time.LocalTimeZone):yyyy-MM-dd HH:mm:ss zzz}";
+            heading = $"{program} closed unexpectedly some time after it started at {Local(run.Started)}";
         }
 
         return Write(heading, run, details.ToString());
@@ -224,8 +229,8 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
             .AppendLine(RecentLog(run));
 
         Directory.CreateDirectory(Folder);
-        // Named by when they're written, so they sort oldest first
-        var file = Path.Combine(Folder, $"crash-{time.GetLocalNow():yyyyMMdd-HHmmss-fff}-{name}.txt");
+        // Named by when they're written, in UTC so they sort oldest first even after the clock goes back
+        var file = Path.Combine(Folder, $"crash-{time.GetUtcNow().ToString(Stamp, CultureInfo.InvariantCulture)}-{name}.txt");
         File.WriteAllText(file, report.ToString());
         foreach (var old in Reports().SkipLast(Kept))
         {
@@ -234,6 +239,10 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
 
         return file;
     }
+
+    // In this PC's time zone, but in the Gregorian calendar whatever the region, as the rest of a report is in English
+    private string Local(DateTimeOffset when) =>
+        TimeZoneInfo.ConvertTime(when, time.LocalTimeZone).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
 
     private bool IsOwn(string report) => Path.GetFileNameWithoutExtension(report).EndsWith("-" + name, StringComparison.Ordinal);
 
