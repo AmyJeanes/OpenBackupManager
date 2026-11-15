@@ -10,13 +10,15 @@
 
 === "macOS"
 
-    Run `obm update` to update `obm` and `obmd` to the newest version from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases). It checks the download's SHA-256 hash against the one GitHub gives for it, then replaces them where they are. If you used `obm service install`, the service restarts the engine on the new version, and `obm update` waits to say it has. If you started `obmd` yourself, restart it. `obm update --check` only says whether there's a newer version, and nothing checks by itself. To be sure the new ones came from the project's build, check them with `gh attestation verify`, as [Checking a download](checking-downloads.md) describes.
+    Run `obm update` to update `obm` and `obmd` to the newest version from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases). It checks the download's SHA-256 hash against the one GitHub gives for it, then replaces them where they are. If you used `obm service install`, the service restarts the engine on the new version, and `obm update` waits to say it has. While `config.toml` has an error, the service's engine keeps running the version before until it's fixed, as the new one wouldn't start with it. If you started `obmd` yourself, restart it. `obm update --check` only says whether there's a newer version, and nothing checks by itself. To be sure the new ones came from the project's build, check them with `gh attestation verify`, as [Checking a download](checking-downloads.md) describes.
 
 === "Linux"
 
     Run `obm update` to update `obm` and `obmd` to the newest version from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases). It checks the download's SHA-256 hash against the one GitHub gives for it, then replaces them where they are. If you used `obm service install`, the service restarts the engine on the new version, and `obm update` waits to say it has. If you started `obmd` yourself, restart it. `obm update --check` only says whether there's a newer version, and nothing checks by itself. To be sure the new ones came from the project's build, check them with `gh attestation verify`, as [Checking a download](checking-downloads.md) describes.
 
     If you installed the `.deb` or `.rpm`, install the newer package instead, as `obm update` tells you. In Docker, update the image, as [Docker](docker.md) describes.
+
+    With `obm update` or a package, while `config.toml` has an error, the service's engine keeps running the version before until it's fixed, as the new one wouldn't start with it.
 
 ## Test versions
 

@@ -229,6 +229,13 @@ internal static class Update
             return 0;
         }
 
+        // As a new engine wouldn't start with it, the engine waits for it to be fixed before restarting
+        if (before.ConfigProblems.Any(p => p.IsError))
+        {
+            Console.WriteLine($"The engine is still running {before.Version.Split('+')[0]}, as config.toml has an error. It restarts to run {version} once it's fixed, and obm status says what it is");
+            return 0;
+        }
+
         Console.WriteLine("Waiting for the service to restart the engine");
         var until = DateTime.UtcNow + RestartTimeout;
         while (DateTime.UtcNow < until)

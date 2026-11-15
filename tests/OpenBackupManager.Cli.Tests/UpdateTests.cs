@@ -43,6 +43,8 @@ public class UpdateTests
             tool.Dispose();
         }
 
+        // NUnit uses one instance for every test in the class
+        _running.Clear();
         _github.Dispose();
         File.SetUnixFileMode(_programs, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         Directory.Delete(Path.GetDirectoryName(_programs)!, recursive: true);
@@ -89,6 +91,26 @@ public class UpdateTests
         {
             Assert.That(exitCode, Is.Zero, output);
             Assert.That(output, Does.Contain($"The engine is still running {Version}. Restart it to run 0.3.0"));
+        }
+    }
+
+    // Its engine waits for the error to be fixed, as a new one wouldn't start with it
+    [Test]
+    public void Update_WithTheServicesEngine_AndAnErrorInConfigToml_SaysItRestartsOnceFixed()
+    {
+        var daemon = Tool.Start(Obmd, "--home", _home, "--started-by", "service");
+        _running.Add(daemon);
+        daemon.WaitFor("started, process");
+        File.WriteAllText(Path.Combine(_home, "config.toml"), "version = 1\n[updates]\nprereleases = \"yes\"\n");
+        daemon.WaitFor("so the last good settings stay in use");
+        _github.Add("0.3.0", new Asset(Tarball, FakeGitHub.NewVersionOf(_programs)));
+
+        var (exitCode, output) = Update();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Does.Contain($"The engine is still running {Version}, as config.toml has an error. It restarts to run 0.3.0 once it's fixed"));
         }
     }
 

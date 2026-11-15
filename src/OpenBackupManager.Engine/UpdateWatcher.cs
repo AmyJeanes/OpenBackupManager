@@ -3,16 +3,18 @@ using System.Diagnostics;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Engine;
 
 // Notices when an update, such as a .deb or .rpm, has replaced obmd under the running engine. Its service restarts it
-// into the new one, but an engine started another way only says so, as nothing would start it again. If obmd is removed,
-// the engine removes its service, if it has one, and stops. Not on Windows, where Velopack ends whatever runs from its
-// folder before updating it
+// into the new one, once config.toml has no error the new one would refuse to start with, but an engine started another
+// way only says so, as nothing would start it again. If obmd is removed, the engine removes its service, if it has one,
+// and stops. Not on Windows, where Velopack ends whatever runs from its folder before updating it
 public sealed partial class UpdateWatcher(
     EngineOptions options,
+    ConfigWatcher config,
     IHostApplicationLifetime lifetime,
     TimeProvider time,
     ILogger<UpdateWatcher> logger) : BackgroundService
@@ -50,10 +52,8 @@ public sealed partial class UpdateWatcher(
             if (now != last || now == running)
             {
                 last = now;
-                continue;
             }
-
-            if (now is null)
+            else if (now is null)
             {
                 LogRemoved(obmd);
                 if (options.ServiceFile is { } service)
@@ -64,22 +64,30 @@ public sealed partial class UpdateWatcher(
                 Stop(0);
                 return;
             }
-
-            running = now;
-            if (Version(obmd) is not { } version)
+            else
             {
-                continue;
+                running = now;
+                if (Version(obmd) is { } version)
+                {
+                    Installed = version;
+                    if (options.StartedBy != EngineStarter.Service)
+                    {
+                        LogNeedsRestart(version);
+                    }
+                    else if (config.Result.HasErrors)
+                    {
+                        LogWaitingForFix(version);
+                    }
+                }
             }
 
-            if (options.StartedBy == EngineStarter.Service)
+            // A new engine wouldn't start with an error in config.toml, and its service would soon give up on it
+            if (options.StartedBy == EngineStarter.Service && Installed is { } installed && !config.Result.HasErrors)
             {
-                LogRestarting(version);
+                LogRestarting(installed);
                 Stop(RestartExitCode);
                 return;
             }
-
-            Installed = version;
-            LogNeedsRestart(version);
         }
     }
 
@@ -192,6 +200,9 @@ public sealed partial class UpdateWatcher(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "obmd {Version} is installed, so the engine is restarting to run it")]
     private partial void LogRestarting(string version);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "obmd {Version} is installed, but config.toml has an error a new engine wouldn't start with, so this one keeps running until it's fixed")]
+    private partial void LogWaitingForFix(string version);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "obmd {Version} is installed, but this engine runs the version before it until it's restarted")]
     private partial void LogNeedsRestart(string version);

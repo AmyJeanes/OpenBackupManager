@@ -243,6 +243,38 @@ public class DaemonTests
         }
     }
 
+    // A new engine wouldn't start with the error, and its service would soon give up on it
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void AnUpdate_StartedByItsService_WaitsForAnErrorInConfigTomlToBeFixed()
+    {
+        var home = NewHome();
+        var config = Path.Combine(home, "config.toml");
+        var obmd = CopyOfObmd();
+        var daemon = Tool.Start(obmd, "--home", home, "--started-by", "service");
+        _running.Add(daemon);
+        daemon.WaitFor(Started);
+        File.WriteAllText(config, "version = 1\n[updates]\nprereleases = \"yes\"\n");
+        daemon.WaitFor("so the last good settings stay in use");
+
+        Tool.Update(obmd);
+
+        daemon.WaitFor("is installed, but config.toml has an error a new engine wouldn't start with, so this one keeps running until it's fixed");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Tool.Run("obm", "status", "--home", home).Output, Does.Contain($"Installed: {AppVersion.Current}, which runs once config.toml's error is fixed"));
+            Assert.That(daemon.HasExited, Is.False);
+        }
+
+        File.WriteAllText(config, "version = 1\n");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(daemon.WaitForExit(), Is.EqualTo(75));
+            Assert.That(daemon.Output, Does.Contain("is installed, so the engine is restarting to run it"));
+        }
+    }
+
     [Test]
     [Platform(Exclude = "Win")]
     public void RemovingObmd_StopsTheEngine()

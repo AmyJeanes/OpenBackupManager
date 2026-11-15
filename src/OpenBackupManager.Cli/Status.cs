@@ -51,7 +51,9 @@ internal static class Status
             output.WriteLine($"  Version: {status.Version}");
             if (status.Installed is { } installed)
             {
-                output.WriteLine($"  Installed: {installed}, which runs once you restart the engine");
+                output.WriteLine(status.StartedBy == EngineStarter.Service
+                    ? $"  Installed: {installed}, which runs once config.toml's error is fixed"
+                    : $"  Installed: {installed}, which runs once you restart the engine");
             }
 
             output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  Process: {status.ProcessId}"));

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Platform;
 using OpenBackupManager.Core.Protocol;
 
@@ -20,6 +21,7 @@ internal static class Service
                 throw new ServiceException($"obmd isn't beside obm, at {service.Obmd}, so there's no engine to install");
             }
 
+            CheckConfig(paths);
             await TakeOverAsync(paths, cancellationToken);
             service.Install();
             var status = await StartedAsync(paths, service, cancellationToken)
@@ -80,6 +82,26 @@ internal static class Service
 
         Console.WriteLine("The engine has stopped, and no longer starts when you sign in");
         return 0;
+    }
+
+    // The service's engine wouldn't start, and its service manager would try again until it gave up. Without this shell's
+    // variables, as the service doesn't have them
+    private static void CheckConfig(AppPaths paths)
+    {
+        ConfigProblem? error;
+        try
+        {
+            error = new ConfigFile(paths.ConfigFile, _ => null).Read().Problems.FirstOrDefault(p => p.IsError);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new ServiceException($"{paths.ConfigFile} can't be read, so the engine wouldn't start: {e.Message.TrimEnd('.')}");
+        }
+
+        if (error is not null)
+        {
+            throw new ServiceException($"{paths.ConfigFile} has an error on line {error.Line}, so the engine wouldn't start: {error.Message(CultureInfo.InvariantCulture)}");
+        }
     }
 
     // An engine started another way would keep the service's from starting, as only one runs for each home. The

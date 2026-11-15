@@ -209,6 +209,24 @@ public class ServiceTests
         }
     }
 
+    // Its engine wouldn't start, and the service manager would keep starting it
+    [Test]
+    public void Install_WithAnErrorInConfigToml_SaysSo_AndInstallsNothing()
+    {
+        var config = Path.Combine(_home, "config.toml");
+        Directory.CreateDirectory(_home);
+        File.WriteAllText(config, "version = 1\n[updates]\nprereleases = \"yes\"\n");
+
+        var (exitCode, output) = Tool.Run("obm", "service", "install", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Does.Contain($"obm: {config} has an error on line 3, so the engine wouldn't start: updates.prereleases should be true or false"));
+            Assert.That(File.Exists(EngineService.ForThisOS(_home)!.File), Is.False);
+        }
+    }
+
     // launchd never stops trying, so on macOS installing waits out its whole timeout, longer than Tool.Run does
     [Test]
     [Platform("Linux")]
