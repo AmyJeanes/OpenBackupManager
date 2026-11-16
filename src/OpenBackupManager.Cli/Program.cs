@@ -24,7 +24,7 @@ installCommand.SetAction((parseResult, cancellationToken) =>
 
 var uninstallCommand = new Command("uninstall", "Stop the engine, and stop it starting when you sign in");
 uninstallCommand.SetAction((parseResult, cancellationToken) =>
-    RefuseUnderSudo() ?? (ServiceFor(parseResult) is { } service ? Task.FromResult(Service.Uninstall(service)) : OnWindows()));
+    RefuseUnderSudo() ?? (ServiceFor(parseResult) is { } service ? Service.UninstallAsync(Paths(parseResult), service, cancellationToken) : OnWindows()));
 
 // Not on Windows, where the app starts the engine instead, but it still says so to anyone who tries it
 var serviceCommand = new Command("service", "Keep the engine running from when you sign in, through the OS's own service manager")

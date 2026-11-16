@@ -73,23 +73,21 @@ internal sealed class SystemdService(
     // Restarted rather than started, so an engine it started before runs as it's now defined
     public override void Start() => Run("systemctl", "--user", "restart", Unit);
 
-    // Without systemd, there's no engine it started to stop
+    // Refused without systemd, as in a shell from su, where systemd can still be running the unit, and would keep it
+    // enabled and running with its file gone
     public override void Uninstall()
     {
-        var reachable = Reachable;
-        if (reachable)
+        if (!Reachable)
         {
-            Run("systemctl", "--user", "disable", "--now", Unit);
-            // Or one that had failed stays listed as failed, and the user's systemd as degraded. It fails when
-            // there's nothing to reset
-            TryRun("systemctl", "--user", "reset-failed", Unit);
+            throw new ServiceException("systemd can't be reached for this user, so the service can't be uninstalled. Run this again where systemctl --user works, such as in machinectl shell rather than su");
         }
 
+        Run("systemctl", "--user", "disable", "--now", Unit);
+        // Or one that had failed stays listed as failed, and the user's systemd as degraded. It fails when there's
+        // nothing to reset
+        TryRun("systemctl", "--user", "reset-failed", Unit);
         OnDisk(File, () => System.IO.File.Delete(File));
-        if (reachable)
-        {
-            Run("systemctl", "--user", "daemon-reload");
-        }
+        Run("systemctl", "--user", "daemon-reload");
     }
 
     // The user's own systemd, which isn't running in most containers, or under WSL with systemd off

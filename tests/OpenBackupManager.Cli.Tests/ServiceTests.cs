@@ -305,6 +305,25 @@ public class ServiceTests
         }
     }
 
+    // As when the engine was stopped and then started by hand, which would otherwise keep running
+    [Test]
+    public async Task Uninstall_StopsAnEngineStartedAnotherWay()
+    {
+        Assert.That(Tool.Run("obm", "service", "install", "--home", _home).ExitCode, Is.Zero);
+        await StopAsync();
+        using var byHand = Tool.Start("obmd", "--home", _home);
+        byHand.WaitFor("started, process");
+
+        var (exitCode, output) = Tool.Run("obm", "service", "uninstall", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Does.Contain("The engine has stopped"));
+            Assert.That(byHand.HasExited, Is.True, "The engine was still running");
+        }
+    }
+
     // systemd would otherwise keep listing it as failed, and say the user's services are degraded
     [Test]
     [Platform("Linux")]

@@ -67,4 +67,32 @@ public class ServiceCommandTests
             Directory.Delete(home, recursive: true);
         }
     }
+
+    // As in a shell from su, where systemctl is there but can't reach the user's systemd, which may be running the unit
+    [Test]
+    [Platform("Linux")]
+    public void Uninstall_WithoutSystemd_SaysSo_AndLeavesTheUnit()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "obm-tests-" + Guid.NewGuid().ToString("N")[..8]);
+        var user = Path.Combine(home, "user");
+        var unit = new SystemdService(home, "", "", name => name == "HOME" ? user : null, _ => null).File;
+        Directory.CreateDirectory(Path.GetDirectoryName(unit)!);
+        File.WriteAllText(unit, "");
+        var withoutSystemd = new Dictionary<string, string> { ["HOME"] = user, ["XDG_RUNTIME_DIR"] = Path.Combine(home, "nowhere"), ["DBUS_SESSION_BUS_ADDRESS"] = "" };
+        try
+        {
+            var (exitCode, output) = Tool.Run("obm", withoutSystemd, "service", "uninstall", "--home", home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.Contain("systemd can't be reached").And.Not.Contain("has stopped"));
+                Assert.That(unit, Does.Exist);
+            }
+        }
+        finally
+        {
+            Directory.Delete(home, recursive: true);
+        }
+    }
 }

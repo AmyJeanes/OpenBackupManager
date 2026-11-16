@@ -63,7 +63,7 @@ internal static class Service
         }
     }
 
-    public static int Uninstall(EngineService service)
+    public static async Task<int> UninstallAsync(AppPaths paths, EngineService service, CancellationToken cancellationToken)
     {
         if (!service.IsInstalled)
         {
@@ -74,15 +74,29 @@ internal static class Service
         try
         {
             service.Uninstall();
+            await StopRunningAsync(paths, cancellationToken);
         }
-        catch (ServiceException e)
+        catch (Exception e) when (e is ServiceException or EngineException)
         {
-            Console.Error.WriteLine("obm: " + e.Message);
+            await Console.Error.WriteLineAsync("obm: " + e.Message, cancellationToken);
             return 1;
         }
 
         Console.WriteLine("The engine has stopped, and no longer starts when you sign in");
         return 0;
+    }
+
+    // An engine can still be running once its service has stopped, such as one started by hand. False if none was
+    internal static async Task<bool> StopRunningAsync(AppPaths paths, CancellationToken cancellationToken)
+    {
+        using var engine = await EngineClient.ConnectAsync(paths, cancellationToken);
+        if (engine is null)
+        {
+            return false;
+        }
+
+        await StopAsync(engine, (await engine.StatusAsync(cancellationToken)).ProcessId, cancellationToken);
+        return true;
     }
 
     // The service's engine wouldn't start, and its service manager would try again until it gave up. Without this

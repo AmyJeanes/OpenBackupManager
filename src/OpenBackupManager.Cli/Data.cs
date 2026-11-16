@@ -162,14 +162,13 @@ internal static class Data
         if (service is { IsInstalled: true })
         {
             service.Uninstall();
+            await Service.StopRunningAsync(paths, cancellationToken);
             Console.WriteLine("The engine has stopped, and no longer starts when you sign in");
             return;
         }
 
-        using var engine = await EngineClient.ConnectAsync(paths, cancellationToken);
-        if (engine is not null)
+        if (await Service.StopRunningAsync(paths, cancellationToken))
         {
-            await Service.StopAsync(engine, (await engine.StatusAsync(cancellationToken)).ProcessId, cancellationToken);
             Console.WriteLine("The engine has stopped");
         }
     }
