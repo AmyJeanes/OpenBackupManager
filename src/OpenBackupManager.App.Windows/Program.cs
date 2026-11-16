@@ -125,7 +125,7 @@ public static class Program
         AppDomain.CurrentDomain.UnhandledException += (_, e) => crashes.Capture((Exception)e.ExceptionObject);
         TaskScheduler.UnobservedTaskException += (_, e) => crashes.Unobserved(e.Exception);
         crashes.Start();
-        CrashRestart.Register($"--home \"{Home}\"");
+        CrashRestart.Register(HomeArgument(Home));
         Application.Start(p =>
         {
             SynchronizationContext.SetSynchronizationContext(new UiSynchronizationContext(DispatcherQueue.GetForCurrentThread(), crashes));
@@ -174,10 +174,10 @@ public static class Program
             .AddSingleton<INotifier>(services => new WindowsNotifier(
                 AppName,
                 AppIcons.Ico,
-                $"--home \"{home}\"",
+                HomeArgument(home),
                 services.GetRequiredService<ILogger<WindowsNotifier>>()))
             .AddSingleton<AppNotifications>()
-            .AddSingleton<IStartAtLogin>(_ => new RunKey(AppHome.InstanceKey(home), $"\"{Environment.ProcessPath}\" --home \"{home}\" {AtLoginArgument}"))
+            .AddSingleton<IStartAtLogin>(_ => new RunKey(AppHome.InstanceKey(home), $"\"{Environment.ProcessPath}\" {HomeArgument(home)} {AtLoginArgument}"))
             .AddSingleton(services => new StartAtLoginSetting(
                 services.GetRequiredService<ConfigWatcher>(),
                 services.GetRequiredService<IStartAtLogin>(),
@@ -271,8 +271,16 @@ public static class Program
             return false;
         }
 
-        var arguments = $"--home \"{home}\" {RestartedArgument}";
+        var arguments = $"{HomeArgument(home)} {RestartedArgument}";
         return start(Environment.ProcessPath!, args.Contains(AtLoginArgument) ? $"{arguments} {AtLoginArgument}" : arguments);
+    }
+
+    // For a command line, with any backslashes at its end doubled, as a drive root such as E:\ has, since Windows reads
+    // one before the closing quote as escaping it
+    internal static string HomeArgument(string home)
+    {
+        var ending = home.Length - home.TrimEnd('\\').Length;
+        return $"--home \"{home}{new string('\\', ending)}\"";
     }
 
     // {0} in the message is the app's name, and the values follow it
