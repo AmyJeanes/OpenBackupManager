@@ -43,7 +43,7 @@
 
     The app starts the engine itself when it isn't running, and stops it when you quit the app. So `obmd` isn't on your PATH: it's in `%LocalAppData%\OpenBackupManager.App\current`. If you started the engine yourself, the app uses that one and leaves it running when you quit.
 
-    To run the engine without the app, such as at sign-in, add `obmd` to Task Scheduler, with a trigger of At log on. It runs in a console window, and closing the window stops it. `obm service install` is only for macOS and Linux, since on Windows the app does its job.
+    To run the engine without the app, such as at sign-in, add `obmd` to Task Scheduler, with a trigger of At log on. By default, Task Scheduler doesn't start a task on battery power, and stops it when the computer is unplugged or after 3 days, so change these in the task's properties. On the Conditions tab, clear **Stop if the computer switches to battery power**, then **Start the task only if the computer is on AC power**. On the Settings tab, clear **Stop the task if it runs longer than**. The engine runs in a console window, and closing the window stops it. `obm service install` is only for macOS and Linux, since on Windows the app does its job.
 
 === "macOS"
 
