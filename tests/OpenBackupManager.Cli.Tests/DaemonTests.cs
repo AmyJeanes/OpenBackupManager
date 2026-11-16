@@ -16,19 +16,25 @@ public class DaemonTests
     [TearDown]
     public void TearDown()
     {
-        foreach (var daemon in _running)
+        try
         {
-            daemon.Dispose();
-        }
+            foreach (var daemon in _running)
+            {
+                daemon.Dispose();
+            }
 
-        foreach (var home in _homes)
+            // An engine that couldn't start never made its home
+            foreach (var home in _homes.Where(Directory.Exists))
+            {
+                Directory.Delete(home, recursive: true);
+            }
+        }
+        finally
         {
-            Directory.Delete(home, recursive: true);
+            // NUnit uses one instance for every test in the class, so a failed clean-up mustn't be left to the next
+            _running.Clear();
+            _homes.Clear();
         }
-
-        // NUnit uses one instance for every test in the class
-        _running.Clear();
-        _homes.Clear();
     }
 
     [Test]

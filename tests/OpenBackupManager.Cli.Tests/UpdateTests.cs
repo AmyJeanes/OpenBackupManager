@@ -44,16 +44,21 @@ public class UpdateTests
     [TearDown]
     public void TearDown()
     {
-        foreach (var tool in _running)
+        try
         {
-            tool.Dispose();
+            foreach (var tool in _running)
+            {
+                tool.Dispose();
+            }
         }
-
-        // NUnit uses one instance for every test in the class
-        _running.Clear();
-        _github.Dispose();
-        File.SetUnixFileMode(_programs, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        Directory.Delete(Path.GetDirectoryName(_programs)!, recursive: true);
+        finally
+        {
+            // NUnit uses one instance for every test in the class, so a failed clean-up mustn't be left to the next
+            _running.Clear();
+            _github.Dispose();
+            File.SetUnixFileMode(_programs, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Directory.Delete(Path.GetDirectoryName(_programs)!, recursive: true);
+        }
     }
 
     // And the licences only if they were unpacked there too

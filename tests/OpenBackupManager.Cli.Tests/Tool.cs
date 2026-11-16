@@ -14,6 +14,7 @@ internal sealed class Tool : IDisposable
     private readonly List<string> _lines = [];
     private readonly List<string> _stdout = [];
     private readonly List<string> _stderr = [];
+    private bool _disposed;
 
     private Tool(string name, Process process)
     {
@@ -187,8 +188,14 @@ internal sealed class Tool : IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         Kill();
         _process.Dispose();
+        _disposed = true;
     }
 
     private void Add(string? line, bool stdout)
