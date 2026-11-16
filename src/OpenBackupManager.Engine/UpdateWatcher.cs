@@ -45,7 +45,9 @@ public sealed partial class UpdateWatcher(
         var running = Identity(obmd);
         var last = running;
         using var timer = new PeriodicTimer(CheckEvery, time);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        // Disposed rather than cancelled: a cancelled wait throws, logged as a crash when the engine can't start
+        using var stopping = stoppingToken.Register(timer.Dispose);
+        while (await timer.WaitForNextTickAsync(CancellationToken.None))
         {
             var now = Identity(obmd);
             // Only once it's the same at two checks in a row, so a file still being written isn't run

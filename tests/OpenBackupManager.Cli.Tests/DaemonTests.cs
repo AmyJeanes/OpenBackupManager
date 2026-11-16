@@ -200,6 +200,7 @@ public class DaemonTests
         {
             Assert.That(exitCode, Is.EqualTo(1));
             Assert.That(output, Does.Contain("obmd: The engine's socket").And.Contain("--home"));
+            Assert.That(output, Does.Not.Contain("BackgroundService").And.Not.Contain("[FTL]"), "Only the real reason");
         }
     }
 
