@@ -38,7 +38,9 @@ internal sealed class FakeGitHub : IDisposable
     public IReadOnlyDictionary<string, string> Environment => new Dictionary<string, string> { ["OBM_UPDATE_SOURCE"] = Url };
 
     // Digest is sha256: then the hash in hex, as GitHub gives, unless the test says otherwise
-    public void Add(string version, params Asset[] assets)
+    public void Add(string version, params Asset[] assets) => AddUnderTag("v" + version, assets);
+
+    public void AddUnderTag(string tag, params Asset[] assets)
     {
         var list = new JsonArray();
         foreach (var asset in assets)
@@ -54,9 +56,9 @@ internal sealed class FakeGitHub : IDisposable
 
         _releases.Add(new JsonObject
         {
-            ["tag_name"] = "v" + version,
+            ["tag_name"] = tag,
             ["draft"] = false,
-            ["prerelease"] = version.Contains('-', StringComparison.Ordinal),
+            ["prerelease"] = tag.Contains('-', StringComparison.Ordinal),
             ["assets"] = list,
         });
     }

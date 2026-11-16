@@ -165,6 +165,21 @@ public class UpdateTests
         }
     }
 
+    // As a release made by hand might be, where CI only makes them from v tags
+    [Test]
+    public void Update_IgnoresAReleaseWithoutAVersionTag()
+    {
+        _github.AddUnderTag("9.9.9", new Asset(Tarball, FakeGitHub.NewVersionOf(_programs)));
+
+        var (exitCode, output) = Update("--check");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Is.EqualTo($"This is the newest version, {Version}"));
+        }
+    }
+
     [TestCase("true", "0.4.0-beta.1")]
     [TestCase("false", "0.3.0")]
     public void Prereleases_FollowTheSetting(string prereleases, string expected)

@@ -57,7 +57,8 @@ internal sealed class Releases : IDisposable
 
         return releases
             .Where(r => !r.Draft)
-            .Select(r => SemanticVersion.TryParse(r.TagName.TrimStart('v'), out var version) ? new Release(version, r.Assets) : null)
+            // Only a v tag, as releases are made from, never a release made by hand under some other tag
+            .Select(r => r.TagName.StartsWith('v') && SemanticVersion.TryParse(r.TagName[1..], out var version) ? new Release(version, r.Assets) : null)
             .OfType<Release>()
             .Where(r => prereleases || !r.Version.IsPrerelease)
             .MaxBy(r => r.Version);
