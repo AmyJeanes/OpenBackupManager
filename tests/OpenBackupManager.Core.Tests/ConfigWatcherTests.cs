@@ -17,7 +17,8 @@ public class ConfigWatcherTests
     public void CreateFolder()
     {
         _folder = Directory.CreateTempSubdirectory("obm-watcher-").FullName;
-        _file = new ConfigFile(Path.Combine(_folder, "config.toml"));
+        // No env vars, rather than whatever's set where the tests run
+        _file = new ConfigFile(Path.Combine(_folder, "config.toml"), _ => null);
     }
 
     [TearDown]
@@ -232,7 +233,7 @@ public class ConfigWatcherTests
         File.WriteAllText(Path.Combine(dotfiles, "config.toml"), "[updates]\nprereleases = false\n");
         var linked = Path.Combine(_folder, "linked");
         Link(() => Directory.CreateSymbolicLink(linked, dotfiles));
-        using var watcher = new ConfigWatcher(new ConfigFile(Path.Combine(linked, "config.toml")), NullLogger<ConfigWatcher>.Instance);
+        using var watcher = new ConfigWatcher(new ConfigFile(Path.Combine(linked, "config.toml"), _ => null), NullLogger<ConfigWatcher>.Instance);
 
         WaitForChange(watcher, () => File.WriteAllText(Path.Combine(dotfiles, "config.toml"), "[updates]\nprereleases = true\n"));
 

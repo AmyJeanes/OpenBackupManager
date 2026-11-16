@@ -96,7 +96,12 @@ internal sealed class Tool : IDisposable
             CreateNoWindow = true,
             WorkingDirectory = folder ?? "",
         };
-        start.Environment.Remove("OBM_HOME");
+        // Only the test's own settings, rather than any exported where the tests run
+        foreach (var variable in start.Environment.Keys.Where(key => key.StartsWith("OBM_", StringComparison.OrdinalIgnoreCase)).ToList())
+        {
+            start.Environment.Remove(variable);
+        }
+
         // On macOS and Linux, the .NET runtime's debugger pipes and diagnostics socket go in the temp folder, and are
         // left there when a test kills the program. Windows' go with the program, so a debugger can still attach there
         if (!OperatingSystem.IsWindows())

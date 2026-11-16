@@ -18,7 +18,8 @@ public sealed class StartAtLoginSettingTests
     {
         _startAtLogin = new FakeStartAtLogin();
         _folder = Directory.CreateTempSubdirectory("obm-login-").FullName;
-        _file = new ConfigFile(Path.Combine(_folder, "config.toml"));
+        // No env vars, rather than whatever's set where the tests run
+        _file = new ConfigFile(Path.Combine(_folder, "config.toml"), _ => null);
     }
 
     [TearDown]

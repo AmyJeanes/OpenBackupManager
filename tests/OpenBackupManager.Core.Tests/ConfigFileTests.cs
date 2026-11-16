@@ -306,7 +306,7 @@ public class ConfigFileTests
     [Test]
     public void Read_MissingFile_GivesTheDefaults()
     {
-        var result = new ConfigFile(FilePath).Read();
+        var result = new ConfigFile(FilePath, EnvVars()).Read();
 
         using (Assert.EnterMultipleScope())
         {
@@ -325,7 +325,7 @@ public class ConfigFileTests
         File.WriteAllText(FilePath, "[updates]\nprereleases = true\n");
         using var editor = new FileStream(FilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
 
-        Assert.That(new ConfigFile(FilePath).Read().Config!.Updates.Prereleases, Is.True);
+        Assert.That(new ConfigFile(FilePath, EnvVars()).Read().Config!.Updates.Prereleases, Is.True);
     }
 
     [Test]
@@ -349,7 +349,7 @@ public class ConfigFileTests
         new ConfigFile(FilePath).Set("updates", "prereleases", true);
         readDone.Wait();
 
-        Assert.That(new ConfigFile(FilePath).Read().Config!.Updates.Prereleases, Is.True);
+        Assert.That(new ConfigFile(FilePath, EnvVars()).Read().Config!.Updates.Prereleases, Is.True);
     }
 
     [Test]
@@ -438,7 +438,7 @@ public class ConfigFileTests
     {
         new ConfigFile(FilePath).Set("updates", "prereleases", true);
 
-        var result = new ConfigFile(FilePath).Read();
+        var result = new ConfigFile(FilePath, EnvVars()).Read();
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Config!.Updates.Prereleases, Is.True);
