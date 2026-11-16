@@ -18,10 +18,18 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TAG: ${{ github.event.release.tag_name }}
+      PRERELEASE: ${{ github.event.release.prerelease }}
     steps:
       - name: Tag it
         run: |
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" != "$TAG" ]; then
+          # releases/latest skips prereleases, and is a 404 until there's a full release
+          if [ "$PRERELEASE" = true ]; then
+              echo "$TAG is a prerelease, so the image's latest tag stays where it is"
+              exit 0
+          fi
+          # On its own line, so a failed lookup fails the step, which can then be re-run
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          if [ "$latest" != "$TAG" ]; then
               echo "$TAG isn't the latest release, so the image's latest tag stays where it is"
               exit 0
           fi
