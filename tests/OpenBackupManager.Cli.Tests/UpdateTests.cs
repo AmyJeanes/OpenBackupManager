@@ -65,6 +65,7 @@ public class UpdateTests
     [Test]
     public void Update_ReplacesThemWithTheNewest()
     {
+        var obm = File.GetLastWriteTimeUtc(Obm);
         var obmd = File.GetLastWriteTimeUtc(Obmd);
         File.WriteAllText(Path.Combine(_programs, "LICENSE"), "The old version's LICENSE");
         File.Delete(Path.Combine(_programs, "THIRD-PARTY-NOTICES.txt"));
@@ -82,6 +83,7 @@ public class UpdateTests
             Assert.That(output, Does.Contain("The engine isn't running, so it'll run 0.3.0 when it next starts"));
             Assert.That(File.ReadAllText(Path.Combine(_programs, "LICENSE")), Is.EqualTo("The old version's LICENSE"));
             Assert.That(Path.Combine(_programs, "THIRD-PARTY-NOTICES.txt"), Does.Not.Exist);
+            Assert.That(File.GetLastWriteTimeUtc(Obm), Is.EqualTo(obm.AddMinutes(1)).Within(TimeSpan.FromSeconds(1)));
             Assert.That(File.GetLastWriteTimeUtc(Obmd), Is.EqualTo(obmd.AddMinutes(1)).Within(TimeSpan.FromSeconds(1)));
             Assert.That(Leftovers(), Is.Empty);
             Assert.That(Tool.Run(Obm, "--version").ExitCode, Is.Zero);
