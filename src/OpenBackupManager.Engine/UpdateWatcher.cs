@@ -49,7 +49,18 @@ public sealed partial class UpdateWatcher(
         using var stopping = stoppingToken.Register(timer.Dispose);
         while (await timer.WaitForNextTickAsync(CancellationToken.None))
         {
-            var now = Identity(obmd);
+            (DateTime, long)? now;
+            try
+            {
+                now = Identity(obmd);
+            }
+            // Can't tell, such as while its folder's permissions change, so the two checks in a row start again
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                last = running;
+                continue;
+            }
+
             // Only once it's the same at two checks in a row, so a file still being written isn't run
             if (now != last || now == running)
             {
@@ -155,11 +166,19 @@ public sealed partial class UpdateWatcher(
         }
     }
 
-    // An update brings a file built at another time, so it's told apart without reading all of it. Null once it's gone
-    private static (DateTime, long)? Identity(string path)
+    // An update brings a file built at another time, so it's told apart without reading all of it. Null once it's gone.
+    // Throws when it can't be told, as FileInfo.Exists is false for a file that can't be read as well as a missing one
+    internal static (DateTime, long)? Identity(string path)
     {
         var file = new FileInfo(path);
-        return file.Exists ? (file.LastWriteTimeUtc, file.Length) : null;
+        try
+        {
+            return (file.LastWriteTimeUtc, file.Length);
+        }
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return null;
+        }
     }
 
     // From the new obmd itself. Null if it doesn't run, so the engine carries on with the one it has
