@@ -65,7 +65,11 @@ public sealed class InstallTests : AppTests
         }
         finally
         {
-            Directory.Delete(_feed, recursive: true);
+            // Install may have failed before making it
+            if (Directory.Exists(_feed))
+            {
+                Directory.Delete(_feed, recursive: true);
+            }
         }
     }
 
@@ -132,8 +136,15 @@ public sealed class InstallTests : AppTests
         // As when offline
         var away = _feed + "-away";
         Directory.Move(_feed, away);
-        CheckForUpdates(about, "Couldn't check for updates");
-        Directory.Move(away, _feed);
+        try
+        {
+            CheckForUpdates(about, "Couldn't check for updates");
+        }
+        finally
+        {
+            Directory.Move(away, _feed);
+        }
+
         // As a web filter's page in place of the package, which fails Velopack's checksum
         AddToFeed("0.0.2", broken: true);
         CheckForUpdates(about, "Couldn't check for updates");
