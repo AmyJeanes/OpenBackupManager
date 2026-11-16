@@ -448,6 +448,20 @@ public class CrashReportsTests
         }
     }
 
+    // The host's systemd-coredump keeps it under the host's process ID, not the container's 1
+    [Test]
+    [Platform("Linux")]
+    public void WriteEnded_WithNothingRecorded_InAContainer_SaysToLookInDockerLogs()
+    {
+        var report = File.ReadAllText(_reports.WriteEnded("obmd", RunFrom(TimeSpan.FromHours(1)) with { ProcessId = 1 }, null, null));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(report, Does.Contain("It ran in a container, so docker logs may have what it printed as it closed."));
+            Assert.That(report, Does.Not.Contain("coredumpctl info 1"));
+        }
+    }
+
     [Test]
     public void WriteEnded_WithNoLog_SaysWhenItStarted() =>
         Assert.That(

@@ -270,11 +270,33 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         return Ending(reader.ReadToEnd());
     }
 
-    // coredumpctl is only named, not read, as its stacks for obmd are addresses with no names
+    // coredumpctl is only named, not read, as its stacks for obmd are addresses with no names. In a container, the host's
+    // systemd-coredump keeps a crash under the host's process ID, which the container never sees
     private static string? WhereToLook(Run run) =>
         OperatingSystem.IsMacOS() ? "If it ran as a service, /var/log/com.apple.xpc.launchd/launchd.log may say what closed it."
+        : OperatingSystem.IsLinux() && InContainer(run) ? "It ran in a container, so docker logs may have what it printed as it closed."
+            + (KeepsCoreDumps() ? " If it crashed, coredumpctl info obmd, run on the host, may say more." : "")
         : KeepsCoreDumps() ? string.Create(CultureInfo.InvariantCulture, $"If it crashed, coredumpctl info {run.ProcessId} may say more.")
         : null;
+
+    // Our image notes it, and a program started as a container's first process is 1 in it
+    private static bool InContainer(Run run)
+    {
+        if (run.ProcessId == 1)
+        {
+            return true;
+        }
+
+        var installedBy = Path.Combine(AppContext.BaseDirectory, "installed-by");
+        try
+        {
+            return File.Exists(installedBy) && File.ReadAllText(installedBy).Trim() == "docker";
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
     // Whether systemd-coredump is what the kernel hands crashes to. Ubuntu's Apport, its usual one, ignores programs that
     // weren't installed from a package, so it has nothing to look in
