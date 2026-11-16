@@ -8,7 +8,7 @@ The engine, `obmd`, also comes as a Docker image, for a NAS or home server such 
 
 ## Run it
 
-Save this as `compose.yaml` in a folder of its own, and run `docker compose up -d` there:
+Save this as `compose.yaml` in a folder of its own:
 
 ```yaml
 services:
@@ -23,10 +23,13 @@ services:
     restart: unless-stopped
 ```
 
+- **`image`**'s `latest` is the newest full release. Until the first one, there's no `latest`, so use a version from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), without its `v`, such as `ghcr.io/amyjeanes/openbackupmanager:<version>`.
 - **`container_name`** is the name the commands below use for it.
-- **`user`** is the user and group the engine runs as, so the files it writes are theirs. Use your own, which `id` shows, such as `uid=1000(me) gid=1000(me)`. On Unraid, files usually belong to `nobody` and `users`, which are `99:100`.
+- **`user`** is the user and group the engine runs as, so the files it writes are theirs. Use your own, which `id` shows, such as `uid=1000(me) gid=1000(me)`. On Unraid, files usually belong to `nobody` and `users`, which are `99:100`. With rootless Docker, use `"0:0"`, as the container's root is you outside it, and any other user is one Docker set aside for it.
 - **`/config`** is where it keeps everything, such as `config.toml`, its logs and its crash reports. The folder must belong to that user. Without `user`, the engine runs as the image's own user, which suits a named volume rather than a folder.
 - **`TZ`** sets the time zone for the times in its logs. Without it, they're in UTC.
+
+Then, in that folder, run `mkdir config` and `docker compose up -d`. Make the folder yourself first, as Docker would otherwise make it as root, and the engine couldn't write to it.
 
 If the folder belongs to someone else, the engine stops straight away, and `docker logs openbackupmanager` says why:
 
