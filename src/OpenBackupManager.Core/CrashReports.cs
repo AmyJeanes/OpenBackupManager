@@ -246,7 +246,19 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         Directory.CreateDirectory(Folder);
         // Named by when they're written, in UTC so they sort oldest first even after the clock goes back
         var file = Path.Combine(Folder, $"crash-{time.GetUtcNow().ToString(Stamp, CultureInfo.InvariantCulture)}-{name}.txt");
-        File.WriteAllText(file, report.ToString());
+        // Written beside it then renamed, so a full disk never leaves an empty or partial report to be shown
+        var temporary = file + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, report.ToString());
+            File.Move(temporary, file, overwrite: true);
+        }
+        catch
+        {
+            File.Delete(temporary);
+            throw;
+        }
+
         foreach (var old in Reports().SkipLast(Kept))
         {
             File.Delete(old);

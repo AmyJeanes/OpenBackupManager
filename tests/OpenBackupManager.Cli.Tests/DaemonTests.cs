@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using OpenBackupManager.Core;
@@ -221,6 +222,55 @@ public class DaemonTests
         {
             Assert.That(exitCode, Is.EqualTo(1));
             Assert.That(output, Does.Contain($"obmd: the engine's lock in {home} can't be taken, so its secrets can't be removed"));
+        }
+    }
+
+    // As when the disk is full: the lock it made before still opens, but the running file can't be written
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void AHomeMadeReadOnlyAfterItsLock_SaysWhy()
+    {
+        Assume.That(Environment.UserName, Is.Not.EqualTo("root"), "root can write to it anyway");
+        var home = NewHome();
+        Directory.CreateDirectory(home);
+        File.WriteAllText(Path.Combine(home, "engine.lock"), "");
+        File.SetUnixFileMode(home, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            var (exitCode, output) = Tool.Run("obmd", "--home", home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1), output);
+                Assert.That(output, Does.Contain("obmd: the engine can't keep its state in " + home));
+                Assert.That(output, Does.Not.Contain("Unhandled exception"));
+            }
+        }
+        finally
+        {
+            File.SetUnixFileMode(home, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    // Its log can't write its last lines as it's closed
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void Stops_WhenItsLogsDiskIsFull()
+    {
+        var home = NewHome();
+        Directory.CreateDirectory(Path.Combine(home, "logs"));
+        File.CreateSymbolicLink(Path.Combine(home, "logs", "engine-" + DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture) + ".log"), "/dev/full");
+        var daemon = Daemon(home);
+        daemon.WaitFor(Started);
+
+        daemon.Signal(PosixSignal.SIGTERM);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(daemon.WaitForExit(), Is.Zero, daemon.Output);
+            Assert.That(daemon.Output, Does.Contain("Engine stopped").And.Not.Contain("Unhandled exception"));
         }
     }
 

@@ -22,9 +22,16 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
     public void Start()
     {
         Run? previous;
-        using (var process = Process.GetCurrentProcess())
+        try
         {
+            using var process = Process.GetCurrentProcess();
             previous = reports.Start(process.Id, process.StartTime, Version);
+        }
+        // Such as when the disk is full. The app still runs, as only finding a crash outside .NET needs the note
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            LogCantNoteRun(e);
+            return;
         }
 
         if (previous is null)
@@ -46,6 +53,11 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
         catch (Exception e) when (e is EventLogException or UnauthorizedAccessException)
         {
             LogCantReadEvents(e);
+            return;
+        }
+        catch (IOException e)
+        {
+            LogCantWriteReport(e);
             return;
         }
 
@@ -112,6 +124,12 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly again soon after starting, as it did in {Report}")]
     private partial void LogAgain(string report);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "This run can't be noted in the state folder, so a crash .NET doesn't see won't be found at the next start")]
+    private partial void LogCantNoteRun(Exception error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly, but its crash report couldn't be written")]
+    private partial void LogCantWriteReport(Exception error);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly, and Windows' event log couldn't be read to see why")]
     private partial void LogCantReadEvents(Exception error);

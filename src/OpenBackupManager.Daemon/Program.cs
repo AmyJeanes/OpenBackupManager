@@ -99,14 +99,34 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
         return 1;
     }
 
-    using var host = built;
+    var host = built;
     var crashes = host.Services.GetRequiredService<CrashCapture>();
     var update = host.Services.GetRequiredService<UpdateWatcher>();
-    crashes.Start();
+    try
+    {
+        crashes.Start();
+    }
+    // Such as when the disk is full or the state folder has been made read-only since the lock was made
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+    {
+        Dispose(host);
+        await Console.Error.WriteLineAsync($"obmd: the engine can't keep its state in {paths.State}. {e.Message}", cancellationToken);
+        return 1;
+    }
+
     using var shutdownHandler = OperatingSystem.IsWindows() ? new WindowsShutdownHandler(host) : null;
     try
     {
-        await host.RunAsync(cancellationToken);
+        // As host.RunAsync, but disposed here, where a log that can't be closed can't crash it
+        try
+        {
+            await host.StartAsync(cancellationToken);
+            await host.WaitForShutdownAsync(cancellationToken);
+        }
+        finally
+        {
+            Dispose(host);
+        }
     }
     catch (EngineException e)
     {
@@ -119,6 +139,19 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
     crashes.Stopped();
     // Such as 75, for its service to restart it into an update
     return update.ExitCode;
+}
+
+// The log's file can't write its last lines as it's closed when the disk is full, which shouldn't crash an engine that
+// has already stopped
+static void Dispose(IHost host)
+{
+    try
+    {
+        host.Dispose();
+    }
+    catch (IOException)
+    {
+    }
 }
 
 // Each OS's platform project is only referenced when obmd is built on that OS

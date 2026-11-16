@@ -18,7 +18,7 @@ internal static class Data
     // And in the folders they make there, which may hold theirs too. Nothing writes in cache yet
     private static readonly (string Folder, string[] Files)[] MadeInAHomesFolders =
     [
-        ("logs", AppPaths.LogFiles), ("crashes", ["crash-*.txt", "shown"]), ("run", ["engine.sock"]), ("cache", []),
+        ("logs", AppPaths.LogFiles), ("crashes", ["crash-*.txt", "crash-*.txt.tmp", "shown"]), ("run", ["engine.sock"]), ("cache", []),
     ];
 
     public static async Task<int> RemoveAsync(AppPaths paths, string? home, EngineService? service, bool yes, CancellationToken cancellationToken)

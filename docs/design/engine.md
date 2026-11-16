@@ -43,6 +43,7 @@
 What's in a report, and where people see it, is in the guide's [Crash reports](../guide/files.md#crash-reports). The engine's `CrashCapture` writes them, and finds crashes .NET never sees at the next start.
 
 - **Linux's stderr stays in the journal, rather than going to a file as on macOS,** so `systemctl --user status` still shows why the engine couldn't start. The next start reads the dead run's lines back, which were there every time in testing, as systemd only starts it again once the crash handler has finished. launchd sends stderr nowhere unless told, so the file loses nothing on macOS.
+- **A full disk or a state folder made read-only stops `obmd` with one line, not a crash.** The lock can still open then, as it's an empty file made before, but the running file can't be written. Reports are written beside their name and renamed, so a failed write never leaves an empty one to show, and the log failing to write its last lines as it closes doesn't crash an engine that has stopped.
 
 ## Services on macOS and Linux
 

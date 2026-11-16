@@ -14,7 +14,8 @@ public sealed partial class CrashCapture(CrashReports reports, ILogger<CrashCapt
 
     private int _captured;
 
-    // Before anything else logs, so a report about the last run ends with its log
+    // Before anything else logs, so a report about the last run ends with its log. Throws IOException or
+    // UnauthorizedAccessException when it can't note this run in the state folder, such as when the disk is full
     public void Start()
     {
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Capture((Exception)e.ExceptionObject);
@@ -53,6 +54,11 @@ public sealed partial class CrashCapture(CrashReports reports, ILogger<CrashCapt
             LogCantReadEvents(e);
             return;
         }
+        catch (IOException e)
+        {
+            LogCantWriteReport(e);
+            return;
+        }
 
         if (recorded is not null)
         {
@@ -85,7 +91,14 @@ public sealed partial class CrashCapture(CrashReports reports, ILogger<CrashCapt
         }
         else
         {
-            LogWroteReport(Path.GetFileName(reports.WriteEnded(Program, previous)));
+            try
+            {
+                LogWroteReport(Path.GetFileName(reports.WriteEnded(Program, previous)));
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                LogCantWriteReport(e);
+            }
         }
     }
 
@@ -143,6 +156,9 @@ public sealed partial class CrashCapture(CrashReports reports, ILogger<CrashCapt
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly again soon after starting, as it did in {Report}")]
     private partial void LogAgain(string report);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly, but its crash report couldn't be written")]
+    private partial void LogCantWriteReport(Exception error);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The last run closed unexpectedly, and Windows' event log couldn't be read to see why")]
     private partial void LogCantReadEvents(Exception error);
