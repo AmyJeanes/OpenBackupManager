@@ -357,11 +357,16 @@ public class ConfigFileTests
     {
         var file = new ConfigFile(FilePath);
         file.CreateIfMissing();
+        var created = File.ReadAllText(FilePath);
         File.WriteAllText(FilePath, "version = 1 # mine\n");
 
         file.CreateIfMissing();
 
-        Assert.That(File.ReadAllText(FilePath), Is.EqualTo("version = 1 # mine\n"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(created, Is.EqualTo(ConfigFile.DefaultText.ReplaceLineEndings("\n")));
+            Assert.That(File.ReadAllText(FilePath), Is.EqualTo("version = 1 # mine\n"));
+        }
     }
 
     [Test]
