@@ -88,9 +88,9 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
                 return Result(null, 0, []);
             }
 
-            var (names, moved) = await CopyAsync(from, to, cancellationToken);
+            var copied = await CopyAsync(from, to, cancellationToken);
             List<string> left = [];
-            foreach (var name in names)
+            foreach (var name in copied)
             {
                 try
                 {
@@ -103,7 +103,7 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
                 }
             }
 
-            return Result(from, moved, left);
+            return Result(from, copied.Count, left);
         }
         finally
         {
@@ -111,21 +111,20 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
         }
     }
 
-    // Returns every name listed, and how many were copied. Some may not be where they're read from, such as one only
-    // in a Secret Service keyring other than the default, which removing them all still takes
-    private async Task<(IReadOnlyList<string> Names, int Copied)> CopyAsync(SecretStoreKind from, SecretStoreKind to, CancellationToken cancellationToken)
+    // Returns the names copied and read back, so only they are removed from the old store. One listed that can't be
+    // read, such as from a keyring that's locked since, stops it, as the new store would be used without it
+    private async Task<IReadOnlyList<string>> CopyAsync(SecretStoreKind from, SecretStoreKind to, CancellationToken cancellationToken)
     {
         var source = StoreFor(from);
         var target = StoreFor(to);
         List<(string Name, Secret? Before)> copied = [];
         try
         {
-            var names = await source.ListAsync(cancellationToken);
-            foreach (var name in names)
+            foreach (var name in await source.ListAsync(cancellationToken))
             {
                 if (await source.ReadAsync(name, cancellationToken) is not { } secret)
                 {
-                    continue;
+                    throw new InvalidOperationException($"it listed {name} but gave nothing back for it");
                 }
 
                 copied.Add((name, await target.ReadAsync(name, cancellationToken)));
@@ -137,7 +136,7 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
             }
 
             SetStore(to);
-            return (names, copied.Count);
+            return [.. copied.Select(c => c.Name)];
         }
         catch (Exception e)
         {

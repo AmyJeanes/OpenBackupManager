@@ -14,9 +14,27 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
     // An unlocked keyring answers in a fraction of a second, so one that doesn't answer in this time isn't going to
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
-    public Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default) => UseAsync("read", name, async keyring =>
-        await keyring.SearchAsync(Attributes(name)) is [var item, ..] ? new Secret(Encoding.UTF8.GetString(await keyring.GetSecretAsync(item))) : null,
-        cancellationToken);
+    // From the default keyring, or any other, as listing finds them, such as one that was the default when it was saved
+    public Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default) => UseAsync<Secret?>("read", name, async keyring =>
+    {
+        if (await keyring.SearchAsync(Attributes(name)) is not [var item, ..])
+        {
+            var (unlocked, locked) = await keyring.SearchEveryKeyringAsync(Attributes(name));
+            if (unlocked is not [var elsewhere, ..])
+            {
+                if (locked.Length > 0)
+                {
+                    throw Locked("read", name, "a keyring holding it is locked");
+                }
+
+                return null;
+            }
+
+            item = elsewhere;
+        }
+
+        return new Secret(Encoding.UTF8.GetString(await keyring.GetSecretAsync(item)));
+    }, cancellationToken);
 
     public Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default) => UseAsync("save", name, async keyring =>
     {

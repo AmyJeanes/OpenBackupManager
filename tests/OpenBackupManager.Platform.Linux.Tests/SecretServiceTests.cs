@@ -85,6 +85,24 @@ public class SecretServiceTests
         Assert.That((await Store().ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("by the tool"));
     }
 
+    // As after another keyring is made the default, such as with Seahorse's Set as default
+    [Test]
+    public async Task Read_FindsItInAKeyringThatIsntTheDefault()
+    {
+        SaveInTheSessionKeyring("rclone-config", "elsewhere");
+
+        Assert.That((await Store().ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("elsewhere"));
+    }
+
+    [Test]
+    public async Task Read_PrefersTheDefaultKeyringsCopy()
+    {
+        Tool("secret-tool", "the default's", "store", "--label=default", "service", $"{_prefix}/rclone-config", "account", "rclone-config");
+        SaveInTheSessionKeyring("rclone-config", "another copy");
+
+        Assert.That((await Store().ReadAsync("rclone-config"))?.Reveal(), Is.EqualTo("the default's"));
+    }
+
     [Test]
     public async Task Read_IsNullWhenNothingWasSaved() => Assert.That(await Store().ReadAsync("rclone-config"), Is.Null);
 

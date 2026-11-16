@@ -192,6 +192,25 @@ public class SecretsTests
         }
     }
 
+    // Such as one in a keyring that's since been locked, which removing them all would take, losing the only copy
+    [Test]
+    public async Task ASecretListedButNotRead_StopsTheMove_AndNothingIsRemoved()
+    {
+        var secrets = SecretsWith($"secret-store = \"{OSStore.Name()}\"");
+        _os.Secrets["a-first"] = "one";
+        _os.Secrets["b-second"] = "two";
+        _os.Unreadable = "b-second";
+
+        Assert.That(() => secrets.MigrateAsync("file", CancellationToken.None), Throws.InstanceOf<EngineException>().With.Message.EqualTo(
+            $"The secrets are still in {OSStore.Title()}, as moving them failed: it listed b-second but gave nothing back for it"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_os.Secrets, Has.Count.EqualTo(2));
+            Assert.That(await InTheFile(), Is.Empty);
+            Assert.That(secrets.Chosen, Is.EqualTo(OSStore));
+        }
+    }
+
     [Test]
     public async Task ToTheStoreInUse_DoesNothing()
     {
@@ -322,11 +341,14 @@ public class SecretsTests
 
         public bool FailListing { get; set; }
 
+        // Listed, but read as missing
+        public string? Unreadable { get; set; }
+
         // Listing waits for it once it has the names, so something else can be tried part way through
         public TaskCompletionSource? Listing { get; set; }
 
         public Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Secrets.TryGetValue(name, out var value) ? new Secret(GivesBackSomethingElse ? value + " changed" : value) : null);
+            Task.FromResult(name != Unreadable && Secrets.TryGetValue(name, out var value) ? new Secret(GivesBackSomethingElse ? value + " changed" : value) : null);
 
         public Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default)
         {
