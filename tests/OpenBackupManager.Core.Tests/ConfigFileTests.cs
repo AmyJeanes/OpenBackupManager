@@ -378,6 +378,25 @@ public class ConfigFileTests
         }
     }
 
+    // As a dotfiles manager makes it, so the copy it keeps is what's changed, rather than replaced by a file of its own
+    [Test]
+    public void Set_ThroughALink_ChangesTheFileItLinksTo()
+    {
+        var target = Path.Combine(Directory.CreateDirectory(Path.Combine(_folder, "dotfiles")).FullName, "config.toml");
+        File.WriteAllText(target, "version = 1 # mine\n");
+        LinkFile(FilePath, Path.Combine("dotfiles", "config.toml"));
+
+        new ConfigFile(FilePath).Set("updates", "prereleases", true);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(new FileInfo(FilePath).LinkTarget, Is.EqualTo(Path.Combine("dotfiles", "config.toml")));
+            Assert.That(File.ReadAllText(target), Is.EqualTo("version = 1 # mine\n\n[updates]\nprereleases = true\n"));
+            Assert.That(File.ReadAllText(FilePath + ".bak"), Is.EqualTo("version = 1 # mine\n"));
+            Assert.That(Directory.GetFiles(Path.GetDirectoryName(target)!), Is.EqualTo((string[])[target]));
+        }
+    }
+
     [Test]
     public void Set_StartsFromTheStartingFile()
     {
@@ -421,6 +440,19 @@ public class ConfigFileTests
     }
 
     private static string ThisOSsStores => string.Join(", ", SecretStoreKinds.NamesOn(CurrentOS.Platform));
+
+    // Windows only lets an admin, or Developer Mode, make symbolic links. CI's runners run as admin
+    private static void LinkFile(string link, string target)
+    {
+        try
+        {
+            File.CreateSymbolicLink(link, target);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Assert.Ignore($"Can't make symbolic links here: {e.Message}");
+        }
+    }
 
     // Only these, rather than whatever's set where the tests run
     private static Func<string, string?> EnvVars(params (string Name, string Value)[] envVars) =>

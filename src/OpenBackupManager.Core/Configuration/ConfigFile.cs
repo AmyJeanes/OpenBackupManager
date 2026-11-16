@@ -342,11 +342,15 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
     private void Write(string text)
     {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-        var temporary = Path + ".tmp";
+
+        // A link, as dotfiles managers make, stays one, and the file it links to is changed. The new file goes beside
+        // that, as a rename can't move it between folders, so one that can't be written to is an error
+        var file = LinkedFile() ?? Path;
+        var temporary = file + ".tmp";
         WriteToDisk(temporary, Encoding.UTF8.GetBytes(text));
-        if (File.Exists(Path))
+        if (File.Exists(file))
         {
-            using var old = OpenShared(Path);
+            using var old = OpenShared(file);
             using var copy = new MemoryStream();
             old.CopyTo(copy);
             WriteToDisk(Path + ".bak", copy.ToArray());
@@ -359,13 +363,26 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
         {
             try
             {
-                File.Move(temporary, Path, overwrite: true);
+                File.Move(temporary, file, overwrite: true);
                 return;
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException && DateTime.UtcNow < until)
             {
                 Thread.Sleep(20);
             }
+        }
+    }
+
+    // Null if it isn't a link, or isn't there
+    private string? LinkedFile()
+    {
+        try
+        {
+            return File.ResolveLinkTarget(Path, returnFinalTarget: true)?.FullName;
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
         }
     }
 
