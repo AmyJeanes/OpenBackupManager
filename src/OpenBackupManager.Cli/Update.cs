@@ -182,6 +182,7 @@ internal static class Update
 
     // Each file unpacked beside the one it replaces, then renamed over it, so a program is never half written. obmd
     // goes last, as the engine acts on it. Nothing is renamed unless the bytes unpacked have the hash GitHub gives
+    [UnsupportedOSPlatform("windows")]
     internal static void Replace(string tarball, string folder, string name, string digest)
     {
         var unpacked = new List<(string From, string To)>();
@@ -223,6 +224,7 @@ internal static class Update
         }
     }
 
+    [UnsupportedOSPlatform("windows")]
     private static void Unpack(Stream tarball, string folder, List<(string From, string To)> unpacked)
     {
         using var gzip = new GZipStream(tarball, CompressionMode.Decompress, leaveOpen: true);
@@ -236,9 +238,12 @@ internal static class Update
                 continue;
             }
 
+            var to = Path.Combine(folder, entry.Name);
             var from = Path.Combine(folder, $".{entry.Name}.update");
             entry.ExtractToFile(from, overwrite: true);
-            unpacked.Add((from, Path.Combine(folder, entry.Name)));
+            unpacked.Add((from, to));
+            // Who can run or read it stays as it was, as unpacking applies this process's umask, which may be stricter
+            File.SetUnixFileMode(from, File.Exists(to) ? File.GetUnixFileMode(to) : entry.Mode);
         }
     }
 

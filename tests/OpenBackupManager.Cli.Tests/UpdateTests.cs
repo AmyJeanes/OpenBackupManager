@@ -83,6 +83,25 @@ public class UpdateTests
         }
     }
 
+    // As for a copy in /usr/local/bin shared by every user, updated by root under a restrictive umask
+    [Test]
+    public void Update_KeepsWhoCanRunThem()
+    {
+        File.SetUnixFileMode(Obm, (UnixFileMode)0b111_101_101);
+        File.SetUnixFileMode(Obmd, (UnixFileMode)0b111_101_101);
+        _github.Add("0.3.0", new Asset(Tarball, FakeGitHub.NewVersionOf(_programs)));
+
+        var (exitCode, output) = Tool.Run("/bin/sh", _github.Environment, "-c", "umask 077 && exec \"$0\" update --home \"$1\"", Obm, _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Does.Contain("Updated obm and obmd in "));
+            Assert.That(File.GetUnixFileMode(Obm), Is.EqualTo((UnixFileMode)0b111_101_101));
+            Assert.That(File.GetUnixFileMode(Obmd), Is.EqualTo((UnixFileMode)0b111_101_101));
+        }
+    }
+
     [Test]
     public void Update_WithTheEngineStartedByHand_SaysToRestartIt()
     {
