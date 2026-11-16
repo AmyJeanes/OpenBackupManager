@@ -2,6 +2,7 @@ using System.IO.Pipes;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
@@ -123,6 +124,23 @@ public class ListenerTests
         var statuses = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => client.StatusAsync(CancellationToken.None)));
 
         Assert.That(statuses.Select(s => s.ProcessId), Is.All.EqualTo(Environment.ProcessId));
+    }
+
+    // From a fake engine, as the real one answers in the order sent. It reads every call first, then answers them in
+    // neither that order nor its reverse
+    [Test]
+    public async Task OverlappingCalls_EachGetTheirOwnAnswer_InWhateverOrderItComes()
+    {
+        string[] stores = ["a", "b", "c", "d"];
+        Directory.CreateDirectory(EngineSocket.Folder(_home));
+        using var engine = new NamedPipeServerStream(EngineSocket.Name(_home), PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var answering = AnswerInOrderAsync(engine, [1, 3, 0, 2]);
+        using var client = await ConnectAsync();
+
+        var results = await Task.WhenAll(stores.Select(store => client.MigrateSecretsAsync(store, CancellationToken.None))).WaitAsync(Timeout);
+        await answering;
+
+        Assert.That(results.Select(r => r.File), Is.EqualTo(stores));
     }
 
     [Test]
@@ -367,6 +385,35 @@ public class ListenerTests
         await pipe.WriteAsync(Encoding.UTF8.GetBytes(
             $$$"""{"jsonrpc":"2.0","id":{{{id}}},"error":{"code":{{{RpcError.ProtocolMismatch}}},"message":"{{{message}}}"}}""" + "\n"));
     }
+
+    // Answers hello, then reads a migrateSecrets call for each place in order, and answers them in that order, each with
+    // its own store as the file
+    private static async Task AnswerInOrderAsync(NamedPipeServerStream pipe, int[] order)
+    {
+        await pipe.WaitForConnectionAsync();
+        using var reader = new StreamReader(pipe, new UTF8Encoding(false), leaveOpen: true);
+        await AnswerAsync(pipe, await ReadAsync(reader), new HelloResult(EngineProtocol.Version, AppVersion.Current), ProtocolJson.Default.HelloResult);
+
+        var calls = new List<JsonElement>();
+        foreach (var _ in order)
+        {
+            calls.Add(await ReadAsync(reader));
+        }
+
+        foreach (var call in order.Select(i => calls[i]))
+        {
+            var store = call.GetProperty("params").GetProperty("store").GetString()!;
+            await AnswerAsync(pipe, call, new MigrateSecretsResult(0, [], store), ProtocolJson.Default.MigrateSecretsResult);
+        }
+    }
+
+    private static async Task<JsonElement> ReadAsync(StreamReader reader) =>
+        JsonElement.Parse(await reader.ReadLineAsync() ?? throw new AssertionException("The client closed the connection"));
+
+    private static async Task AnswerAsync<T>(NamedPipeServerStream pipe, JsonElement call, T result, JsonTypeInfo<T> type) =>
+        await pipe.WriteAsync(EngineProtocol.Line(
+            new RpcResponse("2.0", call.GetProperty("id"), JsonSerializer.SerializeToElement(result, type)),
+            ProtocolJson.Default.RpcResponse));
 
     private async Task<Raw> RawAsync()
     {
