@@ -163,29 +163,26 @@ public class CrashesTests
     {
         var file = Write(CrashReports.Engine, "obmd", string.Join(Environment.NewLine, Enumerable.Range(1, 500).Select(i => $"   at Frame{i}()")));
 
-        var (exitCode, output) = Tool.Run("obm", "crashes", "report", "-n", "--home", _home);
-        var whole = SavedCopy(output);
-        try
-        {
-            var link = output.Split(Environment.NewLine)[^1];
-            var body = Uri.UnescapeDataString(link.Split("&body=")[^1]);
+        // A temp folder of its own, so the saved copy's folder goes with the home
+        var temp = Directory.CreateDirectory(Path.Combine(_home, "temp")).FullName;
+        var environment = new Dictionary<string, string> { ["TMPDIR"] = temp, ["TMP"] = temp, ["TEMP"] = temp };
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(exitCode, Is.Zero, output);
-                Assert.That(output, Does.Contain($"It's too long to fill in, so it's saved in {whole}. Paste it under Logs in the issue."));
-                Assert.That(Path.GetFileName(whole), Is.EqualTo(Path.GetFileName(file)));
-                Assert.That(Path.GetDirectoryName(Path.GetDirectoryName(whole)), Is.EqualTo(Path.TrimEndingDirectorySeparator(Path.GetTempPath())));
-                Assert.That(File.ReadAllText(whole), Does.Contain("   at Frame500()"));
-                Assert.That(link, Does.StartWith("https://github.com/"));
-                Assert.That(BugReport.Length(link), Is.AtMost(BugReport.LongestLink));
-                Assert.That(body, Does.Contain("```text\n⚠️ PASTE THE CRASH REPORT HERE. It was too long to fill in, so it's saved in ").And.Contain($"{Path.GetFileName(file)}.\n```"));
-                Assert.That(body, Does.Not.Contain(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
-            }
-        }
-        finally
+        var (exitCode, output) = Tool.Run("obm", environment, "crashes", "report", "-n", "--home", _home);
+        var whole = SavedCopy(output);
+        var link = output.Split(Environment.NewLine)[^1];
+        var body = Uri.UnescapeDataString(link.Split("&body=")[^1]);
+
+        using (Assert.EnterMultipleScope())
         {
-            DeleteSavedCopy(whole);
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(output, Does.Contain($"It's too long to fill in, so it's saved in {whole}. Paste it under Logs in the issue."));
+            Assert.That(Path.GetFileName(whole), Is.EqualTo(Path.GetFileName(file)));
+            Assert.That(Path.GetDirectoryName(Path.GetDirectoryName(whole)), Is.EqualTo(temp));
+            Assert.That(File.ReadAllText(whole), Does.Contain("   at Frame500()"));
+            Assert.That(link, Does.StartWith("https://github.com/"));
+            Assert.That(BugReport.Length(link), Is.AtMost(BugReport.LongestLink));
+            Assert.That(body, Does.Contain("```text\n⚠️ PASTE THE CRASH REPORT HERE. It was too long to fill in, so it's saved in ").And.Contain($"{Path.GetFileName(file)}.\n```"));
+            Assert.That(body, Does.Not.Contain(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
         }
     }
 

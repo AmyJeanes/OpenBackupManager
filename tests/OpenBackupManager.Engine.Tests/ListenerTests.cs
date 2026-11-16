@@ -309,7 +309,7 @@ public class ListenerTests
     [Platform(Exclude = "Win")]
     public async Task AHomeTooLongForASocket_SaysWhy()
     {
-        _home = AppPaths.InHome(Path.Combine(Path.GetTempPath(), "obm-engine-" + new string('x', 120)));
+        _home = AppPaths.InHome(_home.State + new string('x', 120));
 
         var e = await Assert.ThrowsAsync<EngineException>(() => StartAsync());
 
