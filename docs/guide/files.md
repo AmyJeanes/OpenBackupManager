@@ -24,10 +24,13 @@ Everything Open Backup Manager keeps about this device, such as its logs, is its
 
     | | Folder |
     | --- | --- |
+    | Settings | `~/.config/openbackupmanager/` |
     | Logs | `~/Library/Logs/OpenBackupManager/` |
     | Crash reports | `~/Library/Application Support/OpenBackupManager/crashes/` |
 
     The engine also keeps `engine.lock` and `run/engine.sock` in its own folder, `~/Library/Application Support/OpenBackupManager/`. They make sure only one engine runs and let `obm` talk to it, so leave them alone.
+
+    `XDG_CONFIG_HOME` moves the settings folder, as it does for command line tools such as `gh`.
 
 === "Linux"
 
@@ -35,12 +38,13 @@ Everything Open Backup Manager keeps about this device, such as its logs, is its
 
     | | Folder |
     | --- | --- |
+    | Settings | `~/.config/openbackupmanager/` |
     | Logs | `~/.local/state/openbackupmanager/logs/` |
     | Crash reports | `~/.local/state/openbackupmanager/crashes/` |
 
     The engine also keeps `engine.lock` and `run/engine.sock` in its own folder, `~/.local/state/openbackupmanager/`. They make sure only one engine runs and let `obm` talk to it, so leave them alone.
 
-    `XDG_STATE_HOME` moves these folders as it does for other apps.
+    `XDG_CONFIG_HOME` and `XDG_STATE_HOME` move these folders as they do for other apps.
 
 With [`secret-store`](settings.md#secret-store) set to `file`, the engine keeps your secrets in `secrets.json`, in the data folder on Windows and the engine's own folder on macOS and Linux. It's protected only by its permissions, so anyone who can read it, including an administrator, can use your sign-ins. A backup or synced copy of the folder has your secrets in plain text, so keep it out of anything you share or sync.
 

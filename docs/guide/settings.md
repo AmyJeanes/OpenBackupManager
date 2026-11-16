@@ -12,11 +12,15 @@ Open Backup Manager keeps this device's settings in a text file, `config.toml`. 
 
 === "macOS"
 
-    There's no settings file on macOS yet. The settings below are all for the app, which comes later.
+    `~/.config/openbackupmanager/config.toml`, or in `$XDG_CONFIG_HOME/openbackupmanager/` if that's set.
+
+    If `obmd` and `obm` were given `--home <folder>`, or the `OBM_HOME` environment variable is set, the file is in that folder instead.
 
 === "Linux"
 
-    There's no settings file on Linux yet. The settings below are all for the app, which comes later.
+    `~/.config/openbackupmanager/config.toml`, or in `$XDG_CONFIG_HOME/openbackupmanager/` if that's set.
+
+    If `obmd` and `obm` were given `--home <folder>`, or the `OBM_HOME` environment variable is set, the file is in that folder instead.
 
 ## Editing the file
 

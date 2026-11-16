@@ -84,21 +84,25 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
 ## Where your settings are
 
+Your settings are in `config.toml`, and changes apply as soon as you save. See [Settings](settings.md) for what each one does and which systems it works on.
+
 === "Windows"
 
     ```
     %LocalAppData%\OpenBackupManager\config.toml
     ```
 
-    Changes apply as soon as you save. See [Settings](settings.md) for each setting.
-
 === "macOS"
 
-    There are no settings on macOS yet: the ones there are so far are all for the app.
+    ```
+    ~/.config/openbackupmanager/config.toml
+    ```
 
 === "Linux"
 
-    There are no settings on Linux yet: the ones there are so far are all for the app.
+    ```
+    ~/.config/openbackupmanager/config.toml
+    ```
 
 ## How it fits together
 
