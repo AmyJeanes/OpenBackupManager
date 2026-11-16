@@ -145,7 +145,15 @@ internal static class Data
             RemoveIfEmpty(folder);
         }
 
-        RemoveIfEmpty(home);
+        // Only if the folder it's in allows it, which needn't be, as everything in it is gone
+        try
+        {
+            RemoveIfEmpty(home);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Console.WriteLine($"{home} was left, empty, as it can't be removed: {e.Message.TrimEnd('.')}");
+        }
     }
 
     private static void RemoveIfEmpty(string folder)

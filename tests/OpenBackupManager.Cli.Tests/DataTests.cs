@@ -149,6 +149,34 @@ public class DataTests
         }
     }
 
+    // As when an admin made the home in a folder only they can write to
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void Remove_WhenTheEmptiedHomeCantBeRemoved_StillSucceeds()
+    {
+        Assume.That(Environment.UserName, Is.Not.EqualTo("root"), "root can remove it anyway");
+        var home = Path.Combine(_home, "home");
+        Directory.CreateDirectory(home);
+        File.WriteAllText(Path.Combine(home, "config.toml"), "");
+        File.SetUnixFileMode(_home, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            var (exitCode, output) = Tool.Run("obm", "data", "remove", "--home", home, "--yes");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.Zero, output);
+                Assert.That(output, Does.Contain($"{home} was left, empty").And.Contain("Removed all of Open Backup Manager's data"));
+                Assert.That(Directory.GetFileSystemEntries(home), Is.Empty);
+            }
+        }
+        finally
+        {
+            File.SetUnixFileMode(_home, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
     [Test]
     public void Remove_WithoutATerminal_AsksForYes_AndRemovesNothing()
     {
