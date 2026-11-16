@@ -316,6 +316,25 @@ public class ListenerTests
         Assert.That(e.Message, Does.Contain("--home"));
     }
 
+    // As a cancelled obm or the app quitting can, which on Windows breaks the pipe the engine is about to wait on
+    [Test]
+    public async Task ClientsLeavingAsTheyConnect_DontStopItListening()
+    {
+        await StartAsync();
+
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(async () =>
+        {
+            for (var i = 0; i < 250; i++)
+            {
+                await using var pipe = new NamedPipeClientStream(".", EngineSocket.Name(_home), PipeDirection.InOut, PipeOptions.Asynchronous);
+                await pipe.ConnectAsync(Timeout, CancellationToken.None);
+            }
+        })));
+
+        using var client = await ConnectAsync();
+        Assert.That(await client.StatusAsync(CancellationToken.None), Is.Not.Null);
+    }
+
     [Test]
     [Platform("Win")]
     public async Task APipeAlreadyThere_StopsItStarting()

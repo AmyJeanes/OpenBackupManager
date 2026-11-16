@@ -127,6 +127,16 @@ internal sealed partial class Listener(
                     LogRefused();
                     continue;
                 }
+                catch (IOException e) when (OperatingSystem.IsWindows())
+                {
+                    // A client that left as it connected breaks the pipe on Windows. Replaced before it's let go, so
+                    // there's always one waiting and nothing else can take the name
+                    var broken = waiting;
+                    waiting = Create(first: false);
+                    await broken.DisposeAsync();
+                    LogLeftAsItConnected(e.Message);
+                    continue;
+                }
 
                 var connected = waiting;
                 // Before serving this one, so there's always one waiting
@@ -192,6 +202,9 @@ internal sealed partial class Listener(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Refused a connection from another user")]
     private partial void LogRefused();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "A client left as it connected: {Reason}")]
+    private partial void LogLeftAsItConnected(string reason);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Stopped listening, so nothing more can connect")]
     private partial void LogStoppedListening(Exception exception);
