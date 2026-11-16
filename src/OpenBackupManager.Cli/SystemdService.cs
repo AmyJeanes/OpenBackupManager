@@ -80,6 +80,9 @@ internal sealed class SystemdService(
         if (reachable)
         {
             Run("systemctl", "--user", "disable", "--now", Unit);
+            // Or one that had failed stays listed as failed, and the user's systemd as degraded. It fails when
+            // there's nothing to reset
+            TryRun("systemctl", "--user", "reset-failed", Unit);
         }
 
         OnDisk(File, () => System.IO.File.Delete(File));

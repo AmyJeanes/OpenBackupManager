@@ -305,6 +305,27 @@ public class ServiceTests
         }
     }
 
+    // systemd would otherwise keep listing it as failed, and say the user's services are degraded
+    [Test]
+    [Platform("Linux")]
+    public void Uninstall_OnceSystemdHasGivenUp_LeavesNothingFailed()
+    {
+        // Held here, so each engine the service starts finds it taken and exits
+        Directory.CreateDirectory(_home);
+        using var engineLock = new FileStream(Path.Combine(_home, "engine.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        var service = EngineService.ForThisOS(_home)!;
+        Tool.Run("obm", "service", "install", "--home", _home);
+        Assert.That(service.HasGivenUp, Is.True, "systemd hadn't given up on it");
+
+        var (exitCode, output) = Tool.Run("obm", "service", "uninstall", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(service.HasGivenUp, Is.False, "systemd still lists it as failed");
+        }
+    }
+
     [Test]
     public async Task AnEngineStoppedOnPurpose_StaysStopped()
     {
