@@ -14,6 +14,7 @@ Save this as `compose.yaml` in a folder of its own, and run `docker compose up -
 services:
   openbackupmanager:
     image: ghcr.io/amyjeanes/openbackupmanager:latest
+    container_name: openbackupmanager
     user: "1000:1000"
     environment:
       TZ: Europe/London
@@ -22,6 +23,7 @@ services:
     restart: unless-stopped
 ```
 
+- **`container_name`** is the name the commands below use for it.
 - **`user`** is the user and group the engine runs as, so the files it writes are theirs. Use your own, which `id` shows, such as `uid=1000(me) gid=1000(me)`. On Unraid, files usually belong to `nobody` and `users`, which are `99:100`.
 - **`/config`** is where it keeps everything, such as `config.toml`, its logs and its crash reports. The folder must belong to that user. Without `user`, the engine runs as the image's own user, which suits a named volume rather than a folder.
 - **`TZ`** sets the time zone for the times in its logs. Without it, they're in UTC.
