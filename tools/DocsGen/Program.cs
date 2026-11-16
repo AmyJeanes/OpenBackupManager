@@ -2,7 +2,8 @@ using System.Globalization;
 using System.Text;
 using OpenBackupManager.Core.Configuration;
 
-// Writes the user guide's reference to every setting into its Settings page, between the generated:settings markers
+// Writes the user guide's reference to every setting into its Settings page, between the generated:settings markers.
+// With --check, it only says whether the page is up to date, and fails if it isn't
 const string Start = "<!-- generated:settings -->";
 const string End = "<!-- /generated:settings -->";
 
@@ -19,6 +20,12 @@ if (start < 0 || end < start)
 
 var generated = Render().ReplaceLineEndings(newLine);
 var updated = text[..(start + Start.Length)] + newLine + newLine + generated + newLine + text[end..];
+if (updated != text && args.Contains("--check"))
+{
+    Console.Error.WriteLine($"{page} is out of date");
+    return 1;
+}
+
 if (updated != text)
 {
     File.WriteAllText(page, updated);

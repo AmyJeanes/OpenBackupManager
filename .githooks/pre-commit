@@ -3,6 +3,20 @@
 # guide's Settings page when what it's made from is staged
 # Enable once per clone: git config core.hooksPath .githooks
 
+# A commit that names its files, such as git commit -- file.cs, builds it in a temporary index that git doesn't copy
+# back, so what the hook stages there would be undone by the real index. Those commits are only checked
+case ${GIT_INDEX_FILE##*[\\/]} in
+    '' | index | index.lock) check= ;;
+    *) check=1 ;;
+esac
+
+refuse() {
+    echo "pre-commit: a commit that names its files can't take the hook's changes, and $1"
+    [ -n "$2" ] && echo "$2"
+    echo "Stage the files with git add, then commit without naming them"
+    exit 1
+}
+
 settings=src/OpenBackupManager.Core/Configuration/Settings.cs
 page=docs/guide/settings.md
 if ! git diff --cached --quiet -- $settings tools/DocsGen $page; then
@@ -15,8 +29,12 @@ if ! git diff --cached --quiet -- $settings tools/DocsGen $page; then
         exit 1
     fi
 
-    dotnet run --project tools/DocsGen || exit 1
-    git add -- $page
+    if [ -n "$check" ]; then
+        dotnet run --project tools/DocsGen -- --check || refuse "the settings page needs updating"
+    else
+        dotnet run --project tools/DocsGen || exit 1
+        git add -- $page
+    fi
 fi
 
 files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cs')
@@ -29,6 +47,14 @@ if [ -n "$partial" ]; then
     echo "$partial"
     echo "Stage or stash those changes, then commit again"
     exit 1
+fi
+
+if [ -n "$check" ]; then
+    dotnet format whitespace OpenBackupManager.slnx --verify-no-changes --include $files &&
+    dotnet format style OpenBackupManager.slnx --severity info --verify-no-changes --include $files &&
+    dotnet format analyzers OpenBackupManager.slnx --verify-no-changes --include $files ||
+    refuse "these files need formatting:" "$files"
+    exit 0
 fi
 
 dotnet format whitespace OpenBackupManager.slnx --include $files &&
