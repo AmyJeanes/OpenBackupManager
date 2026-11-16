@@ -122,13 +122,31 @@ public class ServiceDefinitionTests
     public void EachHome_HasItsOwn()
     {
         static string Unit(string? home) => new SystemdService(home, Obmd, Obm, Shell.GetValueOrDefault, Systemd.GetValueOrDefault).Unit;
+        static string Label(string? home) => new LaunchAgent(home, Obmd, Obm, Shell.GetValueOrDefault).Label;
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(Unit("/srv/a"), Is.EqualTo(Unit("/srv/a/")));
             Assert.That(Unit("/srv/a"), Is.Not.EqualTo(Unit("/srv/b")));
-            Assert.That(Unit("/srv/a"), Is.Not.EqualTo(Unit("/srv/A")));
             Assert.That(Unit("/srv/a"), Is.Not.EqualTo(Unit(null)));
+            Assert.That(Label("/srv/a"), Is.EqualTo(Label("/srv/a/")));
+            Assert.That(Label("/srv/a"), Is.Not.EqualTo(Label("/srv/b")));
+        }
+    }
+
+    // As macOS's usual file system ignores case, which Linux's don't
+    [Test]
+    public void AHome_WrittenInAnotherCase_IsTheSameHome_WhereCaseIsIgnored()
+    {
+        var unit = new SystemdService("/srv/a", Obmd, Obm, Shell.GetValueOrDefault, Systemd.GetValueOrDefault).Unit;
+        var label = new LaunchAgent("/srv/a", Obmd, Obm, Shell.GetValueOrDefault).Label;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                new SystemdService("/srv/A", Obmd, Obm, Shell.GetValueOrDefault, Systemd.GetValueOrDefault).Unit,
+                OperatingSystem.IsLinux() ? Is.Not.EqualTo(unit) : Is.EqualTo(unit));
+            Assert.That(new LaunchAgent("/srv/A", Obmd, Obm, Shell.GetValueOrDefault).Label, OperatingSystem.IsLinux() ? Is.Not.EqualTo(label) : Is.EqualTo(label));
         }
     }
 
