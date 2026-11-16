@@ -99,7 +99,7 @@ If the engine closes unexpectedly, it writes a report to the crash reports folde
 
 === "Windows"
 
-    What Windows recorded in Event Viewer about the app, `obmd` or `obm` crashing or not responding, in `windows-events.txt`.
+    What Windows recorded in Event Viewer about the app, `obmd` or `obm` crashing or not responding, in `windows-events.txt`. Only your account's copies are included, and it says how many other entries were left out.
 
 === "macOS"
 

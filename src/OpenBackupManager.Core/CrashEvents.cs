@@ -101,6 +101,10 @@ internal static class CrashEvents
             _ => null,
         };
 
+    // The program's full path, from its place in Application Error's or Application Hang's data
+    internal static string? AppPathIn(string? provider, IReadOnlyList<object?> values) =>
+        ValueIn(provider, values, error: 10, hang: 5) as string;
+
     private static object? ValueIn(string? provider, IReadOnlyList<object?> values, int error, int hang)
     {
         var at = provider switch

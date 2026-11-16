@@ -141,7 +141,12 @@ internal static class Diagnostics
     {
         if (OperatingSystem.IsWindows())
         {
-            yield return ("windows-events.txt", SystemRecords.WindowsEvents(["OpenBackupManager.App.Windows.exe", "obmd.exe", "obm.exe"], since));
+            yield return (
+                "windows-events.txt",
+                SystemRecords.WindowsEvents(
+                    ["OpenBackupManager.App.Windows.exe", "obmd.exe", "obm.exe"],
+                    [Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), AppContext.BaseDirectory],
+                    since));
         }
         else if (OperatingSystem.IsMacOS())
         {
