@@ -205,6 +205,12 @@
 {2}</value>
     <comment>{0} is the app's name, {1} what's wrong, such as "Line 3: updates.prereleases should be true or false", and {2} the settings file's path</comment>
   </data>
+  <data name="Launch_EnvVarMistake" xml:space="preserve">
+    <value>{0} won't start until the {1} environment variable is fixed or removed.
+
+{2}</value>
+    <comment>{0} is the app's name, {1} the environment variable's name, such as OBM_UPDATES_AUTOMATIC, and {2} what's wrong, such as "Environment variable OBM_UPDATES_AUTOMATIC: updates.automatic should be true or false"</comment>
+  </data>
   <data name="Launch_RunningAsAdministrator" xml:space="preserve">
     <value>{0} is running as administrator, which it doesn't need. Start it again normally.</value>
     <comment>{0} is the app's name</comment>

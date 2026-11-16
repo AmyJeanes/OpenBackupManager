@@ -115,9 +115,7 @@ public static class Program
         }
         catch (ConfigException e)
         {
-            // With no problem when it can't be read, where the OS's own reason is in the user's language
-            var reason = e.Problem?.Describe(CultureInfo.CurrentUICulture) ?? e.InnerException!.Message;
-            ShowMessage(Strings.Launch_ConfigMistake, reason, AppPaths.InHome(Home).ConfigFile);
+            ShowText(ConfigMistake(e, AppPaths.InHome(Home).ConfigFile));
             return;
         }
 
@@ -299,6 +297,16 @@ public static class Program
         error is not null ? Text.Format(Strings.Launch_CantUseFolder, AppName, error.Message, folder)
         : handedOver || atLogin ? null
         : Text.Format(Strings.Launch_RunningElsewhere, AppName);
+
+    // A bad value in an environment variable wins over the file, so it's the variable that needs fixing, not the file
+    internal static string ConfigMistake(ConfigException e, string configFile)
+    {
+        // With no problem when it can't be read, where the OS's own reason is in the user's language
+        var reason = e.Problem?.Describe(CultureInfo.CurrentUICulture) ?? e.InnerException!.Message;
+        return e.Problem?.EnvVar is { } envVar
+            ? Text.Format(Strings.Launch_EnvVarMistake, AppName, envVar, reason)
+            : Text.Format(Strings.Launch_ConfigMistake, AppName, reason, configFile);
+    }
 
     // {0} in the message is the app's name, and the values follow it
     private static void ShowMessage(string message, params object?[] values) => ShowText(Text.Format(message, [AppName, .. values]));
