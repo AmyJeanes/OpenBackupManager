@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest release gets fixes. The app updates itself, so staying on it needs nothing from you.
+Only the latest release gets fixes. The Windows app updates itself, so staying on it needs nothing from you. On macOS and Linux, run `obm update` or install the newer `.deb` or `.rpm`, and in Docker, pull the newer image. See [Updates](https://amyjeanes.github.io/OpenBackupManager/updates/).
 
 ## Reporting a vulnerability
 
