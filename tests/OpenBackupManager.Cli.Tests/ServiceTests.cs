@@ -1,3 +1,5 @@
+// Left out on Windows rather than skipped, or the Sandbox filter would run none of this project's explicit tests
+#if !WINDOWS
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using OpenBackupManager.Core;
@@ -8,7 +10,6 @@ namespace OpenBackupManager.Cli.Tests;
 // obm service install with the OS's real service manager, for a home of its own
 [Explicit("Installs the engine with the OS's service manager")]
 [Category("Sandbox")]
-[Platform(Exclude = "Win")]
 [UnsupportedOSPlatform("windows")]
 public class ServiceTests
 {
@@ -370,3 +371,4 @@ public class ServiceTests
         }
     }
 }
+#endif
