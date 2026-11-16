@@ -74,7 +74,16 @@ internal static class Update
             // Noted before obmd is replaced, as the engine may restart soon after
             var before = await RunningAsync(paths, cancellationToken);
             // In a folder only this user can open, as the temp folder may be shared
-            var temp = Directory.CreateTempSubdirectory("obm-update-");
+            DirectoryInfo temp;
+            try
+            {
+                temp = Directory.CreateTempSubdirectory("obm-update-");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                throw new UpdateException($"couldn't download {name}, so nothing was changed. {e.Message}", e);
+            }
+
             try
             {
                 var tarball = Path.Combine(temp.FullName, name);
@@ -89,7 +98,14 @@ internal static class Update
             }
             finally
             {
-                temp.Delete(recursive: true);
+                // Left to the system to clear if it can't be, rather than hiding what happened before
+                try
+                {
+                    temp.Delete(recursive: true);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                }
             }
 
             Console.WriteLine($"Updated obm and obmd in {folder}");

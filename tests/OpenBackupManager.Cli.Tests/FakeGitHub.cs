@@ -144,12 +144,18 @@ internal sealed class FakeGitHub : IDisposable
             else if (path.StartsWith("/download/", StringComparison.Ordinal) && _downloads.TryGetValue(path["/download/".Length..], out var download))
             {
                 body = download.Content;
-                if (download.Stalls)
+                if (download.Stalls || download.CutOff)
                 {
-                    // Half of it, then nothing more until it's disposed, as a connection that died silently
                     response.ContentLength64 = body.Length;
                     await response.OutputStream.WriteAsync(body.AsMemory(0, body.Length / 2));
                     await response.OutputStream.FlushAsync();
+                    if (download.CutOff)
+                    {
+                        response.Abort();
+                        continue;
+                    }
+
+                    // Nothing more until it's disposed, as a connection that died silently
                     lock (_stalled)
                     {
                         _stalled.Add(response);
@@ -178,4 +184,7 @@ internal sealed record Asset(string Name, byte[] Content)
 
     // Sends half of it, then nothing more
     public bool Stalls { get; init; }
+
+    // Sends half of it, then closes the connection
+    public bool CutOff { get; init; }
 }

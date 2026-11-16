@@ -284,6 +284,41 @@ public class UpdateTests
         }
     }
 
+    // As when Wi-Fi drops partway through
+    [Test]
+    public void Update_WhenTheDownloadIsCutOff_SaysSo()
+    {
+        var obmd = File.GetLastWriteTimeUtc(Obmd);
+        _github.Add("0.3.0", new Asset(Tarball, FakeGitHub.NewVersionOf(_programs)) { CutOff = true });
+
+        var (exitCode, output) = Update();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1), output);
+            Assert.That(output.Split(Environment.NewLine)[^1], Does.StartWith($"obm: couldn't download {Tarball}, so nothing was changed. "));
+            Assert.That(output, Does.Not.Contain("Unhandled exception"));
+            Assert.That(File.GetLastWriteTimeUtc(Obmd), Is.EqualTo(obmd));
+            Assert.That(Leftovers(), Is.Empty);
+        }
+    }
+
+    [Test]
+    public void Update_WhenTheTempFolderIsMissing_SaysSo()
+    {
+        _github.Add("0.3.0", new Asset(Tarball, FakeGitHub.NewVersionOf(_programs)));
+        var temp = Path.Combine(Path.GetDirectoryName(_programs)!, "missing");
+
+        var (exitCode, output) = Tool.Run(Obm, new Dictionary<string, string>(_github.Environment) { ["TMPDIR"] = temp }, "update", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1), output);
+            Assert.That(output.Split(Environment.NewLine)[^1], Does.StartWith($"obm: couldn't download {Tarball}, so nothing was changed. "));
+            Assert.That(output, Does.Not.Contain("Unhandled exception"));
+        }
+    }
+
     [Test]
     public void Update_WithoutAChecksum_ChangesNothing()
     {

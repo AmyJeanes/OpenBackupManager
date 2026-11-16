@@ -91,7 +91,8 @@ internal sealed class Releases : IDisposable
 
             return hash.GetHashAndReset();
         }
-        catch (HttpRequestException e)
+        // Such as the connection dropping partway, or a full disk
+        catch (Exception e) when (e is HttpRequestException or IOException or UnauthorizedAccessException)
         {
             throw new UpdateException($"couldn't download {asset.Name}, so nothing was changed. {e.Message}", e);
         }
