@@ -1,3 +1,4 @@
+using System.Text;
 using Tomlyn;
 using Tomlyn.Parsing;
 using Tomlyn.Syntax;
@@ -342,10 +343,13 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
     {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
         var temporary = Path + ".tmp";
-        File.WriteAllText(temporary, text);
+        WriteToDisk(temporary, Encoding.UTF8.GetBytes(text));
         if (File.Exists(Path))
         {
-            File.Copy(Path, Path + ".bak", overwrite: true);
+            using var old = OpenShared(Path);
+            using var copy = new MemoryStream();
+            old.CopyTo(copy);
+            WriteToDisk(Path + ".bak", copy.ToArray());
         }
 
         // One rename over the old file, so anything watching it never sees it missing, as it would with File.Replace.
@@ -363,6 +367,16 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
                 Thread.Sleep(20);
             }
         }
+    }
+
+    // Flushed, or after a power cut the rename can be kept without what was written. Made afresh, so a file or link
+    // left in its place is never written through
+    private static void WriteToDisk(string path, byte[] contents)
+    {
+        File.Delete(path);
+        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        stream.Write(contents);
+        stream.Flush(flushToDisk: true);
     }
 }
 
