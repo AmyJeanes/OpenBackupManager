@@ -25,7 +25,7 @@ public sealed class NotificationTests : AppTests
             .Result!.AsButton().Invoke();
         WaitForNotificationCentreToClose();
 
-        WaitForWindow(AppName);
+        WaitForMainWindow();
     }
 
     [Test]
@@ -38,7 +38,7 @@ public sealed class NotificationTests : AppTests
         FindNotification(TestTitle).Click();
 
         WaitForCopyStartedSince(clicked);
-        WaitForWindow(AppName);
+        WaitForMainWindow();
         Assert.That(IsFlyoutShown(), Is.False);
     }
 

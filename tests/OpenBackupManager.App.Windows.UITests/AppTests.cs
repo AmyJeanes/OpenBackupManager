@@ -166,6 +166,9 @@ public abstract class AppTests
 
     protected Window WaitForWindow(string title) => WaitForWindow(w => w.Title == title);
 
+    // The flyout's title is the app's name too
+    protected Window WaitForMainWindow() => WaitForWindow(w => w.Title == AppName && !IsFlyout(w));
+
     // Its title is the app's name, so it's found by its heading
     protected Window WaitForCrashWindow(string heading) =>
         WaitForWindow(w => w.FindFirstDescendant(c => c.ByAutomationId("TitleText"))?.Name == heading);

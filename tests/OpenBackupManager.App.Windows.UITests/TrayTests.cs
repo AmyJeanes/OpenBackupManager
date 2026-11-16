@@ -28,7 +28,7 @@ public sealed class TrayTests : AppTests
 
         Mouse.DoubleClick(TrayIcon());
 
-        WaitForWindow(AppName);
+        WaitForMainWindow();
         Assert.That(IsFlyoutShown(), Is.False);
     }
 
@@ -37,7 +37,7 @@ public sealed class TrayTests : AppTests
     {
         ChooseFromTrayMenu("Open");
 
-        WaitForWindow(AppName);
+        WaitForMainWindow();
     }
 
     [Test]

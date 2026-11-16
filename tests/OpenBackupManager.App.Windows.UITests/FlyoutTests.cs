@@ -40,7 +40,7 @@ public sealed class FlyoutTests : AppTests
     {
         OpenButton(LaunchFlyout).Invoke();
 
-        WaitForWindow(AppName);
+        WaitForMainWindow();
         WaitUntilHidden(LaunchFlyout);
     }
 
@@ -48,7 +48,7 @@ public sealed class FlyoutTests : AppTests
     public void ClickingElsewhere_ClosesIt()
     {
         OpenButton(LaunchFlyout).Invoke();
-        var window = WaitForWindow(AppName);
+        var window = WaitForMainWindow();
         WaitUntilHidden(LaunchFlyout);
         using (LaunchApp())
         {
