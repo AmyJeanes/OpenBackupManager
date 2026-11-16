@@ -46,10 +46,8 @@ contents:
     type: symlink
 
 # What .NET needs. Every ICU the .deb has been checked with, as Microsoft's dotnet-runtime-deps does. libssl3t64, on
-# newer distros, provides libssl3. The .rpm asks for OpenSSL 3 by its library, as Fedora's own .NET does, since Fedora
-# 45's openssl-libs is OpenSSL 4, which .NET can't use, and openssl3-libs has 3
-# (https://fedoraproject.org/wiki/Changes/OpenSSL40). .NET 10.0.15 can use OpenSSL 4, so once it's built with that,
-# the .rpm can take either (https://github.com/dotnet/runtime/issues/125619)
+# newer distros, provides libssl3. The .rpm asks for OpenSSL by its library, taking 3 or 4, as Fedora 45's
+# openssl-libs is OpenSSL 4 (https://fedoraproject.org/wiki/Changes/OpenSSL40)
 overrides:
   deb:
     depends:
@@ -59,4 +57,4 @@ overrides:
   rpm:
     depends:
       - libicu
-      - libssl.so.3()(64bit)
+      - (libssl.so.3()(64bit) or libssl.so.4()(64bit))

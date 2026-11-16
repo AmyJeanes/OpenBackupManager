@@ -78,7 +78,7 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
     tar -xzf ~/Downloads/OpenBackupManager-<version>-linux-x64.tar.gz -C ~/.local/bin obm obmd
     ```
 
-    If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and open a new terminal. The tarball needs ICU and OpenSSL 3, which desktop distros already have. On a minimal install, add them with your package manager, such as `sudo apt install libicu72 libssl3` on Debian 12, `sudo dnf install libicu openssl-libs` on RHEL, or `sudo dnf install libicu openssl3-libs` on Fedora 45 and newer. To update later, run `obm update`.
+    If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and open a new terminal. The tarball needs ICU and OpenSSL 3 or newer, which desktop distros already have. On a minimal install, add them with your package manager, such as `sudo apt install libicu72 libssl3` on Debian 12, or `sudo dnf install libicu openssl-libs` on RHEL and Fedora. To update later, run `obm update`.
 
     On a NAS or home server, you can run the engine in Docker instead. See [Docker](docker.md).
 
