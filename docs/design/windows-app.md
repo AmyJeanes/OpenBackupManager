@@ -88,6 +88,7 @@ The Windows app is a native WinUI 3 tray app, in `src/OpenBackupManager.App.Wind
 - **A hang ended from Task Manager while only the tray icon shows isn't reported.** Windows only records a hang it handles itself, when a window that isn't responding is closed and its prompt's Close the program is chosen. Task Manager ends a background app without any record, so the next start only logs that it closed unexpectedly without saying why.
 - **From the hidden icons popup, the flyout opens behind the popup.** The flyout sits just below the taskbar in the stacking order so it slides out from behind it, and the popup sits above the taskbar. OneDrive's flyout does the same.
 - **Uninstalling ends the engine without stopping it cleanly.** Velopack ends whatever runs from the install folder before it runs the uninstall hook. An update does the same to engines for other homes, and to `obm` commands, as its hook only knows the home the app uses without `--home`, which is normally the only one the installed app uses.
+- **Setup isn't signed, so SmartScreen warns before it runs,** and Smart App Control blocks it. Only signing it, such as with vpk's `--azureTrustedSignFile`, would stop that. The guide says how to check it and run it anyway.
 - **Crash reports from a release name the methods but give no file or line numbers.** Only symbol files have those, and publishing makes none, as NativeAOT's are bigger than the programs.
 
 ## Checking by hand

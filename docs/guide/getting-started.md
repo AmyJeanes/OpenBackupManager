@@ -10,6 +10,10 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
     2. Run it. There's nothing to choose: it installs for you only, and doesn't need administrator rights.
     3. The app starts in the tray, by the clock, and starts again each time you sign in.
 
+    !!! warning "If Windows won't run it"
+
+        Setup isn't signed yet, so Windows may say "Windows protected your PC". Check it first, as below, then choose **More info**, then **Run anyway**. If Smart App Control is on, Windows blocks it outright, and there's no way to allow it.
+
     !!! tip "Check it first"
 
         You can check a download came from the project's build unchanged before you run it. See [Checking a download](checking-downloads.md).
