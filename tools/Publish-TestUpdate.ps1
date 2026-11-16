@@ -23,13 +23,24 @@ param(
     [switch]$Reset,
 
     # Installs this version and points it at the feed
-    [switch]$Install
+    [switch]$Install,
+
+    # Installs even over a copy that isn't from a test feed
+    [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
 $Feed = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Feed)
 $publish = Join-Path ([IO.Path]::GetTempPath()) "obm-update-test/publish-$Version"
+# Kept through updates, removed on uninstall
+$installed = Join-Path $env:LOCALAPPDATA 'OpenBackupManager.App'
+$updateSource = Join-Path $installed 'update-source'
+
+# Velopack's silent install replaces whatever version is installed, and the installed app's home is the real one
+if ($Install -and -not $Force -and (Test-Path (Join-Path $installed 'Update.exe')) -and -not (Test-Path $updateSource)) {
+    throw "Open Backup Manager is installed, and installing would replace it and use its data. Try this in Windows Sandbox or a VM, or pass -Force"
+}
 
 if ($Reset -and (Test-Path $Feed)) {
     Remove-Item $Feed -Recurse -Force
@@ -58,10 +69,7 @@ if ($LASTEXITCODE) { throw 'Packing failed' }
 if ($Install) {
     $setup = Join-Path $Feed "OpenBackupManager.App-$Runtime-Setup.exe"
     Start-Process $setup -ArgumentList '--silent' -Wait
-
-    # Kept through updates, removed on uninstall
-    $installed = Join-Path $env:LOCALAPPDATA 'OpenBackupManager.App'
-    Set-Content (Join-Path $installed 'update-source') $Feed
+    Set-Content $updateSource $Feed
 
     Start-Process (Join-Path $installed 'current/OpenBackupManager.App.Windows.exe')
     Write-Host "Installed $Version, checking $Feed for updates"

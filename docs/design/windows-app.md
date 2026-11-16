@@ -108,7 +108,7 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 
 ### Trying updates locally
 
-`tools/Publish-TestUpdate.ps1` packs versions into a local feed in the temp folder, the same way as CI's package-windows job. With `-Install`, it also writes the installed copy's `update-source` file, so it checks that feed however it's started, until it's uninstalled.
+`tools/Publish-TestUpdate.ps1` packs versions into a local feed in the temp folder, the same way as CI's package-windows job. With `-Install`, it also writes the installed copy's `update-source` file, so it checks that feed however it's started, until it's uninstalled. Installing replaces the installed app and uses its data, so try it in Windows Sandbox or a VM. The script refuses to replace a copy that isn't from a test feed unless given `-Force`.
 
 1. `./tools/Publish-TestUpdate.ps1 -Version 0.0.1-local -Reset -Install` starts a new feed with that version, installs it and starts it. About shows (test updates) after the version.
 2. In About, Check for updates should say it's up to date.
