@@ -658,6 +658,9 @@ jobs:
       # Docker's default builder can't make one image for both architectures
       - name: Set up Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+        with:
+          # Pinned like the other images, as the builder is handed the registry token and reports the digest Attest signs
+          driver-opts: image=moby/buildkit:v0.34.2@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe
 
       # One at a time, as only one can be loaded to run. The push reuses the cache
       - name: Check it runs
