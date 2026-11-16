@@ -285,9 +285,9 @@ public abstract class AppTests
     // Answering the question it asks first, unless config.toml says not to
     protected void Quit(bool asks = true)
     {
-        // Counted once its icon is on the taskbar
-        _ = TrayIcon();
-        var icons = Retry.WhileException(TrayIconCount, Timeout, throwOnTimeout: true).Result;
+        // Counted once its icon is on the taskbar and among them, which it isn't for a moment while its tooltip changes
+        var icon = TrayIcon();
+        var icons = Retry.While(TrayIcons, all => !all.Any(i => i.Contains(icon)), Timeout, throwOnTimeout: true, ignoreException: true).Result!.Count;
         ChooseFromTrayMenu("Quit");
         if (asks)
         {
@@ -297,7 +297,7 @@ public abstract class AppTests
         Assert.Multiple(() =>
         {
             Assert.That(WaitForExit(), Is.True);
-            Assert.That(Retry.WhileFalse(() => TrayIconCount() < icons, Timeout, ignoreException: true).Result, Is.True);
+            Assert.That(Retry.WhileFalse(() => TrayIcons().Count < icons, Timeout, ignoreException: true).Result, Is.True);
         });
     }
 
@@ -373,9 +373,11 @@ public abstract class AppTests
     private AutomationElement Taskbar() => _automation.GetDesktop().FindFirstChild(c => c.ByClassName("Shell_TrayWnd"))!;
 
     // Including any left behind by copies that were ended, which stay until the mouse passes over them. An icon that
-    // goes while it's counted throws, so callers try again rather than count it as gone
-    private int TrayIconCount() =>
-        Taskbar().FindAllDescendants(c => c.ByAutomationId("NotifyItemIcon")).Count(i => i.Name.StartsWith(AppName, StringComparison.Ordinal));
+    // goes while they're listed throws, so callers try again rather than count it as gone
+    private List<Rectangle> TrayIcons() =>
+        [.. Taskbar().FindAllDescendants(c => c.ByAutomationId("NotifyItemIcon"))
+            .Where(i => i.Name.StartsWith(AppName, StringComparison.Ordinal))
+            .Select(i => i.BoundingRectangle)];
 
     // Windows puts a new app's tray icon in the hidden icons, so this moves it onto the taskbar as Settings would.
     // Windows adds the setting for each app's icon when it first sees the icon
