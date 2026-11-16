@@ -31,6 +31,9 @@ public sealed class EngineClient : IDisposable
     // Long enough for an engine that's just starting
     private static readonly TimeSpan StartingTimeout = TimeSpan.FromSeconds(2);
 
+    // For calls the engine answers at once, so one that's paused or stuck doesn't leave its caller waiting with no word
+    private static readonly TimeSpan AnswerTimeout = TimeSpan.FromSeconds(5);
+
     public static Task<EngineClient?> ConnectAsync(AppPaths paths, CancellationToken cancellationToken) =>
         ConnectAsync(paths, StartingTimeout, cancellationToken);
 
@@ -98,12 +101,14 @@ public sealed class EngineClient : IDisposable
     public Task<StatusResult> StatusAsync(CancellationToken cancellationToken) =>
         CallAsync(EngineProtocol.Status, null, ProtocolJson.Default.StatusResult, cancellationToken);
 
+    // Not limited, as the engine answers once it's done, which takes as long as the stores do
     public Task<MigrateSecretsResult> MigrateSecretsAsync(string store, CancellationToken cancellationToken) =>
         CallAsync(
             EngineProtocol.MigrateSecrets,
             JsonSerializer.SerializeToElement(new MigrateSecretsParams(store), ProtocolJson.Default.MigrateSecretsParams),
             ProtocolJson.Default.MigrateSecretsResult,
-            cancellationToken);
+            cancellationToken,
+            limited: false);
 
     public Task<ReloadConfigResult> ReloadConfigAsync(CancellationToken cancellationToken) =>
         CallAsync(EngineProtocol.ReloadConfig, null, ProtocolJson.Default.ReloadConfigResult, cancellationToken);
@@ -141,9 +146,17 @@ public sealed class EngineClient : IDisposable
         string method,
         JsonElement? parameters,
         JsonTypeInfo<TResult> resultType,
-        CancellationToken cancellationToken)
+        CancellationToken callerToken,
+        bool limited = true)
         where TResult : class
     {
+        using var answering = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        if (limited)
+        {
+            answering.CancelAfter(AnswerTimeout);
+        }
+
+        var cancellationToken = answering.Token;
         var id = Interlocked.Increment(ref _lastId);
         var answer = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         _waiting[id] = answer;
@@ -179,6 +192,12 @@ public sealed class EngineClient : IDisposable
             return response.Result is { } result && result.Deserialize(resultType) is { } value
                 ? value
                 : throw new EngineException($"The engine didn't answer {method}");
+        }
+        catch (OperationCanceledException e) when (!callerToken.IsCancellationRequested)
+        {
+            throw new EngineException(
+                "The engine accepted the connection but didn't answer, so it may be paused or stuck. Restarting it may help",
+                e);
         }
         finally
         {

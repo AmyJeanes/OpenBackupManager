@@ -100,6 +100,7 @@ What people do to update is in the guide's [Updates](../guide/updates.md).
 - **A distro that moves to a newer ICU can't install the .deb** until that version is added to its list, as with [Microsoft's own packages](https://github.com/dotnet/runtime/blob/v11.0.0/src/installer/pkg/sfx/installers/dotnet-runtime-deps/dotnet-runtime-deps-debian.proj#L10-L11): apt refuses it, though the tarball still works. CI checks the newest Fedora, which tends to move first, and the newest Ubuntu LTS.
 - **The Docker image is for Linux hosts.** Docker Desktop on Windows [only reports changes](https://docs.docker.com/desktop/features/wsl/best-practices/) to files kept in its own Linux, and on macOS isn't documented to, so the guide says not to use it there.
 - **Finding no engine takes a moment.** A client waits up to its timeout, 2 seconds for `obm status`, since an engine may be starting, and a socket left behind by a crash looks the same as one that isn't ready yet.
+- **An engine that accepts a connection but doesn't answer gets 5 seconds** for `hello` and each call it answers at once, such as status, reload and stop, so one that's paused, as with Ctrl+Z, or stuck gives a message rather than a hang. Moving secrets has no limit, as it's answered once the stores are done.
 
 ## Checking by hand
 
