@@ -47,8 +47,17 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         var previous = File.Exists(RunningFile) ? Run.Parse(File.ReadAllLines(RunningFile)) : null;
         var log = NewestLog();
         Current = new Run(processId, started, version, log?.Name, log?.Length ?? 0, BootId.Current());
-        Directory.CreateDirectory(paths.State);
-        File.WriteAllLines(RunningFile, Current.Lines());
+        PrivateFiles.CreateFolder(paths.State);
+
+        // Private, as another user holding one left by a crash would stop the next start reading it
+        using (var writer = new StreamWriter(PrivateFiles.Open(RunningFile, FileMode.Create, FileAccess.Write, FileShare.Read)))
+        {
+            foreach (var line in Current.Lines())
+            {
+                writer.WriteLine(line);
+            }
+        }
+
         return previous;
     }
 

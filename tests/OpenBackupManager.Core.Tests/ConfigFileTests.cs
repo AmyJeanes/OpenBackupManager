@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Platform;
 
@@ -395,6 +396,41 @@ public class ConfigFileTests
             Assert.That(File.ReadAllText(FilePath + ".bak"), Is.EqualTo("version = 1 # mine\n"));
             Assert.That(Directory.GetFiles(Path.GetDirectoryName(target)!), Is.EqualTo((string[])[target]));
         }
+    }
+
+    // Or another user holding it would stop the engine reading it. With the folder, as the XDG spec asks
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void Set_MakesTheFileAndItsFolderOnlyForThisUser()
+    {
+        var folder = Path.Combine(_folder, "openbackupmanager");
+        var path = Path.Combine(folder, "config.toml");
+
+        new ConfigFile(path).Set("updates", "prereleases", true);
+        new ConfigFile(path).Set("updates", "prereleases", false);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(File.GetUnixFileMode(folder), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
+            Assert.That(File.GetUnixFileMode(path), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+            Assert.That(File.GetUnixFileMode(path + ".bak"), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        }
+    }
+
+    // As who it's shared with may have been chosen
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void Set_KeepsWhoCanOpenTheFileItReplaces()
+    {
+        const UnixFileMode Shared = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
+        new ConfigFile(FilePath).Set("updates", "prereleases", true);
+        File.SetUnixFileMode(FilePath, Shared);
+
+        new ConfigFile(FilePath).Set("updates", "prereleases", false);
+
+        Assert.That(File.GetUnixFileMode(FilePath), Is.EqualTo(Shared));
     }
 
     [Test]

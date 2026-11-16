@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 
 namespace OpenBackupManager.Core.Tests;
 
@@ -99,6 +100,40 @@ public class ProcessLockTests
     [Test]
     public void AnErrorThatIsntAnotherHolder_IsThrown() =>
         Assert.That(() => ProcessLock.TryTake(new string('x', 300), _home), Throws.InstanceOf<IOException>());
+
+    // Or another user could hold it, and pass for a running copy. With the folders it makes, as the XDG spec asks
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void ItsFileAndTheFoldersItMakes_AreOnlyForThisUser()
+    {
+        var made = Path.Combine(_home.State, "made");
+        var state = Path.Combine(made, "state");
+
+        using var held = ProcessLock.TryTake("engine", AppPaths.InHome(state));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(File.GetUnixFileMode(made), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
+            Assert.That(File.GetUnixFileMode(state), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
+            Assert.That(File.GetUnixFileMode(Path.Combine(state, "engine.lock")), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        }
+    }
+
+    // As a home others can reach may have, from before
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void ItsFile_IsMadeOnlyForThisUser_WhenOthersCouldOpenIt()
+    {
+        var file = Path.Combine(_home.State, "engine.lock");
+        File.WriteAllText(file, "");
+        File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+
+        using var held = ProcessLock.TryTake("engine", _home);
+
+        Assert.That(File.GetUnixFileMode(file), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+    }
 
     private static AppPaths Home()
     {

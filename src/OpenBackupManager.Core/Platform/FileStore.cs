@@ -115,7 +115,7 @@ public sealed class FileStore(string path) : ISecretStore, IDisposable
     // Written beside it then renamed over it, so a crash never leaves it half written
     private async Task WriteAsync(Dictionary<string, string> secrets, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+        PrivateFiles.CreateFolder(System.IO.Path.GetDirectoryName(Path)!);
         var temporary = Path + ".tmp";
 
         // Made afresh, so a file or link someone else left in its place is never written through

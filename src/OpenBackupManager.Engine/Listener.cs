@@ -69,7 +69,7 @@ internal sealed partial class Listener(
     private void PrepareFolder()
     {
         var folder = EngineSocket.Folder(paths);
-        Directory.CreateDirectory(paths.State);
+        PrivateFiles.CreateFolder(paths.State);
         if (Directory.CreateDirectory(folder, Private).LinkTarget is not null)
         {
             throw new EngineException($"{folder} is a link, so the engine won't keep its socket there");

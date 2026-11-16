@@ -28,7 +28,7 @@ public sealed partial class ConfigWatcher : IDisposable
         var folder = Path.GetDirectoryName(file.Path)!;
         try
         {
-            Directory.CreateDirectory(folder);
+            PrivateFiles.CreateFolder(folder);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

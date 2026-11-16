@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Platform;
@@ -30,6 +31,21 @@ public class ConfigWatcherTests
         using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
 
         Assert.That(watcher.Config.Updates.Prereleases, Is.True);
+    }
+
+    // Or another user holding it would stop it being read. Made before, as in a home others can reach
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    // As who it's shared with may have been chosen
+    public void LeavesWhoCanOpenTheFileAsItIs()
+    {
+        Write("[updates]\nprereleases = true\n");
+        File.SetUnixFileMode(_file.Path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
+
+        Assert.That(File.GetUnixFileMode(_file.Path), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead));
     }
 
     [Test]

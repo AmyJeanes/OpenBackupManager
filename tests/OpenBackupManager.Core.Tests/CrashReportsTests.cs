@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using Microsoft.Extensions.Time.Testing;
 
 namespace OpenBackupManager.Core.Tests;
@@ -264,6 +265,27 @@ public class CrashReportsTests
         {
             Assert.That(_reports.Start(200, RunStarted, "1.2.3"), Is.Null);
             Assert.That(engine.Start(400, RunStarted, "1.2.3")?.ProcessId, Is.EqualTo(300));
+        }
+    }
+
+    // Or another user holding one left by a crash would stop the next start reading it. Made before, as in a home
+    // others can reach
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void TheRunningFile_IsOnlyForThisUser()
+    {
+        var engine = Engine();
+        var file = Path.Combine(_home, "engine.running");
+        engine.Start(300, RunStarted, "1.2.3");
+        File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+
+        engine.Start(400, RunStarted, "1.2.3");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(File.GetUnixFileMode(file), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+            Assert.That(engine.Start(500, RunStarted, "1.2.3")?.ProcessId, Is.EqualTo(400));
         }
     }
 

@@ -341,7 +341,7 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
 
     private void Write(string text)
     {
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+        PrivateFiles.CreateFolder(System.IO.Path.GetDirectoryName(Path)!);
 
         // A link, as dotfiles managers make, stays one, and the file it links to is changed. The new file goes beside
         // that, as a rename can't move it between folders, so one that can't be written to is an error
@@ -350,6 +350,7 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
         WriteToDisk(temporary, Encoding.UTF8.GetBytes(text));
         if (File.Exists(file))
         {
+            PrivateFiles.CopyMode(file, temporary);
             using var old = OpenShared(file);
             using var copy = new MemoryStream();
             old.CopyTo(copy);
@@ -387,11 +388,12 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
     }
 
     // Flushed, or after a power cut the rename can be kept without what was written. Made afresh, so a file or link
-    // left in its place is never written through
+    // left in its place is never written through. Private, as another user holding config.toml would stop the engine
+    // reading it
     private static void WriteToDisk(string path, byte[] contents)
     {
         File.Delete(path);
-        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        using var stream = PrivateFiles.Open(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         stream.Write(contents);
         stream.Flush(flushToDisk: true);
     }

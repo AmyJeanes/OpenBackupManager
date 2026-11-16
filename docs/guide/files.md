@@ -30,6 +30,8 @@ Everything Open Backup Manager keeps about this device, such as its logs, is its
 
     The engine also keeps `engine.lock` and `run/engine.sock` in its own folder, `~/Library/Application Support/OpenBackupManager/`. They make sure only one engine runs and let `obm` talk to it, so leave them alone.
 
+    The settings folder and the engine's own folder are made so only you can open them, and so are `config.toml` and `engine.lock`, so another user on the Mac can't keep the engine from starting.
+
     `XDG_CONFIG_HOME` moves the settings folder, as it does for command line tools such as `gh`.
 
 === "Linux"
@@ -43,6 +45,8 @@ Everything Open Backup Manager keeps about this device, such as its logs, is its
     | Crash reports | `~/.local/state/openbackupmanager/crashes/` |
 
     The engine also keeps `engine.lock` and `run/engine.sock` in its own folder, `~/.local/state/openbackupmanager/`. They make sure only one engine runs and let `obm` talk to it, so leave them alone.
+
+    The settings folder and the engine's own folder are made so only you can open them, as other apps' are, and so are `config.toml` and `engine.lock`, so another user on the computer can't keep the engine from starting.
 
     `XDG_CONFIG_HOME` and `XDG_STATE_HOME` move these folders as they do for other apps.
 

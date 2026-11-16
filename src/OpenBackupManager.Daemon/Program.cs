@@ -69,7 +69,7 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
     ProcessLock? taken;
     try
     {
-        Directory.CreateDirectory(paths.State);
+        PrivateFiles.CreateFolder(paths.State);
         taken = ProcessLock.TryTake("engine", paths);
     }
     catch (Exception e) when (e is IOException or UnauthorizedAccessException)

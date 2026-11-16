@@ -15,14 +15,15 @@ public sealed class ProcessLock : IDisposable
     // such as a read-only disk, is thrown, so it isn't taken for a running copy
     public static ProcessLock? TryTake(string name, AppPaths paths)
     {
-        Directory.CreateDirectory(paths.State);
+        PrivateFiles.CreateFolder(paths.State);
         // .NET only takes an exclusive flock on macOS and Linux when nothing is shared. Windows checks sharing itself,
         // so it lets others read, as Chromium's process_singleton_win.cc does, and a program reading the state folder
         // isn't taken for a second copy. Defender's scans never held it in a probe of about 140,000 opens (Nov 2026)
         var share = OperatingSystem.IsWindows() ? FileShare.Read : FileShare.None;
         try
         {
-            return new ProcessLock(new FileStream(Path.Combine(paths.State, name + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, share));
+            // Private, or another user could hold it and pass for a running copy
+            return new ProcessLock(PrivateFiles.Open(Path.Combine(paths.State, name + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, share));
         }
         catch (IOException e) when (IsHeld(e))
         {
