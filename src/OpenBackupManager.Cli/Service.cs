@@ -22,8 +22,9 @@ internal static class Service
             }
 
             CheckConfig(paths);
-            await TakeOverAsync(paths, cancellationToken);
             service.Install();
+            await TakeOverAsync(paths, cancellationToken);
+            service.Start();
             var status = await StartedAsync(paths, service, cancellationToken)
                 ?? throw new ServiceException($"the service didn't start the engine. {service.HowToCheck} might say why");
             var inSecretService = status.Secrets.Store == SecretStoreKind.SecretService.Name();

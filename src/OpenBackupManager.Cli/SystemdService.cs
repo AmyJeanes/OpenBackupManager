@@ -61,13 +61,17 @@ internal sealed class SystemdService(
             throw new ServiceException("systemd isn't present or can't be reached for this user, so the engine can't be installed as a service. Run obmd yourself instead");
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(File)!);
-        System.IO.File.WriteAllText(File, Definition());
+        OnDisk(File, () =>
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(File)!);
+            System.IO.File.WriteAllText(File, Definition());
+        });
         Run("systemctl", "--user", "daemon-reload");
         Run("systemctl", "--user", "enable", Unit);
-        // Restarted rather than started, so an engine it started before runs as it's now defined
-        Run("systemctl", "--user", "restart", Unit);
     }
+
+    // Restarted rather than started, so an engine it started before runs as it's now defined
+    public override void Start() => Run("systemctl", "--user", "restart", Unit);
 
     // Without systemd, there's no engine it started to stop
     public override void Uninstall()
@@ -78,7 +82,7 @@ internal sealed class SystemdService(
             Run("systemctl", "--user", "disable", "--now", Unit);
         }
 
-        System.IO.File.Delete(File);
+        OnDisk(File, () => System.IO.File.Delete(File));
         if (reachable)
         {
             Run("systemctl", "--user", "daemon-reload");

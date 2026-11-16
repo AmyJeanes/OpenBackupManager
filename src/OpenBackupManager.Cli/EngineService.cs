@@ -55,8 +55,12 @@ internal abstract class EngineService(string? home, string obmd, string obm, Fun
             : null;
     }
 
-    // Writes it and starts the engine, replacing one already there and the engine it started
+    // Writes it, replacing one already there, and does everything else that can fail short of starting the engine, so
+    // an engine started another way only has to stop once nothing else can
     public abstract void Install();
+
+    // Starts the engine once it's installed, replacing one it started before
+    public abstract void Start();
 
     // Stops the engine and removes it
     public abstract void Uninstall();
@@ -65,6 +69,20 @@ internal abstract class EngineService(string? home, string obmd, string obm, Fun
     // its files somewhere else. A home has everything in it
     protected IEnumerable<(string Name, string Value)> Variables(params string[] names) =>
         Home is not null ? [] : names.Where(name => !string.IsNullOrEmpty(Environment(name))).Select(name => (name, Environment(name)!));
+
+    // A ServiceException that names the path, so obm says in one line what it couldn't change. Something run with sudo
+    // can leave a folder belonging to root
+    protected static void OnDisk(string path, Action change)
+    {
+        try
+        {
+            change();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new ServiceException($"{path} can't be changed: {e.Message.TrimEnd('.')}. Check who owns it, and the folders it's in");
+        }
+    }
 
     protected static void Run(string program, params string[] arguments)
     {

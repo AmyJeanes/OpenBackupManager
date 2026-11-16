@@ -39,4 +39,32 @@ public class ServiceCommandTests
             Assert.That(output, Does.Contain("isn't installed as a service"));
         }
     }
+
+    // As in most containers, or under WSL with systemd off, where systemctl is there but can't reach systemd
+    [Test]
+    [Platform("Linux")]
+    public void Install_WithoutSystemd_LeavesAnEngineStartedByHandRunning()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "obm-tests-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            using var byHand = Tool.Start("obmd", "--home", home);
+            byHand.WaitFor("started, process");
+            var withoutSystemd = new Dictionary<string, string> { ["XDG_RUNTIME_DIR"] = Path.Combine(home, "nowhere"), ["DBUS_SESSION_BUS_ADDRESS"] = "" };
+
+            var (exitCode, output) = Tool.Run("obm", withoutSystemd, "service", "install", "--home", home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.Contain("systemd isn't present or can't be reached"));
+                Assert.That(output, Does.Not.Contain("Stopping the engine"));
+                Assert.That(byHand.HasExited, Is.False, "The engine was stopped");
+            }
+        }
+        finally
+        {
+            Directory.Delete(home, recursive: true);
+        }
+    }
 }

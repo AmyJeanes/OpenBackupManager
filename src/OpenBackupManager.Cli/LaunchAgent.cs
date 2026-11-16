@@ -34,18 +34,40 @@ internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<st
 
     public override void Install()
     {
+        // As over SSH while nobody's signed in at the Mac, where bootstrap would fail
+        if (TryRun("launchctl", "print", Domain).ExitCode != 0)
+        {
+            throw new ServiceException("you aren't signed in at this Mac, so launchd can't run the engine as a service. Sign in at the Mac first, or run obmd yourself instead");
+        }
+
         BootOut();
-        Directory.CreateDirectory(Path.GetDirectoryName(File)!);
-        // launchd won't make the folder
-        Directory.CreateDirectory(Path.GetDirectoryName(ErrorOutput)!);
-        System.IO.File.WriteAllText(File, Definition());
-        Run("launchctl", "bootstrap", Domain, File);
+        // launchd won't make the folder for its errors
+        OnDisk(Path.GetDirectoryName(ErrorOutput)!, () => Directory.CreateDirectory(Path.GetDirectoryName(ErrorOutput)!));
+        OnDisk(File, () =>
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(File)!);
+            System.IO.File.WriteAllText(File, Definition());
+        });
+    }
+
+    // RunAtLoad starts the engine as it's loaded. If it can't be, the file goes, so obm doesn't take it for installed
+    public override void Start()
+    {
+        try
+        {
+            Run("launchctl", "bootstrap", Domain, File);
+        }
+        catch (ServiceException)
+        {
+            OnDisk(File, () => System.IO.File.Delete(File));
+            throw;
+        }
     }
 
     public override void Uninstall()
     {
         BootOut();
-        System.IO.File.Delete(File);
+        OnDisk(File, () => System.IO.File.Delete(File));
     }
 
     // Started again if it crashes or fails, as KeepAlive does when the engine doesn't exit cleanly, but not once it's

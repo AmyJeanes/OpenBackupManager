@@ -278,6 +278,33 @@ public class ServiceTests
         }
     }
 
+    // A folder in its place stands in for one it can't write to, as when a tool run with sudo left its folder belonging
+    // to root, without changing the folder other services are in
+    [Test]
+    public void Install_WhereItsFileCantBeWritten_SaysSo_AndLeavesAnEngineStartedByHandRunning()
+    {
+        var file = EngineService.ForThisOS(_home)!.File;
+        Directory.CreateDirectory(file);
+        try
+        {
+            using var byHand = Tool.Start("obmd", "--home", _home);
+            byHand.WaitFor("started, process");
+
+            var (exitCode, output) = Tool.Run("obm", "service", "install", "--home", _home);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.EqualTo(1));
+                Assert.That(output, Does.StartWith($"obm: {file} can't be changed").And.Not.Contain("Unhandled exception"));
+                Assert.That(byHand.HasExited, Is.False, "The engine was stopped");
+            }
+        }
+        finally
+        {
+            Directory.Delete(file);
+        }
+    }
+
     [Test]
     public async Task AnEngineStoppedOnPurpose_StaysStopped()
     {
