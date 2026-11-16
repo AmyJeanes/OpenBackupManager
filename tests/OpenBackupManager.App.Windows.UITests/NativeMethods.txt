@@ -8,9 +8,11 @@ GetDoubleClickTime
 GetForegroundWindow
 GetWindowThreadProcessId
 OpenClipboard
+PostMessage
 REGISTER_APPLICATION_RESTART_FLAGS
 SendMessageTimeout
 SetForegroundWindow
 Shell_NotifyIconGetRect
+WM_CLOSE
 WM_ENDSESSION
 WM_QUERYENDSESSION

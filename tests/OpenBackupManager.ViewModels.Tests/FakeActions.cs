@@ -18,6 +18,10 @@ internal sealed class FakeActions : IAppActions
     {
     }
 
+    public void AskToQuit()
+    {
+    }
+
     public void Quit()
     {
     }

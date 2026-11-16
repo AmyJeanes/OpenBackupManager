@@ -26,6 +26,18 @@ public sealed partial class Tray : IDisposable
         _notifications = notifications;
         Flyout = new StatusFlyout(status, IconId);
         Flyout.Update(TaskbarIsLight());
+        // A close from another program, as taskkill sends, asks the app to quit
+        Flyout.CloseRequested += byUser =>
+        {
+            if (byUser)
+            {
+                _actions.AskToQuit();
+            }
+            else
+            {
+                _actions.Quit();
+            }
+        };
         _icon = new TrayIcon(IconId, IconPath(status.State), Tooltip());
         _icon.Selected += (_, _) => OnClick();
         _icon.LeftDoubleClick += (_, _) => OnDoubleClick();
@@ -69,7 +81,7 @@ public sealed partial class Tray : IDisposable
         _uiSettings.ColorValuesChanged -= OnColorValuesChanged;
         _status.PropertyChanged -= OnStatusChanged;
         _icon.Dispose();
-        Flyout.Close();
+        Flyout.CloseForGood();
     }
 
     private void OnColorValuesChanged(UISettings sender, object args) => _ui.Post(_ => Update(), null);
@@ -125,7 +137,7 @@ public sealed partial class Tray : IDisposable
 #endif
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item(Strings.Tray_About, _actions.About));
-        menu.Items.Add(Item(Strings.Tray_Quit, _actions.Quit));
+        menu.Items.Add(Item(Strings.Tray_Quit, _actions.AskToQuit));
         return menu;
     }
 

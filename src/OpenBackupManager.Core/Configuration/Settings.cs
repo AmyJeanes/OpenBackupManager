@@ -21,6 +21,16 @@ public static class Settings
             Notes = "You can also turn it off in Windows' Settings > Apps > Startup, or Task Manager's Startup apps, which the app "
                 + "leaves alone even while this is `true`.",
         },
+        new("ask-before-quitting", SettingKind.Boolean)
+        {
+            WorksOn = Os.Windows,
+            Summary = "Asks before the app quits, as quitting stops the engine the app started.",
+            Values = "`true`, or `false` to quit straight away",
+            Default = "`true`",
+            DefaultInFull = "`true`",
+            Example = "false",
+            Notes = "**Don't ask again**, when the app asks, sets it to `false`.",
+        },
         new("secret-store", SettingKind.Text)
         {
             Summary = "Where this device keeps its secrets, such as the password that protects your sign-ins.",

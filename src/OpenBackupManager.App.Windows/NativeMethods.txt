@@ -9,5 +9,7 @@ GetCurrentThreadId
 GetDpiForMonitor
 MessageBox
 SetWindowPos
+SC_CLOSE
 Shell_NotifyIconGetRect
 WM_ENDSESSION
+WM_SYSCOMMAND

@@ -36,6 +36,7 @@ public class ConfigFileTests
         var result = ConfigFile.Parse("""
             version = 1
             start-at-login = false
+            ask-before-quitting = false
             secret-store = "file"
 
             [updates]
@@ -51,6 +52,7 @@ public class ConfigFileTests
         {
             Assert.That(result.Problems, Is.Empty);
             Assert.That(result.Config!.StartAtLogin, Is.False);
+            Assert.That(result.Config.AskBeforeQuitting, Is.False);
             Assert.That(result.Config.SecretStore, Is.EqualTo("file"));
             Assert.That(result.Config.Updates.Prereleases, Is.True);
             Assert.That(result.Config.Remotes, Is.EquivalentTo([new RemoteSettings { Id = "onedrive", Name = "OneDrive", Root = "onedrive:OpenBackupManager/" }]));

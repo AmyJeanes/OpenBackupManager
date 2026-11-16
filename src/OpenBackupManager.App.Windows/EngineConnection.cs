@@ -68,6 +68,25 @@ public sealed partial class EngineConnection(string home, AppPaths paths, Status
         }
     }
 
+    // Whether Quit would stop the engine, as it does one the app started. Null when none is reached
+    public async Task<EngineStarter?> StartedByAsync()
+    {
+        if (_engine is not { } engine)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var timeout = new CancellationTokenSource(StopTimeout);
+            return (await engine.StatusAsync(timeout.Token)).StartedBy;
+        }
+        catch (Exception e) when (e is OperationCanceledException or EngineException)
+        {
+            return null;
+        }
+    }
+
     // For Velopack's hooks, as it ends whatever runs from the install folder after them. They have 15 seconds
     public static void StopFor(string home)
     {

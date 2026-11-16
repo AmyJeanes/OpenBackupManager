@@ -42,6 +42,7 @@ Each setting goes at the top of the file, or under its section's line, such as `
 | Setting | Default | Works on |
 | --- | --- | --- |
 | [`start-at-login`](#start-at-login) | `true` when installed | Windows |
+| [`ask-before-quitting`](#ask-before-quitting) | `true` | Windows |
 | [`secret-store`](#secret-store) | The OS's own store | All |
 | [`updates.automatic`](#updates.automatic) | `true` | Windows |
 | [`updates.prereleases`](#updates.prereleases) | Follows what's installed | All |
@@ -70,6 +71,31 @@ start-at-login = false
 ```
 
 You can also turn it off in Windows' Settings > Apps > Startup, or Task Manager's Startup apps, which the app leaves alone even while this is `true`.
+
+### `ask-before-quitting` {#ask-before-quitting}
+
+<span class="obm-badge" title="Works on" markdown>:fontawesome-brands-windows: Windows only</span>
+
+Asks before the app quits, as quitting stops the engine the app started.
+
+<div class="obm-facts" markdown>
+
+Values
+:   `true`, or `false` to quit straight away
+
+Default
+:   `true`
+
+Environment variable
+:   `OBM_ASK_BEFORE_QUITTING`
+
+</div>
+
+```toml
+ask-before-quitting = false
+```
+
+**Don't ask again**, when the app asks, sets it to `false`.
 
 ### `secret-store` {#secret-store}
 

@@ -8,7 +8,9 @@ using Windows.Foundation;
 using Windows.Graphics;
 using Windows.UI;
 using Windows.UI.ViewManagement;
+using Windows.Win32;
 using WinUIEx;
+using WinUIEx.Messaging;
 using CompositionBrush = Windows.UI.Composition.CompositionBrush;
 using Compositor = Windows.UI.Composition.Compositor;
 
@@ -21,6 +23,8 @@ public sealed partial class StatusFlyout : Window
 
     private readonly uint _trayIconId;
     private readonly UISettings _uiSettings = new();
+    private bool _closingByUser;
+    private bool _closingForGood;
     private bool _light;
     private long _hiddenAt;
     private PointInt32 _position;
@@ -66,6 +70,10 @@ public sealed partial class StatusFlyout : Window
         var ui = SynchronizationContext.Current!;
         _uiSettings.AdvancedEffectsEnabledChanged += (_, _) => ui.Post(_ => UpdateBackground(), null);
         Activated += OnActivated;
+        AppWindow.Closing += OnClosing;
+        var messages = new WindowMessageMonitor(this);
+        messages.WindowMessageReceived += OnMessage;
+        Closed += (_, _) => messages.Dispose();
         // Opened as the app starts, it waits until it has been drawn
         FirstDraw.WhenDrawn(this, () =>
         {
@@ -79,6 +87,9 @@ public sealed partial class StatusFlyout : Window
 
     public StatusViewModel ViewModel { get; }
 
+    // Asked to close, with whether by the user, with Alt+F4 or the window's menu, rather than by another program
+    public event Action<bool>? CloseRequested;
+
     // Follows the Windows mode, like the tray icon, since it opens from the taskbar
     public void Update(bool light)
     {
@@ -88,6 +99,13 @@ public sealed partial class StatusFlyout : Window
     }
 
     public bool JustHidden => Environment.TickCount64 - _hiddenAt < 300;
+
+    // As the app quits
+    public void CloseForGood()
+    {
+        _closingForGood = true;
+        Close();
+    }
 
     public void Show()
     {
@@ -167,13 +185,39 @@ public sealed partial class StatusFlyout : Window
         }
     }
 
-    private void OnEscape(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    private void OnEscape(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) => Dismiss();
+
+    // While it still has focus, which cloaking alone would leave on an invisible window. Hiding hands focus back, and
+    // showing it again without activating keeps it drawn for next time
+    private void Dismiss()
     {
         HideFlyout();
-        // Esc closes it while it still has focus, which cloaking alone would leave on an invisible window.
-        // Hiding hands focus back, and showing it again without activating keeps it drawn for next time
         AppWindow.Hide();
         AppWindow.Show(false);
+    }
+
+    // Alt+F4 and the window's menu ask with this before closing it, where another program, as taskkill does, only closes it
+    private void OnMessage(object? sender, WindowMessageEventArgs e)
+    {
+        if (e.Message.MessageId == PInvoke.WM_SYSCOMMAND && (e.Message.WParam & 0xFFF0) == PInvoke.SC_CLOSE)
+        {
+            _closingByUser = true;
+        }
+    }
+
+    // Kept, as the tray opens it again, and SessionEnd hears Windows signing out through its window
+    private void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (_closingForGood)
+        {
+            return;
+        }
+
+        args.Cancel = true;
+        var byUser = _closingByUser;
+        _closingByUser = false;
+        Dismiss();
+        CloseRequested?.Invoke(byUser);
     }
 
     // One colour laid over the blur, measured to match EarTrumpet's flyout, which reads well on any background.

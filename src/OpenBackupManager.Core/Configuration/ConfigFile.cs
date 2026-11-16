@@ -17,6 +17,7 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
         version = 1
 
         # start-at-login = false    # Start the app when you sign in. Left out, it does when installed unless a custom home folder is used
+        # ask-before-quitting = false    # Quit the app without asking first
         # secret-store = "file"    # Where secrets are kept: the OS's own store, or a file only you can read
 
         # [updates]

@@ -108,13 +108,6 @@ public sealed class CrashTests : AppTests
     // Only there while it's shown, as UI Automation leaves out what's collapsed
     private static AutomationElement? CantCopy(Window crash) => crash.FindFirstDescendant(c => c.ByAutomationId("CantCopyText"));
 
-    private string Log()
-    {
-        var file = Directory.GetFiles(Path.Combine(Home, "logs"), "app-*.log").Single();
-        using var reader = new StreamReader(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete));
-        return reader.ReadToEnd();
-    }
-
     private void Crash(string item)
     {
         try

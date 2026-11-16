@@ -7,6 +7,9 @@ public interface IAppActions
 
     void About();
 
+    // Quits once the user says to, unless ask-before-quitting is off
+    void AskToQuit();
+
     void Quit();
 
     void RestartToUpdate();

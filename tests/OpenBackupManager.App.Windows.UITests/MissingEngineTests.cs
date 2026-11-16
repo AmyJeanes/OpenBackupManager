@@ -50,11 +50,4 @@ public sealed class MissingEngineTests : AppTests
     }
 
     private string? Text(string id) => LaunchFlyout.FindFirstDescendant(c => c.ByAutomationId(id))?.Name;
-
-    private string Log()
-    {
-        var file = Directory.GetFiles(Path.Combine(Home, "logs"), "app-*.log").Single();
-        using var reader = new StreamReader(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete));
-        return reader.ReadToEnd();
-    }
 }

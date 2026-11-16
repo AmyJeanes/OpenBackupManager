@@ -14,6 +14,9 @@ public sealed record AppConfig
     // Left out, only the installed app's own home starts at login, so any other home has to ask for it
     public bool? StartAtLogin { get; init; }
 
+    // Off, the app's Quit doesn't ask first
+    public bool AskBeforeQuitting { get; init; } = true;
+
     // Left out, the OS's own store, or on Linux, none until obm asks
     public string? SecretStore { get; init; }
 

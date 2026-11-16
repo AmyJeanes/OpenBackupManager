@@ -71,6 +71,9 @@ internal static class NativeMethods
         }
     }
 
+    // As taskkill without /f does, asking the app to close
+    public static void Close(Window window) => PInvoke.PostMessage(Handle(window), PInvoke.WM_CLOSE, 0, 0);
+
     public static nint TopLevelWindow(AutomationElement element) => PInvoke.GetAncestor(Handle(element), GET_ANCESTOR_FLAGS.GA_ROOT);
 
     public static int ProcessId(nint hwnd)

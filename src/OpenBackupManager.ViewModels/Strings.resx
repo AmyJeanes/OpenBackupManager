@@ -101,6 +101,24 @@
   <data name="Status_EngineAnotherVersion" xml:space="preserve">
     <value>Another version of the engine is still running. Signing out and back in restarts it.</value>
   </data>
+  <data name="Quit_Title" xml:space="preserve">
+    <value>Quit {0}?</value>
+  </data>
+  <data name="Quit_EngineStops" xml:space="preserve">
+    <value>Any backup or sync in progress stops until you open the app again.</value>
+  </data>
+  <data name="Quit_EngineKeepsRunning" xml:space="preserve">
+    <value>Backups and syncing carry on without the app.</value>
+  </data>
+  <data name="Quit_DontAskAgain" xml:space="preserve">
+    <value>Don't ask again</value>
+  </data>
+  <data name="Quit_Quit" xml:space="preserve">
+    <value>Quit</value>
+  </data>
+  <data name="Quit_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
   <data name="Status_EngineCantStart" xml:space="preserve">
     <value>The app couldn't start its engine. Reinstalling the app should fix this.</value>
   </data>

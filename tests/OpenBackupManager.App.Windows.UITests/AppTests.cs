@@ -282,17 +282,34 @@ public abstract class AppTests
 
     protected bool WaitForExit() => App.WaitForExit(Timeout);
 
-    protected void Quit()
+    // Answering the question it asks first, unless config.toml says not to
+    protected void Quit(bool asks = true)
     {
         // Counted once its icon is on the taskbar
         _ = TrayIcon();
         var icons = Retry.WhileException(TrayIconCount, Timeout, throwOnTimeout: true).Result;
         ChooseFromTrayMenu("Quit");
+        if (asks)
+        {
+            WaitForQuitQuestion().FindFirstDescendant(c => c.ByAutomationId("QuitButton"))!.AsButton().Invoke();
+        }
+
         Assert.Multiple(() =>
         {
             Assert.That(WaitForExit(), Is.True);
             Assert.That(Retry.WhileFalse(() => TrayIconCount() < icons, Timeout, ignoreException: true).Result, Is.True);
         });
+    }
+
+    protected Window WaitForQuitQuestion() => WaitForWindow(IsQuitQuestion);
+
+    protected Window? QuitQuestion() => Windows().FirstOrDefault(IsQuitQuestion);
+
+    protected string Log()
+    {
+        var file = Directory.GetFiles(Path.Combine(Home, "logs"), "app-*.log").Single();
+        using var reader = new StreamReader(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete));
+        return reader.ReadToEnd();
     }
 
     private void StopEngine()
@@ -331,6 +348,9 @@ public abstract class AppTests
     // Windows are cloaked until they're drawn, and the flyout stays open but cloaked while it's hidden
     private Window WaitForWindow(Func<Window, bool> match) =>
         Retry.WhileNull(() => Windows().FirstOrDefault(w => match(w) && !NativeMethods.IsCloaked(w)), Timeout, throwOnTimeout: true, ignoreException: true).Result!;
+
+    // Its title is the app's name, as the main window's is
+    private static bool IsQuitQuestion(Window window) => window.FindFirstDescendant(c => c.ByAutomationId("QuitButton")) is not null;
 
     private static bool IsFlyout(Window window) => window.FindFirstDescendant(c => c.ByAutomationId("Caption")) is not null;
 

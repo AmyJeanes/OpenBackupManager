@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.ViewModels;
 using WinUIEx;
 
@@ -17,6 +18,8 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
     private readonly ILogger _logger = logger;
     private MainWindow? _window;
     private AboutWindow? _about;
+    private QuitWindow? _askingToQuit;
+    private bool _asking;
     private bool _quitting;
 
     // Windows are created when opened and destroyed when closed, so the app stays small while it sits in the tray
@@ -48,6 +51,40 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         Show(window);
     }
 
+    // So quitting by mistake doesn't stop the engine. Async, as what it says depends on who started the engine
+    public async void AskToQuit()
+    {
+        if (_askingToQuit is not null)
+        {
+            Show(_askingToQuit);
+            return;
+        }
+
+        if (_quitting || _asking)
+        {
+            return;
+        }
+
+        if (!_host.Services.GetRequiredService<ConfigWatcher>().Config.AskBeforeQuitting)
+        {
+            Quit();
+            return;
+        }
+
+        _asking = true;
+        var engine = await _host.Services.GetRequiredService<EngineConnection>().StartedByAsync();
+        _asking = false;
+        if (_quitting)
+        {
+            return;
+        }
+
+        _askingToQuit = new QuitWindow(new QuitViewModel(_host.Services.GetRequiredService<AppInfo>(), engine));
+        _askingToQuit.Quitting += OnQuitting;
+        _askingToQuit.Closed += (_, _) => _askingToQuit = null;
+        Show(_askingToQuit);
+    }
+
     // Async, as stopping the engine waits for it. A second Quit while it does changes nothing
     public async void Quit()
     {
@@ -63,6 +100,24 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         await _host.Services.GetRequiredService<EngineConnection>().QuitAsync(updating: updater.UpdateReady);
         updater.UpdateOnExit();
         Exit();
+    }
+
+    private void OnQuitting(bool dontAskAgain)
+    {
+        if (dontAskAgain)
+        {
+            try
+            {
+                _host.Services.GetRequiredService<ConfigWatcher>().Set(null, "ask-before-quitting", false);
+            }
+            // Quitting matters more, and the next Quit asks again
+            catch (Exception e) when (e is ConfigException or IOException or UnauthorizedAccessException)
+            {
+                LogCouldntSaveDontAsk(e);
+            }
+        }
+
+        Quit();
     }
 
     // When Windows signs out or shuts down, it can end the app as soon as this returns, so the clean end is noted first.
@@ -111,6 +166,9 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Restarting to install version {Version}")]
     private partial void LogRestartingToUpdate(string? version);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't save not asking before quitting, so the next Quit asks again")]
+    private partial void LogCouldntSaveDontAsk(Exception exception);
 
     // Logged first, since logging is one of the services it disposes
     private void Exit()
