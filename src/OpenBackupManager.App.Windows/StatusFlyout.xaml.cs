@@ -34,6 +34,7 @@ public sealed partial class StatusFlyout : Window
     private bool _sliding;
     private bool _drawn;
     private bool _showWhenDrawn;
+    private bool _shown;
 
     public StatusFlyout(StatusViewModel viewModel, uint trayIconId)
     {
@@ -130,6 +131,7 @@ public sealed partial class StatusFlyout : Window
 
         AppWindow.Resize(_size);
 
+        _shown = true;
         Activate();
         this.SetForegroundWindow();
         // Just below the taskbar, so it slides out from behind it rather than over it
@@ -171,17 +173,19 @@ public sealed partial class StatusFlyout : Window
 
     private void HideFlyout()
     {
+        _shown = false;
         _sliding = false;
         CompositionTarget.Rendering -= OnRendering;
         NativeMethods.Cloak(this.GetWindowHandle(), true);
-        _hiddenAt = Environment.TickCount64;
     }
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
     {
-        if (args.WindowActivationState == WindowActivationState.Deactivated)
+        // Only a press elsewhere, such as on the tray icon, while it's shown; Esc and Alt+F4 have hidden it already
+        if (args.WindowActivationState == WindowActivationState.Deactivated && _shown)
         {
             HideFlyout();
+            _hiddenAt = Environment.TickCount64;
         }
     }
 
