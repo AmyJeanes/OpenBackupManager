@@ -138,6 +138,32 @@ public class DiagnosticsTests
         }
     }
 
+    // As when the terminal closes, which ends it at once, so the zip it was writing is left as it is
+    [Test]
+    public void Export_EndedWhileItsWriting_LeavesNoZipUnderItsName()
+    {
+        var file = Path.Combine(_saveIn, "for-the-issue.zip");
+        using (var log = new StreamWriter(Path.Combine(_home, "logs", "engine-20261106.log")))
+        {
+            for (var i = 0; i < 400_000; i++)
+            {
+                log.WriteLine($"2026-11-06 12:00:00.000 +00:00 [INF] Line {i} of a log from an engine restarting in a loop, {Guid.NewGuid()}");
+            }
+        }
+
+        using var obm = Tool.Start("obm", "diagnostics", "export", "--home", _home, "-o", file);
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+        while (Directory.GetFiles(_saveIn).Length == 0 && !obm.HasExited && DateTime.UtcNow < until)
+        {
+            Thread.Sleep(10);
+        }
+
+        Assume.That(obm.HasExited, Is.False, "It finished before it could be ended");
+        obm.Kill();
+
+        Assert.That(file, Does.Not.Exist);
+    }
+
     private string Saved() => Directory.GetFiles(_saveIn, "obm-diagnostics-*.zip").Single();
 
     // Without macOS's own crash reports, which depend on what else has crashed on the machine this week

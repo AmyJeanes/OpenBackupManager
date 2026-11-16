@@ -29,10 +29,12 @@ internal static class Diagnostics
         var crashes = CrashReports.List(paths);
         var config = File.Exists(paths.ConfigFile);
 
+        // Named once it's complete, so one cut off, as by Ctrl+C or the terminal closing, isn't taken for it
+        var partial = file + ".partial";
         FileStream stream;
         try
         {
-            stream = new FileStream(file, FileMode.CreateNew);
+            stream = new FileStream(partial, FileMode.Create);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -42,33 +44,42 @@ internal static class Diagnostics
 
         try
         {
-            using var zip = new ZipArchive(stream, ZipArchiveMode.Create);
-            Add(zip, "summary.txt", Redaction.Redact(summary));
-            if (config)
+            using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
             {
-                Add(zip, "config.toml", Redaction.RedactAll(Read(paths.ConfigFile)));
+                Add(zip, "summary.txt", Redaction.Redact(summary), cancellationToken);
+                if (config)
+                {
+                    Add(zip, "config.toml", Redaction.RedactAll(Read(paths.ConfigFile)), cancellationToken);
+                }
+
+                foreach (var (entry, text) in SystemRecordsFor(service, now - Kept))
+                {
+                    Add(zip, entry, Redaction.RedactAll(text), cancellationToken);
+                }
+
+                foreach (var log in logs)
+                {
+                    Add(zip, "logs/" + Path.GetFileName(log), Redaction.RedactAll(Read(log)), cancellationToken);
+                }
+
+                foreach (var report in crashes)
+                {
+                    Add(zip, "crashes/" + Path.GetFileName(report.File), Redaction.Redact(Read(report.File)), cancellationToken);
+                }
             }
 
-            foreach (var (entry, text) in SystemRecordsFor(service, now - Kept))
-            {
-                Add(zip, entry, Redaction.RedactAll(text));
-            }
-
-            foreach (var log in logs)
-            {
-                Add(zip, "logs/" + Path.GetFileName(log), Redaction.RedactAll(Read(log)));
-            }
-
-            foreach (var report in crashes)
-            {
-                Add(zip, "crashes/" + Path.GetFileName(report.File), Redaction.Redact(Read(report.File)));
-            }
+            File.Move(partial, file);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            File.Delete(file);
+            File.Delete(partial);
             await Console.Error.WriteLineAsync($"obm: {file} can't be saved: {e.Message}", cancellationToken);
             return 1;
+        }
+        catch (OperationCanceledException)
+        {
+            File.Delete(partial);
+            throw;
         }
 
         List<string> parts = [];
@@ -161,8 +172,9 @@ internal static class Diagnostics
         }
     }
 
-    private static void Add(ZipArchive zip, string entry, string text)
+    private static void Add(ZipArchive zip, string entry, string text, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var writer = new StreamWriter(zip.CreateEntry(entry, CompressionLevel.SmallestSize).Open(), new UTF8Encoding(false));
         writer.Write(text);
     }
