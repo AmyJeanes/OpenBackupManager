@@ -36,7 +36,13 @@ internal sealed class FakeGitHub : IDisposable
     // As GitHub answers once an address has made too many requests
     public bool RateLimited { get; set; }
 
-    public IReadOnlyDictionary<string, string> Environment => new Dictionary<string, string> { ["OBM_UPDATE_SOURCE"] = Url };
+    // Not through a proxy set where the tests run
+    public IReadOnlyDictionary<string, string> Environment => new Dictionary<string, string>
+    {
+        ["OBM_UPDATE_SOURCE"] = Url,
+        ["no_proxy"] = "127.0.0.1",
+        ["NO_PROXY"] = "127.0.0.1",
+    };
 
     // Digest is sha256: then the hash in hex, as GitHub gives, unless the test says otherwise
     public void Add(string version, params Asset[] assets) => AddUnderTag("v" + version, assets);
