@@ -189,6 +189,14 @@
     <value>{0} is already running in another session, or from another copy of the app.</value>
     <comment>{0} is the app's name</comment>
   </data>
+  <data name="Launch_CantUseFolder" xml:space="preserve">
+    <value>{0} can't start, as it can't use its folder.
+
+{1}
+
+{2}</value>
+    <comment>{0} is the app's name, {1} the system's reason, such as "Access to the path is denied", and {2} the folder's path</comment>
+  </data>
   <data name="Launch_ConfigMistake" xml:space="preserve">
     <value>{0} won't start until its settings file is fixed.
 

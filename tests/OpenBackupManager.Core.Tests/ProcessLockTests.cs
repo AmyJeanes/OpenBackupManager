@@ -94,6 +94,12 @@ public class ProcessLockTests
         Assert.That(held, Is.Not.Null);
     }
 
+    // Such as a read-only disk, which would otherwise be taken for a running copy. A name too long for any OS is one
+    // that can be made happen anywhere
+    [Test]
+    public void AnErrorThatIsntAnotherHolder_IsThrown() =>
+        Assert.That(() => ProcessLock.TryTake(new string('x', 300), _home), Throws.InstanceOf<IOException>());
+
     private static AppPaths Home()
     {
         var home = Path.Combine(Path.GetTempPath(), "obm-lock-" + Guid.NewGuid().ToString("N")[..8]);

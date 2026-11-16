@@ -29,7 +29,16 @@ internal static class Data
         }
 
         // Taken, so it can't start while the data goes. The app would start the engine again
-        var appLock = OperatingSystem.IsWindows() ? ProcessLock.TryTake("app", paths) : null;
+        ProcessLock? appLock;
+        try
+        {
+            appLock = OperatingSystem.IsWindows() ? ProcessLock.TryTake("app", paths) : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return Fail($"the app's lock in {paths.State} can't be taken: {e.Message}. Nothing was removed");
+        }
+
         if (OperatingSystem.IsWindows() && appLock is null)
         {
             return Fail("the app is running, so quit it from its tray icon first");

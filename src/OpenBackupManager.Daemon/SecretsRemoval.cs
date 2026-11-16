@@ -12,7 +12,18 @@ internal static class SecretsRemoval
     public static async Task<int> RunAsync(AppPaths paths, Action<IServiceCollection> platform, CancellationToken cancellationToken)
     {
         // So no engine saves one while they're being removed
-        using var engineLock = ProcessLock.TryTake("engine", paths);
+        ProcessLock? taken;
+        try
+        {
+            taken = ProcessLock.TryTake("engine", paths);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            await Console.Error.WriteLineAsync($"obmd: the engine's lock in {paths.State} can't be taken, so its secrets can't be removed. {e.Message}", cancellationToken);
+            return 1;
+        }
+
+        using var engineLock = taken;
         if (engineLock is null)
         {
             await Console.Error.WriteLineAsync("obmd: the engine is running, so its secrets can't be removed", cancellationToken);

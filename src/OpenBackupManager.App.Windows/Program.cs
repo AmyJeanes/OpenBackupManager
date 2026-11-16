@@ -93,12 +93,12 @@ public static class Program
 
         // Off the UI thread, as Microsoft's single-instance guidance does, so the UI thread never blocks on the handover
         var instanceKey = AppHome.InstanceKey(Home);
-        (_instanceLock, var handedOver) = Task.Run(() => TakeLockOrHandOver(instanceKey, StartedAtLogin)).Result;
+        (_instanceLock, var handedOver, var error) = Task.Run(() => TakeLockOrHandOver(instanceKey, StartedAtLogin)).Result;
         if (_instanceLock is null)
         {
-            if (!handedOver && !StartedAtLogin)
+            if (NotStartedMessage(handedOver, StartedAtLogin, error, AppPaths.InHome(Home).State) is { } message)
             {
-                ShowMessage(Strings.Launch_RunningElsewhere);
+                ShowText(message);
             }
 
             return;
@@ -218,12 +218,13 @@ public static class Program
         return at >= 0 && at < args.Length - 1 ? args[at + 1] : null;
     }
 
-    // False if there's no copy to hand over to here, as when it runs in another session or is another exe
+    // False if there's no copy to hand over to here, as when it runs in another session or is another exe, with the
+    // error that stopped it taking the lock, if it wasn't held
     // Looks for a running copy first, as one in this session is the usual case, and hands over to it at once. The lock is
     // global, unlike AppInstance, so it also finds a copy in another session or of another exe. Both are tried for a
     // moment, as a copy launched at the same time registers just after it takes the lock, and something else, such as a
     // backup program, may have the lock's file open
-    private static (ProcessLock? Lock, bool HandedOver) TakeLockOrHandOver(string instanceKey, bool atLogin)
+    private static (ProcessLock? Lock, bool HandedOver, Exception? Error) TakeLockOrHandOver(string instanceKey, bool atLogin)
     {
         var until = DateTime.UtcNow + TimeSpan.FromSeconds(2);
         while (true)
@@ -232,17 +233,26 @@ public static class Program
             if (AppInstance.GetInstances().FirstOrDefault(i => i.Key == instanceKey) is { } running)
             {
                 HandOver(running, atLogin);
-                return (null, true);
+                return (null, true, null);
             }
 
-            if (ProcessLock.TryTake("app", AppPaths.InHome(Home)) is { } taken)
+            Exception? error = null;
+            try
             {
-                return (taken, false);
+                if (ProcessLock.TryTake("app", AppPaths.InHome(Home)) is { } taken)
+                {
+                    return (taken, false, null);
+                }
+            }
+            // Such as a home on a disk that's full or read-only
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                error = e;
             }
 
             if (DateTime.UtcNow > until)
             {
-                return (null, false);
+                return (null, false, error);
             }
 
             Thread.Sleep(200);
@@ -283,10 +293,15 @@ public static class Program
         return $"--home \"{home}{new string('\\', ending)}\"";
     }
 
+    // Null when there's nothing to say: it handed over, or another copy has the lock at sign-in, when nobody launched it.
+    // A folder it can't use is said even then, as it wouldn't start at any sign-in
+    internal static string? NotStartedMessage(bool handedOver, bool atLogin, Exception? error, string folder) =>
+        error is not null ? Text.Format(Strings.Launch_CantUseFolder, AppName, error.Message, folder)
+        : handedOver || atLogin ? null
+        : Text.Format(Strings.Launch_RunningElsewhere, AppName);
+
     // {0} in the message is the app's name, and the values follow it
-    private static void ShowMessage(string message, params object?[] values) => PInvoke.MessageBox(
-        HWND.Null,
-        Text.Format(message, [AppName, .. values]),
-        AppName,
-        MESSAGEBOX_STYLE.MB_OK | MESSAGEBOX_STYLE.MB_ICONINFORMATION);
+    private static void ShowMessage(string message, params object?[] values) => ShowText(Text.Format(message, [AppName, .. values]));
+
+    private static void ShowText(string text) => PInvoke.MessageBox(HWND.Null, text, AppName, MESSAGEBOX_STYLE.MB_OK | MESSAGEBOX_STYLE.MB_ICONINFORMATION);
 }

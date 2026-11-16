@@ -11,7 +11,8 @@ public sealed class ProcessLock : IDisposable
 
     private ProcessLock(FileStream file) => _file = file;
 
-    // Null if another process holds it, or something else has its file open at that moment
+    // Null if another process holds it, or on Windows something else has its file open at that moment. Any other error,
+    // such as a read-only disk, is thrown, so it isn't taken for a running copy
     public static ProcessLock? TryTake(string name, AppPaths paths)
     {
         Directory.CreateDirectory(paths.State);
@@ -23,11 +24,16 @@ public sealed class ProcessLock : IDisposable
         {
             return new ProcessLock(new FileStream(Path.Combine(paths.State, name + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, share));
         }
-        catch (IOException)
+        catch (IOException e) when (IsHeld(e))
         {
             return null;
         }
     }
+
+    // flock's EWOULDBLOCK, whose number differs by OS, or Windows' ERROR_SHARING_VIOLATION or ERROR_LOCK_VIOLATION
+    private static bool IsHeld(IOException e) => OperatingSystem.IsWindows()
+        ? e.HResult is unchecked((int)0x80070020) or unchecked((int)0x80070021)
+        : e.HResult == (OperatingSystem.IsMacOS() ? 35 : 11);
 
     public void Dispose() => _file.Dispose();
 }

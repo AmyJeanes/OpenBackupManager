@@ -188,6 +188,42 @@ public class DaemonTests
         }
     }
 
+    // As on a read-only disk, which is no sign of another engine. A lock file linked to itself can't be opened either
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void ALockFileItCantOpen_IsntTakenForARunningEngine()
+    {
+        var home = NewHome();
+        Directory.CreateDirectory(home);
+        File.CreateSymbolicLink(Path.Combine(home, "engine.lock"), "engine.lock");
+
+        var (exitCode, output) = Tool.Run("obmd", "--home", home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Does.Contain("obmd: the engine can't keep its state in " + home));
+            Assert.That(output, Does.Not.Contain("already running"));
+        }
+    }
+
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void RemovingSecrets_WithALockFileItCantOpen_SaysWhy()
+    {
+        var home = NewHome();
+        Directory.CreateDirectory(home);
+        File.CreateSymbolicLink(Path.Combine(home, "engine.lock"), "engine.lock");
+
+        var (exitCode, output) = Tool.Run("obmd", "--remove-secrets", "--home", home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Does.Contain($"obmd: the engine's lock in {home} can't be taken, so its secrets can't be removed"));
+        }
+    }
+
     [Test]
     [Platform(Exclude = "Win")]
     public void AHomeTooLongForItsSocket_SaysWhy()

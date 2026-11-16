@@ -25,7 +25,7 @@
 
 ## One engine for each home
 
-- **A lock file, which frees itself if the engine crashes.** The OS closes the file, and with it the lock, when the process ends, however it ends. A file holding the engine's process ID would stay behind after a crash, and the next start would have to work out whether that ID still belongs to the engine.
+- **A lock file, which frees itself if the engine crashes.** The OS closes the file, and with it the lock, when the process ends, however it ends. A file holding the engine's process ID would stay behind after a crash, and the next start would have to work out whether that ID still belongs to the engine. Only a lock conflict means another engine has it: `EWOULDBLOCK` from `flock` on macOS and Linux, or a sharing or lock violation on Windows. Any other error opening the file, such as a read-only disk, is reported as the state folder being unusable, so nobody goes looking for a second engine.
 - **A lock file on Windows too,** rather than a named mutex, so a short name, junction or `subst` drive for the home still leads to the same lock, where a mutex would be named from the path as written. The pipe and secret names still come from the written path, so a client using another spelling won't find the engine, but a second engine is refused.
 - **The lock and the socket go in the state folder, not `$XDG_RUNTIME_DIR`.** The state folder is the same in every session, but `XDG_RUNTIME_DIR` isn't set without a login session, as with `su`, cron, some SSH setups and containers, so a lock there wouldn't stop a second engine.
 
