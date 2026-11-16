@@ -114,7 +114,8 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
         {
             using var connection = new DBusConnection(address);
             await connection.ConnectAsync().AsTask().WaitAsync(Timeout, cancellationToken);
-            var keyring = await Keyring.DefaultAsync(connection, reason => Failed(action, what, reason), cancellationToken);
+            var keyring = await Keyring.DefaultAsync(connection, reason => Failed(action, what, reason), cancellationToken)
+                ?? throw Unavailable(action, what, "it has no default keyring, which is the only one secrets are saved in");
 
             // secret-tool reports a secret in a locked keyring as missing, so this checks first, and never asks to unlock it
             if (await keyring.LockedAsync())
@@ -198,11 +199,12 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
 
         private Session? _session;
 
-        public static async Task<Keyring> DefaultAsync(DBusConnection connection, Func<string, Exception> failed, CancellationToken cancellationToken)
+        // Null if there's none
+        public static async Task<Keyring?> DefaultAsync(DBusConnection connection, Func<string, Exception> failed, CancellationToken cancellationToken)
         {
             var collection = await CallAsync(connection, ServicePath, ServiceInterface, "ReadAlias", "s", (ref writer) => writer.WriteString("default"),
                 (message, _) => message.GetBodyReader().ReadObjectPathAsString(), cancellationToken);
-            return collection == None ? throw failed("it has no default keyring") : new Keyring(connection, collection, failed, cancellationToken);
+            return collection == None ? null : new Keyring(connection, collection, failed, cancellationToken);
         }
 
         public Task<bool> LockedAsync() => CallAsync(collection, "org.freedesktop.DBus.Properties", "Get", "ss",
