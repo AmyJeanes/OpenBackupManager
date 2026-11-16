@@ -151,6 +151,8 @@ internal sealed class Tool : IDisposable
             if (_process.HasExited || DateTime.UtcNow > until)
             {
                 Assert.Fail($"{_name} didn't print \"{text}\". It printed:{Environment.NewLine}{Output}");
+                // Inside Assert.EnterMultipleScope, failing doesn't end the test
+                return;
             }
 
             Thread.Sleep(100);
@@ -161,6 +163,8 @@ internal sealed class Tool : IDisposable
     {
         if (!_process.WaitForExit(Timeout))
         {
+            // Ended first, since inside Assert.EnterMultipleScope failing doesn't stop the wait below
+            Kill();
             Assert.Fail($"{_name} didn't exit. It printed:{Environment.NewLine}{Output}");
         }
 

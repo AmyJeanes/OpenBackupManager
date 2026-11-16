@@ -66,8 +66,9 @@ jobs:
         shell: pwsh
         run: ./.github/scripts/Clear-Desktop.ps1
 
+      # Each step fails and names a test that hangs, rather than running to GitHub's 6-hour limit and uploading nothing
       - name: Test
-        run: dotnet test OpenBackupManager.slnx --no-build --results-directory TestResults --logger trx
+        run: dotnet test OpenBackupManager.slnx --no-build --blame-hang-timeout 15m --blame-hang-dump-type none --results-directory TestResults --logger trx
 
       # For installing the engine as a systemd user service. The runner has no session of its own, so its systemd only
       # runs with lingering on
@@ -80,7 +81,7 @@ jobs:
 
       # Tests that take over the desktop or change the system, which only run when picked
       - name: Test the Sandbox category
-        run: dotnet test OpenBackupManager.slnx --no-build --filter TestCategory=Sandbox --results-directory TestResults --logger trx
+        run: dotnet test OpenBackupManager.slnx --no-build --filter TestCategory=Sandbox --blame-hang-timeout 15m --blame-hang-dump-type none --results-directory TestResults --logger trx
 
       # Makes an admin account on Windows and uses sudo elsewhere, so it only runs here
       - name: Test running as administrator and root
@@ -138,7 +139,7 @@ jobs:
         run: ./.github/scripts/Clear-Desktop.ps1
 
       - name: Test
-        run: dotnet test tests/OpenBackupManager.App.Windows.UITests --no-build --filter Category=Install --results-directory TestResults --logger trx
+        run: dotnet test tests/OpenBackupManager.App.Windows.UITests --no-build --filter Category=Install --blame-hang-timeout 15m --blame-hang-dump-type none --results-directory TestResults --logger trx
         env:
           OBM_TEST_RELEASES: ${{ github.workspace }}/test-releases
 
