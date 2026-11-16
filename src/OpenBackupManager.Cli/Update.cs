@@ -1,6 +1,8 @@
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Protocol;
@@ -14,6 +16,7 @@ internal static class Update
 {
     private static readonly TimeSpan RestartTimeout = TimeSpan.FromSeconds(30);
 
+    [UnsupportedOSPlatform("windows")]
     public static async Task<int> RunAsync(AppPaths paths, EngineService? service, bool check, CancellationToken cancellationToken)
     {
         try
@@ -70,21 +73,23 @@ internal static class Update
             Console.WriteLine($"Updating from {current} to {newest.Version}");
             // Noted before obmd is replaced, as the engine may restart soon after
             var before = await RunningAsync(paths, cancellationToken);
-            var tarball = Path.Combine(Path.GetTempPath(), $"obm-update-{Guid.NewGuid():N}.tar.gz");
+            // In a folder only this user can open, as the temp folder may be shared
+            var temp = Directory.CreateTempSubdirectory("obm-update-");
             try
             {
+                var tarball = Path.Combine(temp.FullName, name);
                 var hash = await releases.DownloadAsync(asset, tarball, cancellationToken);
-                if (!string.Equals(Convert.ToHexStringLower(hash), digest["sha256:".Length..], StringComparison.OrdinalIgnoreCase))
+                if (!Matches(hash, digest))
                 {
                     throw new UpdateException($"the hash check failed: {name}'s SHA-256 hash isn't the one GitHub gives for it, so nothing was changed. Try again, and report it if it keeps happening");
                 }
 
                 Console.WriteLine($"Downloaded {name}, and its SHA-256 hash matches the one GitHub gives for it");
-                Replace(tarball, folder, name);
+                Replace(tarball, folder, name, digest);
             }
             finally
             {
-                File.Delete(tarball);
+                temp.Delete(recursive: true);
             }
 
             Console.WriteLine($"Updated obm and obmd in {folder}");
@@ -155,31 +160,27 @@ internal static class Update
         }
     }
 
+    // Digest is sha256: then the hash in hex, as GitHub gives
+    private static bool Matches(byte[] hash, string digest) =>
+        string.Equals(Convert.ToHexStringLower(hash), digest["sha256:".Length..], StringComparison.OrdinalIgnoreCase);
+
     // Each file unpacked beside the one it replaces, then renamed over it, so a program is never half written. obmd
-    // goes last, as the engine acts on it
-    private static void Replace(string tarball, string folder, string name)
+    // goes last, as the engine acts on it. Nothing is renamed unless the bytes unpacked have the hash GitHub gives
+    internal static void Replace(string tarball, string folder, string name, string digest)
     {
         var unpacked = new List<(string From, string To)>();
         try
         {
             using (var file = File.OpenRead(tarball))
-            using (var gzip = new GZipStream(file, CompressionMode.Decompress))
-            using (var reader = new TarReader(gzip))
+            using (var sha256 = SHA256.Create())
+            using (var hashing = new CryptoStream(file, sha256, CryptoStreamMode.Read))
             {
-                while (reader.GetNextEntry() is { } entry)
+                Unpack(hashing, folder, unpacked);
+                // To the end of the file, past where the tar ends
+                hashing.CopyTo(Stream.Null);
+                if (!Matches(sha256.Hash!, digest))
                 {
-                    // Only files at its top level, as a release has, so nothing lands outside the folder. The licences
-                    // only if they were unpacked here too, as the guide unpacks only the programs into a folder on PATH
-                    var to = Path.Combine(folder, entry.Name);
-                    if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || entry.Name.Contains('/')
-                        || entry.Name is not ("obm" or "obmd") && !File.Exists(to))
-                    {
-                        continue;
-                    }
-
-                    var from = Path.Combine(folder, $".{entry.Name}.update");
-                    entry.ExtractToFile(from, overwrite: true);
-                    unpacked.Add((from, to));
+                    throw new UpdateException($"the hash check failed: {name} changed after it was downloaded, so nothing was changed. Try again, and report it if it keeps happening");
                 }
             }
 
@@ -203,6 +204,27 @@ internal static class Update
             {
                 File.Delete(from);
             }
+        }
+    }
+
+    private static void Unpack(Stream tarball, string folder, List<(string From, string To)> unpacked)
+    {
+        using var gzip = new GZipStream(tarball, CompressionMode.Decompress, leaveOpen: true);
+        using var reader = new TarReader(gzip);
+        while (reader.GetNextEntry() is { } entry)
+        {
+            // Only files at its top level, as a release has, so nothing lands outside the folder. The licences
+            // only if they were unpacked here too, as the guide unpacks only the programs into a folder on PATH
+            var to = Path.Combine(folder, entry.Name);
+            if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || entry.Name.Contains('/')
+                || entry.Name is not ("obm" or "obmd") && !File.Exists(to))
+            {
+                continue;
+            }
+
+            var from = Path.Combine(folder, $".{entry.Name}.update");
+            entry.ExtractToFile(from, overwrite: true);
+            unpacked.Add((from, to));
         }
     }
 

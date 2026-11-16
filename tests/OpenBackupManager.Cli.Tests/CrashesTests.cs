@@ -1,4 +1,6 @@
+using System.Runtime.Versioning;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Time.Testing;
 using OpenBackupManager.Core;
 
@@ -160,11 +162,11 @@ public class CrashesTests
     public void Report_TooLongForTheLink_HasTheWholeReportInAFile()
     {
         var file = Write(CrashReports.Engine, "obmd", string.Join(Environment.NewLine, Enumerable.Range(1, 500).Select(i => $"   at Frame{i}()")));
-        var whole = Path.Combine(Path.GetTempPath(), Path.GetFileName(file));
 
+        var (exitCode, output) = Tool.Run("obm", "crashes", "report", "-n", "--home", _home);
+        var whole = SavedCopy(output);
         try
         {
-            var (exitCode, output) = Tool.Run("obm", "crashes", "report", "-n", "--home", _home);
             var link = output.Split(Environment.NewLine)[^1];
             var body = Uri.UnescapeDataString(link.Split("&body=")[^1]);
 
@@ -172,6 +174,8 @@ public class CrashesTests
             {
                 Assert.That(exitCode, Is.Zero, output);
                 Assert.That(output, Does.Contain($"It's too long to fill in, so it's saved in {whole}. Paste it under Logs in the issue."));
+                Assert.That(Path.GetFileName(whole), Is.EqualTo(Path.GetFileName(file)));
+                Assert.That(Path.GetDirectoryName(Path.GetDirectoryName(whole)), Is.EqualTo(Path.TrimEndingDirectorySeparator(Path.GetTempPath())));
                 Assert.That(File.ReadAllText(whole), Does.Contain("   at Frame500()"));
                 Assert.That(link, Does.StartWith("https://github.com/"));
                 Assert.That(BugReport.Length(link), Is.AtMost(BugReport.LongestLink));
@@ -181,7 +185,32 @@ public class CrashesTests
         }
         finally
         {
-            File.Delete(whole);
+            DeleteSavedCopy(whole);
+        }
+    }
+
+    // In a folder of its own, as the temp folder may be shared, even where the umask would let others in
+    [Test]
+    [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
+    public void Report_TooLongForTheLink_SavesItWhereOnlyThisUserCanOpenIt()
+    {
+        Write(CrashReports.Engine, "obmd", string.Join(Environment.NewLine, Enumerable.Range(1, 500).Select(i => $"   at Frame{i}()")));
+
+        var (exitCode, output) = Tool.Run("/bin/sh", "-c", "umask 0 && exec \"$0\" crashes report -n --home \"$1\"", Path.Combine(Tool.Published ?? AppContext.BaseDirectory, "obm"), _home);
+        var whole = SavedCopy(output);
+        try
+        {
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exitCode, Is.Zero, output);
+                Assert.That(File.GetUnixFileMode(Path.GetDirectoryName(whole)!), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
+                Assert.That(File.GetUnixFileMode(whole), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+            }
+        }
+        finally
+        {
+            DeleteSavedCopy(whole);
         }
     }
 
@@ -254,6 +283,27 @@ public class CrashesTests
         Tool.Run("obm", "crashes", "show", "--home", _home);
 
         Assert.That(Tool.Run("obm", "status", "--home", _home).Output, Does.Not.Contain("crash report"));
+    }
+
+    // Where obm crashes report says it saved the whole report
+    private static string SavedCopy(string output) => Regex.Match(output, @"so it's saved in (.+)\. Paste it").Groups[1].Value;
+
+    // With the folder it's in, unless that's the temp folder itself
+    private static void DeleteSavedCopy(string whole)
+    {
+        if (Path.GetDirectoryName(whole) is not { Length: > 0 } folder)
+        {
+            return;
+        }
+
+        if (folder == Path.TrimEndingDirectorySeparator(Path.GetTempPath()))
+        {
+            File.Delete(whole);
+        }
+        else
+        {
+            Directory.Delete(folder, recursive: true);
+        }
     }
 
     private static string Lines(params string[] lines) => string.Join(Environment.NewLine, lines);

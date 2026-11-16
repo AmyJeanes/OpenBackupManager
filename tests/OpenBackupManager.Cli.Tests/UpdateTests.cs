@@ -236,6 +236,54 @@ public class UpdateTests
         }
     }
 
+    // Where the umask would let others in, and the temp folder is shared, so no one else can change it before it's
+    // installed
+    [Test]
+    public void Update_DownloadsWhereOnlyThisUserCanOpenIt()
+    {
+        var temp = Path.Combine(Path.GetDirectoryName(_programs)!, "temp");
+        Directory.CreateDirectory(temp);
+        _github.Add("0.3.0", new Asset(Tarball, FakeGitHub.NewVersionOf(_programs)) { Stalls = true });
+
+        using var update = Tool.Start("/bin/sh", new Dictionary<string, string>(_github.Environment) { ["TMPDIR"] = temp },
+            "-c", "umask 0 && exec \"$0\" update --home \"$1\"", Obm, _home);
+        // Beside .NET's own files there
+        string[] Downloads() =>
+            [.. Directory.GetFiles(temp, "obm-update-*"), .. Directory.GetDirectories(temp, "obm-update-*").SelectMany(Directory.GetFiles)];
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (Downloads().Length == 0 && !update.HasExited && DateTime.UtcNow < until)
+        {
+            Thread.Sleep(100);
+        }
+
+        var downloads = Downloads();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(downloads, Has.Length.EqualTo(1), update.Output);
+            Assert.That(Directory.GetDirectories(temp, "obm-update-*"), Has.Length.EqualTo(1));
+            Assert.That(downloads.Select(d => File.GetUnixFileMode(Path.GetDirectoryName(d)!)), Is.All.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
+            Assert.That(downloads.Select(File.GetUnixFileMode), Is.All.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        }
+    }
+
+    // As if it were changed between the hash check of the download and unpacking it
+    [Test]
+    public void Replace_WhenTheTarballIsntTheOneDownloaded_ChangesNothing()
+    {
+        var obmd = File.GetLastWriteTimeUtc(Obmd);
+        var tarball = Path.Combine(Path.GetDirectoryName(_programs)!, Tarball);
+        File.WriteAllBytes(tarball, FakeGitHub.NewVersionOf(_programs));
+
+        var e = Assert.Throws<UpdateException>(() => Cli.Update.Replace(tarball, _programs, Tarball, "sha256:" + new string('0', 64)));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(e.Message, Is.EqualTo($"the hash check failed: {Tarball} changed after it was downloaded, so nothing was changed. Try again, and report it if it keeps happening"));
+            Assert.That(File.GetLastWriteTimeUtc(Obmd), Is.EqualTo(obmd));
+            Assert.That(Leftovers(), Is.Empty);
+        }
+    }
+
     [Test]
     public void Update_WithoutAChecksum_ChangesNothing()
     {

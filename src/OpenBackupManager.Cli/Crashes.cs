@@ -65,8 +65,17 @@ internal static class Crashes
         var logs = shared;
         if (!BugReport.Fits(shared, shared))
         {
-            var whole = Path.Combine(Path.GetTempPath(), Path.GetFileName(report.File));
-            File.WriteAllText(whole, shared);
+            string whole;
+            try
+            {
+                whole = SaveCopy(report, shared);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine($"obm: it's too long to fill in, and it couldn't be saved to paste in instead. {e.Message}");
+                return 1;
+            }
+
             Console.WriteLine($"It's too long to fill in, so it's saved in {whole}. Paste it under Logs in the issue.");
             logs = Redaction.Redact($"⚠️ PASTE THE CRASH REPORT HERE. It was too long to fill in, so it's saved in {whole}.");
         }
@@ -104,6 +113,21 @@ internal static class Crashes
             .. reports.Select(report => string.Create(CultureInfo.InvariantCulture, $"  {report.Number}. {report.Heading}")),
             reports.Count == 1 ? "See it with obm crashes show" : "See one with obm crashes show <number>",
         ];
+    }
+
+    // In a new folder only this user can open, as the temp folder may be shared
+    private static string SaveCopy(SavedReport report, string text)
+    {
+        var file = Path.Combine(Directory.CreateTempSubdirectory("obm-crash-report-").FullName, Path.GetFileName(report.File));
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
+        if (!OperatingSystem.IsWindows())
+        {
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+
+        using var writer = new StreamWriter(file, options);
+        writer.Write(text);
+        return file;
     }
 
     private static SavedReport? Find(AppPaths paths, int number)

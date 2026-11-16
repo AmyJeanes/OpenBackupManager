@@ -15,7 +15,8 @@ internal sealed class FakeGitHub : IDisposable
 {
     private readonly HttpListener _listener = new();
     private readonly JsonArray _releases = [];
-    private readonly Dictionary<string, byte[]> _downloads = [];
+    private readonly Dictionary<string, Asset> _downloads = [];
+    private readonly List<HttpListenerResponse> _stalled = [];
 
     public FakeGitHub()
     {
@@ -45,7 +46,7 @@ internal sealed class FakeGitHub : IDisposable
         var list = new JsonArray();
         foreach (var asset in assets)
         {
-            _downloads[asset.Name] = asset.Content;
+            _downloads[asset.Name] = asset;
             list.Add(new JsonObject
             {
                 ["name"] = asset.Name,
@@ -63,7 +64,17 @@ internal sealed class FakeGitHub : IDisposable
         });
     }
 
-    public void Dispose() => _listener.Close();
+    public void Dispose()
+    {
+        _listener.Close();
+        lock (_stalled)
+        {
+            foreach (var response in _stalled)
+            {
+                response.Abort();
+            }
+        }
+    }
 
     // obm and obmd as they are, as they're what runs, but dated later as a newer build's would be, with licences
     // to tell it apart
@@ -117,7 +128,7 @@ internal sealed class FakeGitHub : IDisposable
                 return;
             }
 
-            using var response = context.Response;
+            var response = context.Response;
             var path = context.Request.Url!.AbsolutePath;
             byte[] body;
             if (RateLimited)
@@ -132,7 +143,20 @@ internal sealed class FakeGitHub : IDisposable
             }
             else if (path.StartsWith("/download/", StringComparison.Ordinal) && _downloads.TryGetValue(path["/download/".Length..], out var download))
             {
-                body = download;
+                body = download.Content;
+                if (download.Stalls)
+                {
+                    // Half of it, then nothing more until it's disposed, as a connection that died silently
+                    response.ContentLength64 = body.Length;
+                    await response.OutputStream.WriteAsync(body.AsMemory(0, body.Length / 2));
+                    await response.OutputStream.FlushAsync();
+                    lock (_stalled)
+                    {
+                        _stalled.Add(response);
+                    }
+
+                    continue;
+                }
             }
             else
             {
@@ -141,6 +165,7 @@ internal sealed class FakeGitHub : IDisposable
             }
 
             await response.OutputStream.WriteAsync(body);
+            response.Close();
         }
     }
 }
@@ -150,4 +175,7 @@ internal sealed record Asset(string Name, byte[] Content)
     public bool HasDigest { get; init; } = true;
 
     public string? Digest { get; init; }
+
+    // Sends half of it, then nothing more
+    public bool Stalls { get; init; }
 }

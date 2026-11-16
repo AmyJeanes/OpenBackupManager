@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Reflection;
+using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,6 +11,7 @@ using Velopack;
 namespace OpenBackupManager.Cli;
 
 // The releases on GitHub, from its API, or from OBM_UPDATE_SOURCE in its place, for trying updates locally
+[UnsupportedOSPlatform("windows")]
 internal sealed class Releases : IDisposable
 {
     private static readonly TimeSpan CheckTimeout = TimeSpan.FromSeconds(30);
@@ -64,7 +66,7 @@ internal sealed class Releases : IDisposable
             .MaxBy(r => r.Version);
     }
 
-    // Into a file, with its SHA-256 worked out as it comes
+    // Into a new file only this user can open, with its SHA-256 worked out as it comes
     public async Task<byte[]> DownloadAsync(GitHubAsset asset, string file, CancellationToken cancellationToken)
     {
         try
@@ -72,7 +74,12 @@ internal sealed class Releases : IDisposable
             using var response = await _http.GetAsync(asset.BrowserDownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
             await using var from = await response.Content.ReadAsStreamAsync(cancellationToken);
-            await using var to = File.Create(file);
+            await using var to = new FileStream(file, new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.Write,
+                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+            });
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             var buffer = new byte[81920];
             int read;
