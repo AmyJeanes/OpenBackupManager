@@ -1,4 +1,10 @@
+using System.Net;
+using System.Net.Security;
+using System.Net.Sockets;
 using System.Runtime.Versioning;
+using System.Security.Authentication;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using OpenBackupManager.Core;
 
 namespace OpenBackupManager.Cli.Tests;
@@ -405,6 +411,22 @@ public class UpdateTests
         }
     }
 
+    // Such as behind a proxy whose certificate authority isn't trusted, rather than .NET's "see inner exception"
+    [Test]
+    public void Update_WhenTheCertificateIsntTrusted_SaysWhy()
+    {
+        using var server = new UntrustedServer();
+
+        var (exitCode, output) = Tool.Run(Obm, new Dictionary<string, string> { ["OBM_UPDATE_SOURCE"] = server.Url }, "update", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1), output);
+            Assert.That(output, Does.StartWith("obm: couldn't reach GitHub to check for updates. ").And.Contain("certificate"));
+            Assert.That(output, Does.Not.Contain("inner exception"));
+        }
+    }
+
     // A local source is how a local development build is tried, so only GitHub is refused
     [Test]
     public void Update_OfABuildOfYourOwn_IsRefused()
@@ -425,6 +447,65 @@ public class UpdateTests
 
     private (int ExitCode, string Output) Update(params string[] args) =>
         Tool.Run(Obm, _github.Environment, ["update", "--home", _home, .. args]);
+
+    // Answers HTTPS with a certificate of its own, which nothing trusts
+    private sealed class UntrustedServer : IDisposable
+    {
+        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
+        private readonly X509Certificate2 _certificate;
+
+        public UntrustedServer()
+        {
+            using var key = RSA.Create(2048);
+            var request = new CertificateRequest("CN=127.0.0.1", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            var names = new SubjectAlternativeNameBuilder();
+            names.AddIpAddress(IPAddress.Loopback);
+            request.CertificateExtensions.Add(names.Build());
+            using var created = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+            // macOS can't use a certificate's key for TLS until it's been through a PFX
+            _certificate = X509CertificateLoader.LoadPkcs12(created.Export(X509ContentType.Pfx), null);
+            _listener.Start();
+            _ = Task.Run(AnswerAsync);
+        }
+
+        public string Url => $"https://127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}";
+
+        public void Dispose()
+        {
+            _listener.Stop();
+            _listener.Dispose();
+            _certificate.Dispose();
+        }
+
+        private async Task AnswerAsync()
+        {
+            while (true)
+            {
+                TcpClient client;
+                try
+                {
+                    client = await _listener.AcceptTcpClientAsync();
+                }
+                catch (Exception e) when (e is SocketException or ObjectDisposedException)
+                {
+                    return;
+                }
+
+                using (client)
+                using (var tls = new SslStream(client.GetStream()))
+                {
+                    try
+                    {
+                        await tls.AuthenticateAsServerAsync(_certificate);
+                    }
+                    // As the client refuses it
+                    catch (Exception e) when (e is AuthenticationException or IOException)
+                    {
+                    }
+                }
+            }
+        }
+    }
 }
 
 public class UpdateOnWindowsTests

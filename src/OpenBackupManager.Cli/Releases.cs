@@ -54,7 +54,7 @@ internal sealed class Releases : IDisposable
         catch (Exception e) when (e is HttpRequestException or JsonException
             || e is OperationCanceledException && !cancellationToken.IsCancellationRequested)
         {
-            throw new UpdateException("couldn't reach GitHub to check for updates. " + (e is OperationCanceledException ? "It didn't answer within 30 seconds" : e.Message), e);
+            throw new UpdateException("couldn't reach GitHub to check for updates. " + (e is OperationCanceledException ? "It didn't answer within 30 seconds" : Reason(e)), e);
         }
 
         return releases
@@ -94,9 +94,14 @@ internal sealed class Releases : IDisposable
         // Such as the connection dropping partway, or a full disk
         catch (Exception e) when (e is HttpRequestException or IOException or UnauthorizedAccessException)
         {
-            throw new UpdateException($"couldn't download {asset.Name}, so nothing was changed. {e.Message}", e);
+            throw new UpdateException($"couldn't download {asset.Name}, so nothing was changed. {Reason(e)}", e);
         }
     }
+
+    // A TLS failure's own message only says to see the innermost one, which says why, such as a wrong clock or an
+    // untrusted certificate authority. Others say more themselves, such as the host and port that refused
+    private static string Reason(Exception e) =>
+        e is HttpRequestException { HttpRequestError: HttpRequestError.SecureConnectionError } ? e.GetBaseException().Message : e.Message;
 
     public void Dispose() => _http.Dispose();
 }
