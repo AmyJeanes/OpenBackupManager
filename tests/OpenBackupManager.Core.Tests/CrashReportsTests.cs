@@ -49,6 +49,19 @@ public class CrashReportsTests
         }
     }
 
+    // From where the run's log started, in a file an earlier run wrote to first
+    [Test]
+    public void Write_HasOnlyTheRunsOwnLines_WhenThereAreFewerThanTheLimit()
+    {
+        Log("app-20261014.log", DateTime.UtcNow.AddMinutes(-1), "An earlier run", "Its last line");
+        var run = Start();
+        Log("app-20261014.log", DateTime.UtcNow, "Started", "Something broke");
+
+        var report = File.ReadAllText(_reports.Write("Open Backup Manager", run, "Something broke"));
+
+        Assert.That(report, Does.EndWith(string.Join(Environment.NewLine, "Recent log:", "Started", "Something broke", "")));
+    }
+
     [Test]
     public void Write_HasTheWholeNewestLog_WhenTheRunStartedAnother()
     {
