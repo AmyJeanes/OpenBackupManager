@@ -124,7 +124,7 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 2. CI's package-windows job checks the tag, then builds x64 and ARM64, packs each with Velopack and attests them, and the package-macos and package-linux jobs do the same for the macOS and Linux tarballs of `obm` and `obmd` (see [Engine and command line](engine.md)). Once all of them and the install tests have finished, the release job uploads everything to a draft release called `Release v0.1.0`, marked as a prerelease if the version has a `-`.
 3. Write the notes and publish the draft. Installed copies only see published releases, so nobody updates until then.
 
-The repository makes published releases immutable, so a broken release is replaced by a new version, never patched, and a release job can only be re-run before publishing.
+The repository makes published releases immutable, so a broken release is replaced by a new version, never patched, and a release job can only be re-run before publishing. A re-run fails on what the first run uploaded, so delete the draft release first, keeping its tag.
 
 To try releasing itself, tag throwaway prereleases such as `v0.0.2-test.1` and `v0.0.2-test.2`, with a version number never used before, since an old tag name may not be reusable and copies that installed it wouldn't update to it again. Delete the releases and their tags afterwards.
 
