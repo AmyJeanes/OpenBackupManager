@@ -6,6 +6,10 @@
     ":automergeMinor"
   ],
   "automergeType": "branch",
+  // A hijacked release is usually caught and pulled within a day or two, before this lets it merge
+  "minimumReleaseAge": "3 days",
+  // Rather than holding back for good an update whose registry gives no release date, as some image registries don't
+  "minimumReleaseAgeBehaviour": "timestamp-optional",
   "pinDigest": {
     "automerge": true
   },
