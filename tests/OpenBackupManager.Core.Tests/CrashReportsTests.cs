@@ -394,6 +394,7 @@ public class CrashReportsTests
     public void RepeatOf_ARunThatReportedTheLastOne()
     {
         var run = RunFrom(TimeSpan.Zero);
+        _time.Advance(TimeSpan.FromSeconds(2));
         var report = _reports.WriteEnded("Open Backup Manager", RunFrom(TimeSpan.FromHours(1)), null, null);
         _time.Advance(TimeSpan.FromSeconds(5));
 
