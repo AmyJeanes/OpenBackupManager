@@ -139,6 +139,23 @@ public class CrashReportsTests
         }
     }
 
+    // As the app's UI thread can while a crash on another thread is closing it, which would never show it
+    [Test]
+    public void TakeNew_WhileThisCopyIsCrashing_LeavesTheReportForTheNextStart()
+    {
+        var engine = new CrashReports(AppPaths.InHome(_home), _time, CrashReports.Engine);
+        engine.Write("obmd", new Run(200, RunStarted, "1.2.3", null, 0), "Something broke");
+
+        _reports.Crashing();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_reports.TakeNew(CrashReports.Engine), Is.Null);
+            Assert.That(_reports.TakeNew(), Is.Null);
+            Assert.That(CrashReports.List(AppPaths.InHome(_home)).Single().New, Is.True);
+        }
+    }
+
     [Test]
     public void List_IsNewestFirst_WithWhichAreNew()
     {

@@ -68,6 +68,8 @@ public sealed partial class CrashCapture(CrashReports reports, AppInfo app, ILog
             return;
         }
 
+        reports.Crashing();
+
         // Each on its own, so the report is still written if logging fails, and nothing here replaces the error that's
         // closing the app
 #pragma warning disable CA1031

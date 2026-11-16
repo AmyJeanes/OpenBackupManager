@@ -37,8 +37,13 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
 
     public string Folder => FolderIn(paths);
 
+    private volatile bool _crashing;
+
     // This copy, once it has started
     public Run? Current { get; private set; }
+
+    // Set as this copy starts to crash, before it writes its report, as other threads keep running while it does
+    public void Crashing() => _crashing = true;
 
     // Notes this copy as running, with where its log starts, and returns the last run if it didn't end by quitting or
     // with a report. Called before the run logs anything
@@ -157,10 +162,11 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         return start < 0 ? null : output[start..].TrimEnd();
     }
 
-    // The newest report, if it hasn't been seen, so each crash is shown once. Given a program, only if it's that one's
+    // The newest report, if it hasn't been seen, so each crash is shown once. Given a program, only if it's that one's.
+    // None while this copy is crashing, as it would never show it, checked after listing so a crash meanwhile counts
     public CrashReport? TakeNew(string? program = null)
     {
-        if (List(paths) is not [{ New: true } newest, ..] || program is not null && newest.Program != program)
+        if (List(paths) is not [{ New: true } newest, ..] || _crashing || program is not null && newest.Program != program)
         {
             return null;
         }
