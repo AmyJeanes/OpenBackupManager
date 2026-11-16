@@ -25,7 +25,7 @@ internal static class Data
     {
         if (Update.InstalledBy(Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory)) == "docker")
         {
-            return Fail("in Docker, remove the container and its /config volume instead, such as with docker compose down -v");
+            return Fail("in Docker, remove the container instead, then the folder or volume it uses as /config");
         }
 
         // Taken, so it can't start while the data goes. The app would start the engine again

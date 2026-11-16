@@ -133,6 +133,6 @@ Attach the zip to your issue. If it has things you'd rather not post publicly, e
 
     If you installed the `.deb` or `.rpm`, remove it with `sudo apt remove openbackupmanager` or `sudo dnf remove openbackupmanager`. The engine notices, removes its service if you used `obm service install`, and stops. Otherwise, run `obm service uninstall` if you used it, then delete `obm` and `obmd`. In Docker, remove the container.
 
-    Your data and secrets stay, so installing again picks up where you left off. To remove those too, run `obm data remove` first. In Docker, they're in the `/config` volume, so remove that, such as with `docker compose down -v`.
+    Your data and secrets stay, so installing again picks up where you left off. To remove those too, run `obm data remove` first. In Docker, they're in the folder or volume you gave it as `/config`. Run `docker compose down`, then delete that folder, such as with `rm -rf config`, using `sudo` if another user owns it. For a named volume, `docker compose down -v` removes it.
 
 `obm data remove` stops the engine and removes its service, then removes everything above and your secrets, from wherever they're kept. In a home folder, it removes only its own files, and leaves anything else there. It lists what it removes and asks first.

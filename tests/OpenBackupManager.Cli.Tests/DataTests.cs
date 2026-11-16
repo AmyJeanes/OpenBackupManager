@@ -148,7 +148,7 @@ public class DataTests
 
     [Test]
     [Platform(Exclude = "Win")]
-    public void Remove_InDocker_SaysToRemoveTheVolume()
+    public void Remove_InDocker_SaysToRemoveTheContainerAndItsConfig()
     {
         var programs = Path.Combine(_home, "programs");
         Tool.CopyTo(programs);
@@ -159,7 +159,7 @@ public class DataTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(exitCode, Is.EqualTo(1), output);
-            Assert.That(output, Is.EqualTo("obm: in Docker, remove the container and its /config volume instead, such as with docker compose down -v"));
+            Assert.That(output, Is.EqualTo("obm: in Docker, remove the container instead, then the folder or volume it uses as /config"));
         }
     }
 
