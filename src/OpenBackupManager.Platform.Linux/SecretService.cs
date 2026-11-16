@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
@@ -106,11 +108,7 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
     // what is the secret's name, or the saved secrets when listing them all
     private async Task<T> ConnectAsync<T>(string action, string what, Func<Keyring, Task<T>> use, CancellationToken cancellationToken)
     {
-        var address = bus ?? Environment.GetEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS");
-        if (string.IsNullOrEmpty(address))
-        {
-            throw Unavailable(action, what, "there's no D-Bus session to reach it through, as DBUS_SESSION_BUS_ADDRESS isn't set");
-        }
+        var address = (bus ?? SessionBus(Environment.GetEnvironmentVariable, NativeMethods.getuid())) ?? throw Unavailable(action, what, "there's no D-Bus session to reach it through, as DBUS_SESSION_BUS_ADDRESS isn't set and XDG_RUNTIME_DIR has no bus");
 
         try
         {
@@ -142,6 +140,39 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
         {
             throw Failed(action, what, e.Message);
         }
+    }
+
+    // The session bus's address. Without the variable, as over some SSH setups, with su or from cron, it's the bus in
+    // XDG_RUNTIME_DIR, which is /run/user/<uid> under systemd, as sd-bus and GLib find it. Null if there's none
+    internal static string? SessionBus(Func<string, string?> environment, uint userId)
+    {
+        if (environment("DBUS_SESSION_BUS_ADDRESS") is { Length: > 0 } address)
+        {
+            return address;
+        }
+
+        var folder = environment("XDG_RUNTIME_DIR") is { Length: > 0 } runtime ? runtime : "/run/user/" + userId.ToString(CultureInfo.InvariantCulture);
+        var socket = Path.Combine(folder, "bus");
+        return File.Exists(socket) ? "unix:path=" + Escape(socket) : null;
+    }
+
+    // D-Bus addresses take only these bytes as they are, and the rest as %xx
+    private static string Escape(string value)
+    {
+        var escaped = new StringBuilder();
+        foreach (var b in Encoding.UTF8.GetBytes(value))
+        {
+            if (char.IsAsciiLetterOrDigit((char)b) || "-_/.\\*".Contains((char)b, StringComparison.Ordinal))
+            {
+                escaped.Append((char)b);
+            }
+            else
+            {
+                escaped.Append('%').Append(b.ToString("x2", CultureInfo.InvariantCulture));
+            }
+        }
+
+        return escaped.ToString();
     }
 
     private static InvalidOperationException Failed(string action, string name, string reason) =>
@@ -345,5 +376,12 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
 
             return connection.CallMethodAsync(message, reader).WaitAsync(Timeout, cancellationToken);
         }
+    }
+
+    private static class NativeMethods
+    {
+        [DllImport("libc")]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+        public static extern uint getuid();
     }
 }

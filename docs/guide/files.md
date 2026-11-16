@@ -143,4 +143,4 @@ Attach the zip to your issue. If it has things you'd rather not post publicly, e
 
     Your data and secrets stay, so installing again picks up where you left off. To remove those too, run `obm data remove` first. In Docker, they're in the folder or volume you gave it as `/config`. Run `docker compose down`, then delete that folder, such as with `rm -rf config`, using `sudo` if another user owns it. For a named volume, `docker compose down -v` removes it.
 
-`obm data remove` stops the engine and removes its service, then removes everything above and your secrets, from wherever they're kept. In a home folder, it removes only its own files, and leaves anything else there. It lists what it removes and asks first.
+`obm data remove` stops the engine and removes its service, then removes everything above and your secrets, from wherever they're kept. In a home folder, it removes only its own files, and leaves anything else there. It lists what it removes and asks first. If a store that may have your secrets is locked or can't be reached, such as the keyring over SSH, it says so, leaves the rest of your data, and exits with 1, so you can unlock it and run it again.

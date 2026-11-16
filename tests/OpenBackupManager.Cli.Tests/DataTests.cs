@@ -105,12 +105,30 @@ public class DataTests
     [Platform("Linux")]
     public void Remove_WithNoSecretService_SaysNothingAboutIt()
     {
-        var (exitCode, output) = Tool.Run("obm", new Dictionary<string, string> { ["DBUS_SESSION_BUS_ADDRESS"] = "" }, "data", "remove", "--home", _home, "--yes");
+        var (exitCode, output) = Tool.Run("obm", NoSessionBus(), "data", "remove", "--home", _home, "--yes");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(exitCode, Is.Zero, output);
             Assert.That(output, Does.Not.Contain("Secret Service"));
+        }
+    }
+
+    // As over SSH with no session bus, where the secrets it chose to keep there can't be removed
+    [Test]
+    [Platform("Linux")]
+    public void Remove_WithTheChosenStoreOutOfReach_SaysSo_AndRemovesNothing()
+    {
+        File.WriteAllText(Path.Combine(_home, "config.toml"), "secret-store = \"secret-service\"\n");
+
+        var (exitCode, output) = Tool.Run("obm", NoSessionBus(), "data", "remove", "--home", _home, "--yes");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1), output);
+            Assert.That(output, Does.Contain("obmd: secrets are kept in Secret Service, which can't be reached, so any kept there are still in it"));
+            Assert.That(output, Does.Not.Contain("Removed all"));
+            Assert.That(Path.Combine(_home, "config.toml"), Does.Exist);
         }
     }
 
@@ -178,4 +196,7 @@ public class DataTests
             Assert.That(output, Is.EqualTo("obm: the app is running, so quit it from its tray icon first"));
         }
     }
+
+    // Neither the variable nor a bus in XDG_RUNTIME_DIR, which is the home, so it doesn't fall back to the real one
+    private Dictionary<string, string> NoSessionBus() => new() { ["DBUS_SESSION_BUS_ADDRESS"] = "", ["XDG_RUNTIME_DIR"] = _home };
 }

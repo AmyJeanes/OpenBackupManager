@@ -71,6 +71,52 @@ public class DataSecretsTests
         }
     }
 
+#if LINUX
+    // As over some SSH setups or with su, where the variable isn't set but the session's bus is still there
+    [Test]
+    [SupportedOSPlatform("linux")]
+    public async Task Remove_FindsTheSessionBus_WithoutItsVariable()
+    {
+        var (store, _) = Store();
+        await store.SaveAsync("token", new Secret("not really a token"));
+        var environment = new Dictionary<string, string> { ["DBUS_SESSION_BUS_ADDRESS"] = "", ["XDG_RUNTIME_DIR"] = Path.Combine(_home, "keyring") };
+
+        var (exitCode, output) = Tool.Run("obm", environment, "data", "remove", "--home", _home, "--yes");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(await store.ListAsync(), Is.Empty);
+        }
+    }
+
+    // As over SSH, where the login keyring stays locked. The settings stay, so it can be run again once it's unlocked
+    [Test]
+    [SupportedOSPlatform("linux")]
+    public async Task Remove_WhileTheKeyringIsLocked_SaysSo_AndRemovesNothing()
+    {
+        var (store, _) = Store();
+        await store.SaveAsync("token", new Secret("not really a token"));
+        File.WriteAllText(Path.Combine(_home, "config.toml"), "secret-store = \"secret-service\"\n");
+        using (var busctl = Process.Start(new ProcessStartInfo("busctl", [$"--address={_environment["DBUS_SESSION_BUS_ADDRESS"]}", "call", "org.freedesktop.secrets",
+            "/org/freedesktop/secrets", "org.freedesktop.Secret.Service", "Lock", "ao", "1", "/org/freedesktop/secrets/collection/login"]) { RedirectStandardOutput = true })!)
+        {
+            busctl.WaitForExit();
+            Assert.That(busctl.ExitCode, Is.Zero, "busctl");
+        }
+
+        var (exitCode, output) = Tool.Run("obm", _environment, "data", "remove", "--home", _home, "--yes");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.EqualTo(1), output);
+            Assert.That(output, Does.Contain("obmd: Secret Service is locked, so any secrets kept there are still in it"));
+            Assert.That(output, Does.Not.Contain("Removed all"));
+            Assert.That(Path.Combine(_home, "config.toml"), Does.Exist);
+        }
+    }
+#endif
+
     // As obmd makes it for the home, so it has the same key
     private (ISecretStore Store, string Title) Store()
     {

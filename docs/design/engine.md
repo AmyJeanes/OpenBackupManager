@@ -65,7 +65,7 @@ What people do to update is in the guide's [Updates](../guide/updates.md).
 ## Removing data
 
 - **Uninstalling keeps the data and secrets,** so installing again carries on where it left off, as most desktop apps and package managers do, apt's `purge` and Flatpak's `--delete-data` being separate steps. `obm data remove` is that step, on every OS, as Velopack's uninstaller can't ask: its dialog's text is fixed, and its hooks can't tell a silent uninstall from one a person started.
-- **`obmd` removes the secrets,** as only it has the OS's stores, and `obm` stays a client with no platform code. It runs once the engine has stopped, holding the engine's lock, so nothing saves one meanwhile, and doesn't read `config.toml`, which may be what's broken. It looks in every store the OS has, as moving them can leave some behind.
+- **`obmd` removes the secrets,** as only it has the OS's stores, and `obm` stays a client with no platform code. It runs once the engine has stopped, holding the engine's lock, so nothing saves one meanwhile. It looks in every store the OS has, as moving them can leave some behind. A store that's locked or fails may still hold some, and so may one that can't be reached when it's the one `config.toml` chooses, or the OS's own when it chooses none; any of these makes it exit with 1, and `obm data remove` then removes nothing else, so the settings saying where they are stay for the next try. `config.toml` is read only for that, and when it can't be read, which may be what's broken, a store that can't be reached doesn't count. Without `DBUS_SESSION_BUS_ADDRESS`, as over some SSH setups, Secret Service is found at `$XDG_RUNTIME_DIR/bus`, or `/run/user/<uid>/bus` without that either, as sd-bus and GLib do.
 
 ## Builds and packages
 
