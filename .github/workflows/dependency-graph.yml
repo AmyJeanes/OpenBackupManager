@@ -1,7 +1,8 @@
 name: Dependency graph
 
 # Manual scan due to https://github.com/dependabot/dependabot-core/issues/16053 - delete this workflow and re-enable the built-in
-# scanner in https://github.com/AmyJeanes/OpenBackupManager/settings/security_analysis once the issue is resolved
+# scanner in https://github.com/AmyJeanes/OpenBackupManager/settings/security_analysis once the issue is resolved, if it
+# runs on Windows by then
 on:
   push:
     branches: [main]
@@ -13,7 +14,7 @@ permissions:
 jobs:
   submit:
     name: Submit NuGet dependencies
-    runs-on: ubuntu-latest
+    runs-on: windows-latest # Other OSes leave out the Windows-only projects, and so their packages
     permissions:
       contents: write # The dependency submission API needs it
     steps:
