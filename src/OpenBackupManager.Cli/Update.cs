@@ -229,18 +229,16 @@ internal static class Update
         using var reader = new TarReader(gzip);
         while (reader.GetNextEntry() is { } entry)
         {
-            // Only files at its top level, as a release has, so nothing lands outside the folder. The licences
-            // only if they were unpacked here too, as the guide unpacks only the programs into a folder on PATH
-            var to = Path.Combine(folder, entry.Name);
-            if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || entry.Name.Contains('/')
-                || entry.Name is not ("obm" or "obmd") && !File.Exists(to))
+            // Only the programs, as the guide unpacks only them into a folder on PATH, where a LICENSE may be another
+            // program's. The release's own files carry the licence and notices
+            if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || entry.Name is not ("obm" or "obmd"))
             {
                 continue;
             }
 
             var from = Path.Combine(folder, $".{entry.Name}.update");
             entry.ExtractToFile(from, overwrite: true);
-            unpacked.Add((from, to));
+            unpacked.Add((from, Path.Combine(folder, entry.Name)));
         }
     }
 

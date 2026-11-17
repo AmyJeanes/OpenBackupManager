@@ -75,7 +75,7 @@ public class UpdateTests
             Assert.That(output, Does.Contain($"Downloaded {Tarball}, and its SHA-256 hash matches the one GitHub gives for it"));
             Assert.That(output, Does.Contain("Updated obm and obmd in "));
             Assert.That(output, Does.Contain("The engine isn't running, so it'll run 0.3.0 when it next starts"));
-            Assert.That(File.ReadAllText(Path.Combine(_programs, "LICENSE")), Is.EqualTo("The new version's LICENSE"));
+            Assert.That(File.ReadAllText(Path.Combine(_programs, "LICENSE")), Is.EqualTo("The old version's LICENSE"));
             Assert.That(Path.Combine(_programs, "THIRD-PARTY-NOTICES.txt"), Does.Not.Exist);
             Assert.That(File.GetLastWriteTimeUtc(Obmd), Is.EqualTo(obmd.AddMinutes(1)).Within(TimeSpan.FromSeconds(1)));
             Assert.That(Leftovers(), Is.Empty);
