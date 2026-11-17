@@ -43,7 +43,8 @@ public static class AppHome
     public static bool StartsAtLoginByDefault(string home, bool installed, string localAppData) =>
         installed && Normalize(home) == Normalize(InstalledHome(localAppData));
 
-    // Names what each home has its own of on Windows, such as its locks, so each home has one copy running
+    // Names what each home has its own of, such as its secrets, and on Windows its locks, so each home has one copy
+    // running and copies with different homes never share secrets
     public static string InstanceKey(string home) =>
         "OpenBackupManager-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Normalize(home))))[..16];
 

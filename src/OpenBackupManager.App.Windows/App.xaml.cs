@@ -59,6 +59,7 @@ public sealed partial class App : Application
         {
             actions.ShowCrash(crash);
         }
+        // Not when started to deliver a notification's click, which opens what was clicked instead
         else if (!WindowsNotifier.StartedByClick && !Program.StartedAtLogin)
         {
             tray.ShowFlyout();
