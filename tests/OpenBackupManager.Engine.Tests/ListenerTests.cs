@@ -322,14 +322,16 @@ public class ListenerTests
     {
         await StartAsync();
 
-        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(async () =>
+        // On threads of their own, as connecting blocks its thread on Windows, and with the engine in this process too,
+        // blocking the thread pool would hold it up rather than test it
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Factory.StartNew(() =>
         {
             for (var i = 0; i < 250; i++)
             {
-                await using var pipe = new NamedPipeClientStream(".", EngineSocket.Name(_home), PipeDirection.InOut, PipeOptions.Asynchronous);
-                await pipe.ConnectAsync(Timeout, CancellationToken.None);
+                using var pipe = new NamedPipeClientStream(".", EngineSocket.Name(_home), PipeDirection.InOut);
+                pipe.Connect(Timeout);
             }
-        })));
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)));
 
         using var client = await ConnectAsync();
         Assert.That(await client.StatusAsync(CancellationToken.None), Is.Not.Null);
