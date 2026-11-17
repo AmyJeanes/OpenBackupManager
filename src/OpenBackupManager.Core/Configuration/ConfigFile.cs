@@ -67,6 +67,8 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
         var problems = document.Diagnostics
             .Select(d => new ConfigProblem(d.Span.Start.Line + 1, ConfigProblemKind.Toml, d.Kind == DiagnosticMessageKind.Error, d.Message))
             .ToList();
+        // Against the known settings before Tomlyn maps them, so a mistake reads as "updates.prereleases should be
+        // true or false" on its line, rather than as the serializer's own message
         if (!document.HasErrors)
         {
             Check(document, problems);
@@ -111,6 +113,7 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
             throw new ConfigException($"config.toml can't be changed until it's fixed: {result.Problems.First(p => p.IsError)}");
         }
 
+        // Read for the settings this version knows, but never written, so the newer version's own aren't lost
         if (result.Config!.Version > AppConfig.CurrentVersion)
         {
             throw new ConfigException("config.toml was written by a newer version of the app, so this version won't change it");
