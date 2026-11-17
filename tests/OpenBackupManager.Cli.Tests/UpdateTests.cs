@@ -309,6 +309,20 @@ public class UpdateTests
         }
     }
 
+    // As when the connection died silently, such as a laptop's lid closing partway
+    [Test]
+    public async Task Download_WhenNothingMoreComes_GivesUp()
+    {
+        _github.Add("0.3.0", new Asset(Tarball, FakeGitHub.NewVersionOf(_programs)) { Stalls = true });
+        using var releases = new Releases(_github.Url) { IdleTimeout = TimeSpan.FromSeconds(1) };
+        var newest = await releases.NewestAsync(prereleases: false, CancellationToken.None);
+
+        var download = releases.DownloadAsync(newest!.Assets.Single(), Path.Combine(_home, Tarball), CancellationToken.None);
+
+        Assert.That(async () => await download.WaitAsync(TimeSpan.FromSeconds(20)), Throws.TypeOf<UpdateException>()
+            .With.Message.EqualTo($"couldn't download {Tarball}, so nothing was changed. Nothing arrived for 1 seconds"));
+    }
+
     [Test]
     public void Update_WhenTheTempFolderIsMissing_SaysSo()
     {

@@ -66,14 +66,19 @@ internal sealed class Releases : IDisposable
             .MaxBy(r => r.Version);
     }
 
+    // A download gives up once nothing arrives for this long, as a connection that died silently never ends by itself
+    internal TimeSpan IdleTimeout { get; init; } = TimeSpan.FromMinutes(1);
+
     // Into a new file only this user can open, with its SHA-256 worked out as it comes
     public async Task<byte[]> DownloadAsync(GitHubAsset asset, string file, CancellationToken cancellationToken)
     {
+        using var idle = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        idle.CancelAfter(IdleTimeout);
         try
         {
-            using var response = await _http.GetAsync(asset.BrowserDownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var response = await _http.GetAsync(asset.BrowserDownloadUrl, HttpCompletionOption.ResponseHeadersRead, idle.Token);
             response.EnsureSuccessStatusCode();
-            await using var from = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using var from = await response.Content.ReadAsStreamAsync(idle.Token);
             await using var to = new FileStream(file, new FileStreamOptions
             {
                 Mode = FileMode.CreateNew,
@@ -83,8 +88,9 @@ internal sealed class Releases : IDisposable
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             var buffer = new byte[81920];
             int read;
-            while ((read = await from.ReadAsync(buffer, cancellationToken)) > 0)
+            while ((read = await from.ReadAsync(buffer, idle.Token)) > 0)
             {
+                idle.CancelAfter(IdleTimeout);
                 hash.AppendData(buffer, 0, read);
                 await to.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
             }
@@ -95,6 +101,10 @@ internal sealed class Releases : IDisposable
         catch (Exception e) when (e is HttpRequestException or IOException or UnauthorizedAccessException)
         {
             throw new UpdateException($"couldn't download {asset.Name}, so nothing was changed. {Reason(e)}", e);
+        }
+        catch (OperationCanceledException e) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new UpdateException($"couldn't download {asset.Name}, so nothing was changed. Nothing arrived for {IdleTimeout.TotalSeconds:0} seconds", e);
         }
     }
 
