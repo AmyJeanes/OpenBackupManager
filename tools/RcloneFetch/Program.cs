@@ -45,7 +45,8 @@ command.SetAction(async (parseResult, cancellationToken) =>
         var asset = $"rclone-{version}-{RcloneTarget(runtime)}.zip";
         var releaseUrl = $"https://github.com/rclone/rclone/releases/download/{version}/";
 
-        using var http = new HttpClient();
+        // Long enough for the zip on a slow link, as HttpClient's own 100 seconds covers the whole download
+        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         var signedSums = await http.GetByteArrayAsync(new Uri(releaseUrl + "SHA256SUMS"), cancellationToken);
         var sums = VerifyClearSigned(signedSums, parseResult.GetRequiredValue(keyFileOption).FullName);
         var expected = FindHash(sums, asset);
@@ -60,7 +61,9 @@ command.SetAction(async (parseResult, cancellationToken) =>
         Console.WriteLine($"rclone {version} for {runtime}: signature and hash verified");
         return 0;
     }
-    catch (Exception e) when (e is InvalidDataException or ArgumentException or IOException or HttpRequestException or PgpException)
+    // A TaskCanceledException that cancelling the build didn't cause is HttpClient's timeout, and its message says so
+    catch (Exception e) when (e is InvalidDataException or ArgumentException or IOException or HttpRequestException or PgpException
+        || e is TaskCanceledException && !cancellationToken.IsCancellationRequested)
     {
         Console.Error.WriteLine($"RcloneFetch: {e.Message}");
         return 1;
