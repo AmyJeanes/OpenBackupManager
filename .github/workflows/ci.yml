@@ -202,7 +202,7 @@ jobs:
         with:
           # The newest Python every package in the lock has a wheel for, as building one from source would install
           # build tools the lock doesn't pin
-          python-version: '3.14'
+          python-version: '3.15'
           cache: pip
           cache-dependency-path: docs/requirements.txt
 
