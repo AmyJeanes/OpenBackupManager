@@ -6,7 +6,7 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
 === "Windows"
 
-    1. Download `OpenBackupManager.App-win-x64-Setup.exe` from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), or `OpenBackupManager.App-win-arm64-Setup.exe` for an Arm PC.
+    1. Download `OpenBackupManager.App-win-x64-Setup.exe` from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), or `OpenBackupManager.App-win-arm64-Setup.exe` for an Arm PC. It needs Windows 10 version 1809 or later.
     2. Run it. There's nothing to choose: it installs for you only, and doesn't need administrator rights.
     3. The app starts in the tray, by the clock, and starts again each time you sign in.
 

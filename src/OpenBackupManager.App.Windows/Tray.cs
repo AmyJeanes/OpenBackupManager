@@ -68,7 +68,8 @@ public sealed partial class Tray : IDisposable
         }
     }
 
-    // The first click has already opened the flyout, which closes when the window takes focus.
+    // The first click has already opened the flyout, rather than waiting the double-click time (500 ms by default),
+    // which would slow every open. The flyout closes when the window takes focus.
     // The second click arrives as a double-click and then a click, and that click shouldn't reopen the flyout
     private void OnDoubleClick()
     {

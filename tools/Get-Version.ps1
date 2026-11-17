@@ -4,7 +4,8 @@ Works out the version CI builds from the git tags.
 
 .DESCRIPTION
 For a tag such as v0.1.0 or v0.1.0-beta.1, that version, once it's checked as safe to release. Otherwise an edge build,
-numbered as MinVer numbers untagged builds. See docs/design/windows-app.md#versions.
+numbered as MinVer numbers untagged builds. MinVer itself would change every local build's version, and needs the whole
+history in every CI job. See docs/design/windows-app.md#versions.
 
 .EXAMPLE
 ./tools/Get-Version.ps1 -Tag v0.1.0

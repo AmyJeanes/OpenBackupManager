@@ -28,7 +28,8 @@
   </PropertyGroup>
 
   <!-- XAML code-behind for C# Dev Kit's IntelliSense until https://github.com/microsoft/vscode-dotnettools/issues/2990 is fixed.
-       CsWin32's code comes first, as the XAML step fails when dotnet format loads the project, which would leave it out -->
+       CsWin32's code comes first, as the XAML step fails when dotnet format loads the project and would leave it out.
+       DesignTimeMarkupCompilation is internal to WinUI, so a WinUI update can break the build until it's renamed -->
   <PropertyGroup Condition="'$(BuildingInsideVisualStudio)' != 'true'">
     <CoreCompileDependsOn>GenerateCsWin32Code;DesignTimeMarkupCompilation;$(CoreCompileDependsOn)</CoreCompileDependsOn>
   </PropertyGroup>

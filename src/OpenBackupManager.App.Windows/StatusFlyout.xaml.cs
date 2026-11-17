@@ -244,6 +244,7 @@ public sealed partial class StatusFlyout : Window
         }
     }
 
+    // By the icon rather than the pointer, so it opens in the same place from the keyboard
     private void PlaceNearTray()
     {
         var icon = NativeMethods.TrayIconBounds(_trayIconId)

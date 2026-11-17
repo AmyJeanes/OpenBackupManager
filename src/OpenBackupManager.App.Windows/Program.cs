@@ -46,7 +46,8 @@ public static class Program
 
     private static string HookHome => AppHome.Chosen(null, Environment.GetEnvironmentVariable("OBM_HOME")) ?? AppHome.WindowsDefault(true, LocalAppData);
 
-    // Windows starts the app with this at login, when it stays in the tray rather than opening its flyout
+    // Windows starts the app with this at login, when it stays in the tray rather than opening its flyout, which would
+    // take focus from whatever the user opened first
     internal static bool StartedAtLogin { get; private set; }
 
     [STAThread]
@@ -54,8 +55,8 @@ public static class Program
     {
         // Velopack's installer runs the app with hook arguments, which are handled here and then exit. After the hook
         // before an update, it ends whatever runs from the install folder, so the hook stops the engine first, though
-        // only the one for the home this copy uses without --home, as hooks get no arguments. Uninstalling ends it
-        // before its hook runs
+        // only the one for the home this copy uses without --home, as a hook gets only the new version, not the app's
+        // arguments. Uninstalling ends it before its hook runs
         VelopackApp.Build()
             .OnAfterInstallFastCallback(_ => UserPath.Add(CommandLineFolder))
             .OnBeforeUpdateFastCallback(_ => EngineConnection.StopFor(HookHome))
@@ -175,6 +176,8 @@ public static class Program
                 HomeArgument(home),
                 services.GetRequiredService<ILogger<WindowsNotifier>>()))
             .AddSingleton<AppNotifications>()
+            // The exe in current, which keeps its path through updates, rather than Velopack's launcher, which only
+            // starts it through Update.exe
             .AddSingleton<IStartAtLogin>(_ => new RunKey(AppHome.InstanceKey(home), $"\"{Environment.ProcessPath}\" {HomeArgument(home)} {AtLoginArgument}"))
             .AddSingleton(services => new StartAtLoginSetting(
                 services.GetRequiredService<ConfigWatcher>(),
@@ -270,8 +273,8 @@ public static class Program
         running.RedirectActivationToAsync(AppInstance.GetCurrent().GetActivatedEventArgs()).AsTask().Wait();
     }
 
-    // As administrator, the engine the app starts refuses to run, and Windows doesn't show the app's notifications. A
-    // copy started again with admin rights, as when Explorer has them too, explains rather than starting yet another
+    // As administrator, the engine the app starts refuses to run. A copy started again with admin rights, as when
+    // Explorer has them too, explains rather than starting yet another
     internal static bool StartAgainWithoutAdmin(string[] args, string home, Func<string, string, bool> start)
     {
         if (args.Contains(RestartedArgument))
@@ -279,6 +282,7 @@ public static class Program
             return false;
         }
 
+        // Explorer starts it with its own environment rather than this one, so the home always goes on the command line
         var arguments = $"{HomeArgument(home)} {RestartedArgument}";
         return start(Environment.ProcessPath!, args.Contains(AtLoginArgument) ? $"{arguments} {AtLoginArgument}" : arguments);
     }
