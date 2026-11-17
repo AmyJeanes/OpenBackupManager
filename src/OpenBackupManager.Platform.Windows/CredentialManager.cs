@@ -36,13 +36,10 @@ public sealed unsafe class CredentialManager(string prefix) : ISecretStore
             return NotFound() ? null : throw Failed("read", name);
         }
 
-        try
+        using (credential)
         {
-            return new Secret(new string((char*)credential->CredentialBlob, 0, (int)credential->CredentialBlobSize / sizeof(char)));
-        }
-        finally
-        {
-            PInvoke.CredFree(credential);
+            var found = (CREDENTIALW*)credential.DangerousGetHandle();
+            return new Secret(new string((char*)found->CredentialBlob, 0, (int)found->CredentialBlobSize / sizeof(char)));
         }
     }
 

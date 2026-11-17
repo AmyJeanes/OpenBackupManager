@@ -185,13 +185,10 @@ public class CredentialManagerTests
             return null;
         }
 
-        try
+        using (credential)
         {
-            return (credential->UserName.ToString(), new ReadOnlySpan<byte>(credential->CredentialBlob, (int)credential->CredentialBlobSize).ToArray(), credential->Persist);
-        }
-        finally
-        {
-            PInvoke.CredFree(credential);
+            var found = (CREDENTIALW*)credential.DangerousGetHandle();
+            return (found->UserName.ToString(), new ReadOnlySpan<byte>(found->CredentialBlob, (int)found->CredentialBlobSize).ToArray(), found->Persist);
         }
     }
 
