@@ -443,7 +443,7 @@ jobs:
         include:
           - runtime: linux-x64
             arch: amd64
-            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-amd64@sha256:213033a50e34ff3ae9e1f000a3de3c3c975fcf54c21488eff287346054afff98
+            cross-image: mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net11.0-cross-amd64@sha256:e5f97b76a3053387d1623e14a73d3693ec752e5f7415edac54774c4a7995a85a
             sysroot: /crossrootfs/x64
           - runtime: linux-arm64
             arch: arm64
