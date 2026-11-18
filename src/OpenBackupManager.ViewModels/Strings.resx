@@ -137,9 +137,6 @@
   <data name="Tray_Open" xml:space="preserve">
     <value>Open</value>
   </data>
-  <data name="Tray_ShowTestNotification" xml:space="preserve">
-    <value>Show test notification</value>
-  </data>
   <data name="Tray_About" xml:space="preserve">
     <value>About</value>
   </data>

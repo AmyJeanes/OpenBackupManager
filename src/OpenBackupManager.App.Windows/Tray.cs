@@ -111,8 +111,8 @@ public sealed partial class Tray : IDisposable
         menu.Items.Add(new MenuFlyoutItem { Text = Strings.Tray_SyncAllNow, IsEnabled = false });
         menu.Items.Add(new MenuFlyoutItem { Text = Strings.Tray_Pause, IsEnabled = false });
         menu.Items.Add(Item(Strings.Tray_Open, _actions.Open));
-        menu.Items.Add(Item(Strings.Tray_ShowTestNotification, _notifications.ShowTest));
 #if DEBUG
+        menu.Items.Add(Item("Show test notification", _notifications.ShowTest));
         var states = new MenuFlyoutSubItem { Text = "Icon state" };
         foreach (var state in Enum.GetValues<SyncState>())
         {
