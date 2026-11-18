@@ -498,7 +498,7 @@ jobs:
           ARCH: ${{ matrix.arch }}
         run: |
           mkdir -p older/publish
-          cp publish/obm publish/obmd publish/THIRD-PARTY-NOTICES.txt older/publish
+          cp publish/obm publish/obmd publish/obm-rclone publish/THIRD-PARTY-NOTICES.txt older/publish
           cp LICENSE nfpm.yaml older
           touch --date 2000-01-01 older/publish/obmd
 
