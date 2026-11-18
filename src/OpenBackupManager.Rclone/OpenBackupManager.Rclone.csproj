@@ -5,6 +5,10 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenBackupManager.Rclone.Tests" />
+  </ItemGroup>
+
   <!-- The bundled rclone: tools/RcloneFetch downloads and verifies it, and it's copied to the output of
        this project and every project that references it. RcloneRuntimeIdentifier picks another platform -->
   <PropertyGroup>
