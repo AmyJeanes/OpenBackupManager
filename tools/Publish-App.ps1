@@ -39,6 +39,8 @@ function Publish($project, $folder) {
         '--configuration', $Configuration
         '--runtime', $Runtime
         "-p:Version=$Version"
+        # The Rclone project is built for any runtime, so it would fetch rclone for the machine doing the build
+        "-p:RcloneRuntimeIdentifier=$Runtime"
         # No symbol files, which compiled code doesn't read, and NativeAOT's are bigger than the programs
         '-p:DebugType=none'
         '--output', $folder
