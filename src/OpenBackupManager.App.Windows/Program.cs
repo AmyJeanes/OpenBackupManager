@@ -41,14 +41,19 @@ public static class Program
 
     private static string LocalAppData => Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 
-    // Holds only obm, so installing puts nothing else on PATH
-    private static string CommandLineFolder => Path.Combine(AppContext.BaseDirectory, "bin");
+    private static string PackagedCommandLineFolder => Path.Combine(AppContext.BaseDirectory, "bin");
+
+    // Only obm, outside current, as VS Code holds every PATH folder open, which stops Velopack replacing current
+    private static string CommandLineFolder => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "bin"));
 
     private static string HookHome => AppHome.Chosen(null, Environment.GetEnvironmentVariable("OBM_HOME")) ?? AppHome.WindowsDefault(true, LocalAppData);
 
     // Windows starts the app with this at login, when it stays in the tray rather than opening its flyout, which would
     // take focus from whatever the user opened first
     internal static bool StartedAtLogin { get; private set; }
+
+    // Velopack starts the app again once it has tried to install an update, whether or not it could
+    internal static bool RestartedToUpdate { get; private set; }
 
     [STAThread]
     private static void Main(string[] args)
@@ -58,8 +63,14 @@ public static class Program
         // only the one for the home this copy uses without --home, as a hook gets only the new version, not the app's
         // arguments. Uninstalling ends it before its hook runs
         VelopackApp.Build()
-            .OnAfterInstallFastCallback(_ => UserPath.Add(CommandLineFolder))
+            .OnAfterInstallFastCallback(_ =>
+            {
+                PutCommandLine();
+                UserPath.Add(CommandLineFolder);
+            })
+            .OnAfterUpdateFastCallback(_ => PutCommandLine())
             .OnBeforeUpdateFastCallback(_ => EngineConnection.StopFor(HookHome))
+            .OnRestarted(_ => RestartedToUpdate = true)
             .OnBeforeUninstallFastCallback(_ => CleanUp(
                 () => RunKey.RemoveFor(Environment.ProcessPath!),
                 () => UserPath.Remove(CommandLineFolder),
@@ -130,6 +141,13 @@ public static class Program
             SynchronizationContext.SetSynchronizationContext(new UiSynchronizationContext(DispatcherQueue.GetForCurrentThread(), crashes));
             _ = new App(host.Services);
         });
+    }
+
+    // Velopack has ended the copy's obm, if it was running, as it does whatever runs from the install
+    private static void PutCommandLine()
+    {
+        Directory.CreateDirectory(CommandLineFolder);
+        File.Copy(Path.Combine(PackagedCommandLineFolder, "obm.exe"), Path.Combine(CommandLineFolder, "obm.exe"), overwrite: true);
     }
 
     // Each on its own, so one that fails doesn't leave the rest behind. Velopack deletes the install folder whatever

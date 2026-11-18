@@ -52,6 +52,14 @@ public sealed partial class Updater : IUpdater, IDisposable
         if (_manager.IsInstalled)
         {
             NoticeUpdate();
+            // Velopack only logs why, such as another program having a folder in the install open
+            if (Program.RestartedToUpdate && _manager.UpdatePendingRestart is { } notInstalled)
+            {
+                LogNotInstalled(notInstalled.Version);
+                _seenVersion = notInstalled.Version.ToString();
+                _notifications.ShowUpdateNotInstalled(_seenVersion);
+            }
+
             _ = CheckRegularly();
         }
     }
@@ -237,6 +245,9 @@ public sealed partial class Updater : IUpdater, IDisposable
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Updated from version {Last} to {Current}")]
     private partial void LogUpdated(SemanticVersion last, SemanticVersion current);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Version {Version} wasn't installed. Check Velopack's log for details")]
+    private partial void LogNotInstalled(SemanticVersion version);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Up to date")]
     private partial void LogUpToDate();

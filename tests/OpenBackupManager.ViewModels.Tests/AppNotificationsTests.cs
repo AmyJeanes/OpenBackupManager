@@ -46,6 +46,21 @@ public class AppNotificationsTests
     }
 
     [Test]
+    public void UpdateNotInstalled_TryAgainRestartsToUpdate()
+    {
+        _notifications.ShowUpdateNotInstalled("1.2.3");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_notifier.Shown.Lines[0], Is.EqualTo("Version 1.2.3 couldn't be installed"));
+            Assert.That(_notifier.Shown.Buttons[1], Is.EqualTo(new DismissButton("Not now")));
+        }
+
+        ClickButton("Try again");
+        Assert.That(_actions.Restarts, Is.EqualTo(1));
+    }
+
+    [Test]
     public void Updated_LinksToWhatsNew()
     {
         var whatsNew = new Uri("https://example.com/releases/tag/v1.2.3");

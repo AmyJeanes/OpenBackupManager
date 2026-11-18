@@ -8,7 +8,7 @@ Every download is attested by the project's build on GitHub: a signed record of 
     gh attestation verify OpenBackupManager.App-win-x64-Setup.exe --repo AmyJeanes/OpenBackupManager
     ```
 
-    On an Arm PC, check `OpenBackupManager.App-win-arm64-Setup.exe` instead. The installed programs can be checked the same way, such as `obm.exe` in `%LocalAppData%\OpenBackupManager.App\current\bin`.
+    On an Arm PC, check `OpenBackupManager.App-win-arm64-Setup.exe` instead. The installed programs can be checked the same way, such as `obm.exe` in `%LocalAppData%\OpenBackupManager.App\bin`.
 
 === "macOS"
 

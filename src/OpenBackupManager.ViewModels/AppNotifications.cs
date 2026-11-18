@@ -33,6 +33,13 @@ public sealed class AppNotifications : IDisposable
         Buttons = [new ActionButton(Strings.Notification_RestartNow, Restart), new DismissButton(Strings.Notification_NotNow)],
     });
 
+    public void ShowUpdateNotInstalled(string version) => _notifier.Show(new Notification(
+        Strings.Notification_UpdateNotInstalledTitle,
+        [Text.Format(Strings.Notification_UpdateNotInstalledText, version), Strings.Notification_UpdateNotInstalledHelp])
+    {
+        Buttons = [new ActionButton(Strings.Notification_TryAgain, Restart), new DismissButton(Strings.Notification_NotNow)],
+    });
+
     public void ShowUpdated(string version, Uri whatsNew) => _notifier.Show(new Notification(
         Strings.Notification_UpdatedTitle,
         [Text.Format(Strings.Notification_UpdatedText, version)])

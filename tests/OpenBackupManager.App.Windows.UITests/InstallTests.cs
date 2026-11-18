@@ -27,7 +27,7 @@ public sealed class InstallTests : AppTests
     private const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenBackupManager.App";
 
     // Holds only obm, which installing puts on PATH
-    private static readonly string CommandLineFolder = Path.Combine(InstallFolder, "current", "bin");
+    private static readonly string CommandLineFolder = Path.Combine(InstallFolder, "bin");
 
     // Where the installed app checks for updates, read as it starts
     private static readonly string UpdateSource = Path.Combine(InstallFolder, "update-source");
@@ -126,6 +126,8 @@ public sealed class InstallTests : AppTests
             Assert.That(File.ReadAllText(Path.Combine(InstallFolder, "current", "THIRD-PARTY-NOTICES.txt")), Does.Contain("Microsoft.WindowsAppSDK.WinUI"));
         }
 
+        // As VS Code has every folder on PATH open, through every update
+        using var onPath = new OpenFolders(UserPathEntries().Where(entry => entry.StartsWith(InstallFolder, StringComparison.OrdinalIgnoreCase)));
         var engine = EngineOf("0.0.1");
         ChooseFromTrayMenu("About");
         var about = WaitForWindow("About " + AppName);
@@ -150,21 +152,27 @@ public sealed class InstallTests : AppTests
         CheckForUpdates(about, "Couldn't check for updates");
         AddToFeed("0.0.2");
         CheckForUpdates(about, "Version 0.0.2 is ready to install");
-        var stops = EngineStops();
-        var restarted = DateTime.Now;
-        var restart = UpdateButton(about, "Restart to update");
-        try
+        AutomationElement notInstalled;
+        // As a File Explorer window open in the install folder has it, which Velopack can't install past
+        using (new OpenFolders([Path.Combine(InstallFolder, "current", "Assets")]))
         {
-            restart.Invoke();
-        }
-        catch (Exception e) when (e is System.ComponentModel.Win32Exception or ElementNotAvailableException)
-        {
-            // UI Automation reports a failure when the app quits before the invoke returns, as this one does
+            var tried = DateTime.Now;
+            RestartToUpdate(about);
+            WaitForRestartAfterUpdate(tried);
+            notInstalled = FindNotification("Update not installed", "Version 0.0.2 couldn't be installed");
         }
 
+        engine = EngineOf("0.0.1");
+        var stops = EngineStops();
+        var restarted = DateTime.Now;
+        PressNotificationButton(notInstalled, "Try again");
         WaitForRestartAfterUpdate(restarted);
         CheckEngineStoppedFirst(engine, stops, "0.0.2");
-        Assert.That(Obm("status"), Does.Contain("Version: 0.0.2+"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Obm("--version"), Does.StartWith("0.0.2+"));
+            Assert.That(Obm("status"), Does.Contain("Version: 0.0.2+"));
+        }
 
         FindNotification("Update installed", "Version 0.0.2 is now installed");
         ClearNotifications();
@@ -238,6 +246,8 @@ public sealed class InstallTests : AppTests
             Assert.That(RunEntries(), Does.Contain($"\"{AppPath}\" --home \"{Home}\" --at-login"));
         }
 
+        // Velopack can't remove a folder that's open
+        onPath.Dispose();
         using var byHand = StartEngineByHand();
         Assert.That(Retry.WhileFalse(() => EngineStatus()?.ProcessId == byHand.Id, Timeout, ignoreException: true).Result, Is.True);
         Uninstall();
@@ -289,6 +299,38 @@ public sealed class InstallTests : AppTests
             using var reader = new StreamReader(new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
             return reader.ReadToEnd().Split('\n').Count(line => line.Contains("Engine stopped", StringComparison.Ordinal));
         });
+
+    private static void RestartToUpdate(Window about)
+    {
+        try
+        {
+            UpdateButton(about, "Restart to update").Invoke();
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or ElementNotAvailableException)
+        {
+            // UI Automation reports a failure when the app quits before the invoke returns, as this one does
+        }
+    }
+
+    // Buttons only show once the notification is expanded
+    private static void PressNotificationButton(AutomationElement notification, string name)
+    {
+        notification.FindFirstChild(c => c.ByAutomationId("ExpandButton"))?.AsButton().Invoke();
+        var button = Retry.WhileNull(
+                () => notification.FindFirstChild(c => c.ByControlType(ControlType.Button).And(c.ByName(name))),
+                Timeout,
+                throwOnTimeout: true,
+                ignoreException: true)
+            .Result!.AsButton();
+        try
+        {
+            button.Invoke();
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or ElementNotAvailableException)
+        {
+            // The app quits to install, which can be before the invoke returns
+        }
+    }
 
     // The installed obm, as a terminal would start it from PATH
     private static string Obm(string arguments)
@@ -435,6 +477,14 @@ public sealed class InstallTests : AppTests
         {
             File.WriteAllText(to + ".error.txt", e.Message);
         }
+    }
+
+    // Has each folder open as programs watching it do, which keeps anything from renaming the folders it's in
+    private sealed class OpenFolders(IEnumerable<string> folders) : IDisposable
+    {
+        private readonly List<FileSystemWatcher> _watchers = [.. folders.Select(folder => new FileSystemWatcher(folder) { EnableRaisingEvents = true })];
+
+        public void Dispose() => _watchers.ForEach(watcher => watcher.Dispose());
     }
 
     private static bool KeyExists(string path)
