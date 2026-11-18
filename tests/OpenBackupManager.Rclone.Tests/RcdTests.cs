@@ -9,8 +9,23 @@ public class RcdTests
     [SetUp]
     public void SetUp() => _folder = Directory.CreateTempSubdirectory("obm-rcd-").FullName;
 
+    // On Windows, something else, such as an antivirus scan, can hold rclone's new log for a moment after it exits
     [TearDown]
-    public void TearDown() => Directory.Delete(_folder, recursive: true);
+    public void TearDown()
+    {
+        for (var tries = 1; ; tries++)
+        {
+            try
+            {
+                Directory.Delete(_folder, recursive: true);
+                return;
+            }
+            catch (IOException) when (tries < 20)
+            {
+                Thread.Sleep(100);
+            }
+        }
+    }
 
     [Test]
     public async Task StartAsync_AnswersOnItsSocket_AndQuitsCleanly()
