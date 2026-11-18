@@ -67,10 +67,11 @@ public sealed class Rcd : IAsyncDisposable
             await WaitUntilAnsweringAsync(process, client, options.LogFile, cancellationToken);
             return new Rcd(process, client);
         }
+        // Such as when the engine stops while it's starting, by when it may be answering already
         catch
         {
+            await StopAsync(process, client);
             client.Dispose();
-            process.Kill();
             process.Dispose();
             throw;
         }
