@@ -175,6 +175,7 @@ public sealed class InstallTests : AppTests
         }
 
         CheckObmFromATerminal();
+        CheckDiagnosticsHaveVelopacksLog();
 
         FindNotification("Update installed", "Version 0.0.2 is now installed");
         ClearNotifications();
@@ -341,6 +342,33 @@ public sealed class InstallTests : AppTests
         var output = obm.StandardOutput.ReadToEnd();
         obm.WaitForExit();
         return output;
+    }
+
+    // Velopack writes the user's folder in its log with each backslash twice, as well as once
+    private static void CheckDiagnosticsHaveVelopacksLog()
+    {
+        var folder = Directory.CreateTempSubdirectory("obm-diagnostics-").FullName;
+        try
+        {
+            var zip = Path.Combine(folder, "diagnostics.zip");
+            Obm($"diagnostics export -o \"{zip}\"");
+            using var archive = ZipFile.OpenRead(zip);
+            var entry = archive.GetEntry("logs/velopack_OpenBackupManager.App.log");
+            Assert.That(entry, Is.Not.Null, string.Join(", ", archive.Entries.Select(file => file.FullName)));
+            using var reader = new StreamReader(entry!.Open());
+            var log = reader.ReadToEnd();
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(log, Does.Contain("Package version 0.0.2 applied successfully"));
+                Assert.That(log, Does.Not.Contain(home).IgnoreCase);
+                Assert.That(log, Does.Not.Contain(home.Replace(@"\", @"\\", StringComparison.Ordinal)).IgnoreCase);
+            }
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
     }
 
     // From a terminal, with no OBM_HOME, obm should use the installed app's home, and find obmd to remove its secrets

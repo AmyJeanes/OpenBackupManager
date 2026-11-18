@@ -27,13 +27,14 @@ public static partial class Redaction
             .Split('&')
             .Select(part => part.Length == 0 ? part : part.Split('=', 2) is [var name, _] ? name + "=<removed>" : "<removed>")));
 
-        // Windows and macOS ignore case in paths, and either slash works in Windows' paths
+        // Windows and macOS ignore case in paths, and either slash works in Windows' paths. Velopack's log writes each
+        // backslash twice
         var folders = home.TrimEnd('\\', '/');
         if (folders.Length > 0)
         {
             details = Regex.Replace(
                 details,
-                string.Join(@"[\\/]", folders.Split('\\', '/').Select(Regex.Escape)) + @"(?!\w)",
+                string.Join(@"[\\/]+", folders.Split('\\', '/').Select(Regex.Escape)) + @"(?!\w)",
                 "~",
                 RegexOptions.CultureInvariant | (OperatingSystem.IsLinux() ? RegexOptions.None : RegexOptions.IgnoreCase));
         }

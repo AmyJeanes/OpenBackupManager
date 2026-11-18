@@ -20,10 +20,14 @@ public class RedactionTests
             Is.EqualTo("Opened ~/a.txt\n.NET: from <computer>\nOpened ~/b.txt"));
 
     [Test]
-    public void TakesOutTheHomeFolder_WithEitherSlash() =>
+    public void TakesOutTheHomeFolder_WithEitherSlash_OrBackslashesWrittenTwice() =>
         Assert.That(
-            Redaction.Redact(Report(@"C:\Users\Amy\AppData and C:/Users/Amy/AppData"), @"C:\Users\Amy", "Amy", "DESKTOP"),
-            Is.EqualTo(Report(@"~\AppData and ~/AppData")));
+            Redaction.Redact(
+                Report(@"C:\Users\Amy\AppData, C:/Users/Amy/AppData and C:\\Users\\Amy\\AppData"),
+                @"C:\Users\Amy",
+                "amy.jeanes",
+                "DESKTOP"),
+            Is.EqualTo(Report(@"~\AppData, ~/AppData and ~\\AppData")));
 
     [TestCase("Amy's folder", ExpectedResult = "<user>'s folder")]
     [TestCase("Amylase and amy2", ExpectedResult = "Amylase and amy2")]

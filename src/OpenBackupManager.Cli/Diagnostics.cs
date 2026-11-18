@@ -13,7 +13,7 @@ internal static class Diagnostics
     // As long as obm keeps its logs
     private static readonly TimeSpan Kept = TimeSpan.FromDays(7);
 
-    public static async Task<int> ExportAsync(AppPaths paths, EngineService? service, string? output, CancellationToken cancellationToken)
+    public static async Task<int> ExportAsync(AppPaths paths, EngineService? service, Func<bool> installed, string? output, CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.Now;
         var name = string.Create(CultureInfo.InvariantCulture, $"obm-diagnostics-{now:yyyyMMdd-HHmmss}.zip");
@@ -26,6 +26,7 @@ internal static class Diagnostics
 
         var summary = await SummaryAsync(paths, service, now, cancellationToken);
         var logs = Directory.Exists(paths.Logs) ? AppPaths.LogFiles.SelectMany(pattern => Directory.GetFiles(paths.Logs, pattern)).Order(StringComparer.Ordinal).ToList() : [];
+        logs.AddRange(VelopackLogs(installed));
         var crashes = CrashReports.List(paths);
         var config = File.Exists(paths.ConfigFile);
 
@@ -170,6 +171,19 @@ internal static class Diagnostics
         {
             yield return ("journal.txt", SystemRecords.Journal(systemd.Unit, since));
         }
+    }
+
+    // The installed app's updates, and why one didn't install. Every app Velopack updates logs to the same folder, so
+    // only the files named after the app's package, which Velopack rolls over to .old at 1 MB
+    private static IEnumerable<string> VelopackLogs(Func<bool> installed)
+    {
+        if (!OperatingSystem.IsWindows() || !installed())
+        {
+            return [];
+        }
+
+        var log = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "velopack", "velopack_OpenBackupManager.App.log");
+        return new[] { log + ".old", log }.Where(File.Exists);
     }
 
     private static void Add(ZipArchive zip, string entry, string text, CancellationToken cancellationToken)

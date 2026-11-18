@@ -122,7 +122,7 @@ var exportCommand = new Command("export", "Save a zip of the logs, crash reports
     outputOption,
 };
 exportCommand.SetAction((parseResult, cancellationToken) =>
-    RefuseUnderSudo() ?? Diagnostics.ExportAsync(Paths(parseResult), ServiceFor(parseResult), parseResult.GetValue(outputOption), cancellationToken));
+    RefuseUnderSudo() ?? Diagnostics.ExportAsync(Paths(parseResult), ServiceFor(parseResult), Installed, parseResult.GetValue(outputOption), cancellationToken));
 
 var diagnosticsCommand = new Command("diagnostics", "What helps find out what went wrong")
 {
