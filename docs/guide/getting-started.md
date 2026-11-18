@@ -23,11 +23,12 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
     There's no app for macOS yet, but the command line, `obm`, and its engine, `obmd`, are ready to download.
 
     1. Download `OpenBackupManager-<version>-osx-arm64.tar.gz` from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), or `OpenBackupManager-<version>-osx-x64.tar.gz` for an Intel Mac.
-    2. Unpack them into a folder on your PATH, such as `~/.local/bin`:
+    2. Unpack it into a folder of its own, and link `obm` and `obmd` into a folder on your PATH, such as `~/.local/bin`:
 
         ```
-        mkdir -p ~/.local/bin
-        tar -xzf ~/Downloads/OpenBackupManager-<version>-osx-arm64.tar.gz -C ~/.local/bin obm obmd
+        mkdir -p ~/.local/share/openbackupmanager ~/.local/bin
+        tar -xzf ~/Downloads/OpenBackupManager-<version>-osx-arm64.tar.gz -C ~/.local/share/openbackupmanager
+        ln -sf ~/.local/share/openbackupmanager/obm ~/.local/share/openbackupmanager/obmd ~/.local/bin/
         ```
 
         On an Intel Mac, unpack `OpenBackupManager-<version>-osx-x64.tar.gz` instead. If macOS asks whether Terminal can access your Downloads folder, allow it. If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` and open a new terminal.
@@ -41,7 +42,7 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
         A browser marks what it downloads as quarantined, and macOS won't run a quarantined program that isn't signed by Apple, which these aren't yet. If it says "“obm” Not Opened", as Apple could not verify it's free of malware, remove the quarantine:
 
         ```
-        xattr -d com.apple.quarantine ~/.local/bin/obm ~/.local/bin/obmd
+        xattr -dr com.apple.quarantine ~/.local/share/openbackupmanager
         ```
 
         Downloading with `curl` instead leaves nothing to remove:
@@ -71,11 +72,12 @@ Open Backup Manager backs up your folders and keeps them in sync with the cloud.
 
     To update, install a newer package. The service restarts the engine into it, while an engine you started yourself runs the old version until you restart it.
 
-    On other distros, unpack the tarball into a folder on your PATH instead:
+    On other distros, unpack the tarball into a folder of its own instead, and link `obm` and `obmd` into a folder on your PATH, such as `~/.local/bin`:
 
     ```
-    mkdir -p ~/.local/bin
-    tar -xzf ~/Downloads/OpenBackupManager-<version>-linux-x64.tar.gz -C ~/.local/bin obm obmd
+    mkdir -p ~/.local/share/openbackupmanager ~/.local/bin
+    tar -xzf ~/Downloads/OpenBackupManager-<version>-linux-x64.tar.gz -C ~/.local/share/openbackupmanager
+    ln -sf ~/.local/share/openbackupmanager/obm ~/.local/share/openbackupmanager/obmd ~/.local/bin/
     ```
 
     If `obm --version` isn't found after that, add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc` and open a new terminal. The tarball needs ICU and OpenSSL 3 or newer, which desktop distros already have. On a minimal install, add them with your package manager, such as `sudo apt install libicu72 libssl3` on Debian 12, or `sudo dnf install libicu openssl-libs` on RHEL and Fedora. To update later, run `obm update`.

@@ -137,11 +137,11 @@ Attach the zip to your issue. If it has things you'd rather not post publicly, e
 
 === "macOS"
 
-    To remove `obm` and `obmd`, run `obm service uninstall` if you used it, then delete them. Your data and secrets stay, so installing them again picks up where you left off. To remove those too, run `obm data remove` first.
+    To remove `obm` and `obmd`, run `obm service uninstall` if you used it, then delete the folder you unpacked them into, such as `~/.local/share/openbackupmanager`, and their links, such as `~/.local/bin/obm` and `~/.local/bin/obmd`. Your data and secrets stay, so installing them again picks up where you left off. To remove those too, run `obm data remove` first.
 
 === "Linux"
 
-    If you installed the `.deb` or `.rpm`, remove it with `sudo apt remove openbackupmanager` or `sudo dnf remove openbackupmanager`. The engine notices, removes its service if you used `obm service install`, and stops. Otherwise, run `obm service uninstall` if you used it, then delete `obm` and `obmd`. In Docker, remove the container.
+    If you installed the `.deb` or `.rpm`, remove it with `sudo apt remove openbackupmanager` or `sudo dnf remove openbackupmanager`. The engine notices, removes its service if you used `obm service install`, and stops. Otherwise, run `obm service uninstall` if you used it, then delete the folder you unpacked them into, such as `~/.local/share/openbackupmanager`, and their links, such as `~/.local/bin/obm` and `~/.local/bin/obmd`. In Docker, remove the container.
 
     Your data and secrets stay, so installing again picks up where you left off. To remove those too, run `obm data remove` first. In Docker, they're in the folder or volume you gave it as `/config`. Run `docker compose down`, then delete that folder, such as with `rm -rf config`, using `sudo` if another user owns it. For a named volume, `docker compose down -v` removes it.
 

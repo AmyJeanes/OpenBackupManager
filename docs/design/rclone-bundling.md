@@ -1,6 +1,6 @@
 # Bundled rclone
 
-The build fetches rclone at a pinned version and checks it's genuine, so the app can ship one it's been tested with rather than use whatever is installed. The engine runs it as `rclone rcd`, one for each remote. So far only the Windows app ships it, as its package takes everything published beside `obmd`.
+The build fetches rclone at a pinned version and checks it's genuine, so the app can ship one it's been tested with rather than use whatever is installed. The engine runs it as `rclone rcd`, one for each remote. Every package has it beside `obmd`: the Windows app, the tarball, the .deb and .rpm, and the Docker image, which is made from the tarball.
 
 ## Code map
 
@@ -8,6 +8,11 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
 - `tools/RcloneFetch` downloads the release for one runtime and checks it against rclone's signing key, `rclone-signing-key.asc` beside it.
 - `OpenBackupManager.Rclone` runs the fetcher as it builds, and puts rclone next to anything that references it. `BundledRclone` says where it is and which version it is. `Rcd` starts and stops rcd, and `RcClient` calls it.
 - The engine's `Remotes` runs an rcd for each `[[remotes]]` in `config.toml`.
+
+## Shipping it
+
+- **Never on PATH as a plain `rclone`,** so it never stands in for an rclone the user has, and the engine runs it by its full path, never one from PATH. The tarball is unpacked into a folder of its own, such as `~/.local/share/openbackupmanager`, with only `obm` and `obmd` linked onto PATH, as the .deb and .rpm do from `/usr/lib/openbackupmanager`. On Windows it's in the app's folder, and only `obm` is on PATH.
+- **Fetched for the runtime being published,** which `tools/Publish-App.ps1` passes on as `RcloneRuntimeIdentifier`, as the Rclone project is built for any runtime and would otherwise fetch rclone for the machine doing the build.
 
 ## Running it
 

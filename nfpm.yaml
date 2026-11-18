@@ -25,6 +25,10 @@ contents:
     dst: /usr/lib/openbackupmanager/obmd
     file_info:
       mode: 0755
+  - src: publish/rclone
+    dst: /usr/lib/openbackupmanager/rclone
+    file_info:
+      mode: 0755
   - src: LICENSE
     dst: /usr/lib/openbackupmanager/LICENSE
     file_info:
