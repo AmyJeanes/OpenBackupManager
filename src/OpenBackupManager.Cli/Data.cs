@@ -23,6 +23,7 @@ internal static class Data
 
     public static async Task<int> RemoveAsync(AppPaths paths, string? home, EngineService? service, bool yes, CancellationToken cancellationToken)
     {
+        // Stopping the engine would stop the container
         if (Update.InstalledBy(Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory)) == "docker")
         {
             return Fail("in Docker, remove the container instead, then the folder or volume it uses as /config");
