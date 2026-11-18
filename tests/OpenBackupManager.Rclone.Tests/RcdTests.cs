@@ -23,12 +23,8 @@ public class RcdTests
             Assert.That(version.Version, Is.EqualTo(BundledRclone.Version));
         }
 
-        using (Assert.EnterMultipleScope())
-        {
-            // A killed rcd leaves its socket behind
-            Assert.That(File.Exists(options.Socket), Is.False);
-            Assert.That(File.Exists(options.LogFile), Is.True);
-        }
+        // A killed rcd leaves its socket behind
+        Assert.That(File.Exists(options.Socket), Is.False);
     }
 
     [Test]
@@ -61,20 +57,24 @@ public class RcdTests
     [Test]
     public void StartAsync_WhenRcdStopsAtOnce_SaysSo()
     {
-        // rclone can't open a log file in a folder that isn't there
-        var options = Options() with { LogFile = Path.Combine(_folder, "missing", "rclone.log") };
+        // Longer than a socket's path can be
+        var options = Options() with { Socket = Path.Combine(_folder, new string('x', 120) + ".sock") };
 
         Assert.That(() => Rcd.StartAsync(options, CancellationToken.None),
             Throws.TypeOf<RcloneException>().With.Message.Contains("stopped as it started"));
     }
 
     [Test]
-    public async Task CallAsync_WhenRcloneFails_ThrowsItsMessage()
+    public async Task CallAsync_WhenRcloneFails_ThrowsItsMessage_AndItsLogHasIt()
     {
-        await using var rcd = await Rcd.StartAsync(Options(), CancellationToken.None);
+        var options = Options();
+        await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
 
         Assert.That(() => rcd.Client.CallAsync("no/such", new NoParams(), RcJson.Default.NoParams, RcJson.Default.NoResult, CancellationToken.None),
             Throws.TypeOf<RcloneException>().With.Message.EqualTo("rclone's no/such failed: couldn't find method \"no/such\""));
+        // Made when it first writes, and still open
+        using var log = new StreamReader(new FileStream(options.LogFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+        Assert.That(log.ReadToEnd(), Does.Contain("couldn't find method \"no/such\""));
     }
 
     private RcdOptions Options() => new(
