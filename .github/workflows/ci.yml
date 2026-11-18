@@ -750,7 +750,7 @@ jobs:
                   --channel $runtime \
                   $PRERELEASE \
                   --tag "$TAG" \
-                  --releaseName "Release $TAG" \
+                  --releaseName "$TAG" \
                   --merge \
                   --outputDir "built/releases-$runtime"
           done

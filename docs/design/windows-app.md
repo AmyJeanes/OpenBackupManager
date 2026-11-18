@@ -93,7 +93,7 @@ CI can't see display scaling, effects or the taskbar, so changes to the windows 
 ## Releasing
 
 1. Push a tag such as `v0.1.0`, or `v0.1.0-alpha.1` for a prerelease, following [Versions](#versions).
-2. CI's package-windows job checks the tag, then builds x64 and ARM64, packs each with Velopack and attests them. The other package jobs do the same for the macOS and Linux tarballs, the `.deb` and `.rpm`, and the Docker image, which package-docker pushes (see [Engine and command line](engine.md)). Once all of them and the install tests have finished, the release job uploads everything to a draft release called `Release v0.1.0`, marked as a prerelease if the version has a `-`.
+2. CI's package-windows job checks the tag, then builds x64 and ARM64, packs each with Velopack and attests them. The other package jobs do the same for the macOS and Linux tarballs, the `.deb` and `.rpm`, and the Docker image, which package-docker pushes (see [Engine and command line](engine.md)). Once all of them and the install tests have finished, the release job uploads everything to a draft release called `v0.1.0`, marked as a prerelease if the version has a `-`.
 3. Write the notes and publish the draft. Installed copies only see published releases, so nobody updates until then.
 
 The repository makes published releases immutable, so a broken release is replaced by a new version, never patched, and a release job can only be re-run before publishing. A re-run fails on what the first run uploaded, so delete the draft release first, keeping its tag.
