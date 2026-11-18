@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
@@ -31,8 +32,7 @@ public class RemotesTests
         var pids = new List<int>();
         foreach (var socket in sockets)
         {
-            using var client = new RcClient(socket);
-            pids.Add((await client.PidAsync(CancellationToken.None)).Pid);
+            pids.Add(await PidAsync(socket));
         }
 
         await engine.StopAsync();
@@ -43,6 +43,40 @@ public class RemotesTests
             // Each quit rather than was killed, as that leaves its socket
             Assert.That(sockets.Where(File.Exists), Is.Empty);
         }
+    }
+
+    [Test]
+    public async Task ItsRclone_WhenItStops_StartsAgain()
+    {
+        await File.WriteAllTextAsync(_home.ConfigFile, "[[remotes]]\nid = \"onedrive\"\n");
+        using var engine = EngineHost.Build(_home);
+        await engine.StartAsync();
+        var socket = engine.Services.GetServices<IHostedService>().OfType<Remotes>().Single().Options("onedrive").Socket;
+        using var first = Process.GetProcessById(await PidAsync(socket));
+
+        first.Kill();
+
+        Assert.That(await PidAsync(socket, notPid: first.Id), Is.Not.EqualTo(first.Id));
+        await engine.StopAsync();
+    }
+
+    [Test]
+    public async Task ItsRclone_WhenItCantStart_IsTriedAgain()
+    {
+        await File.WriteAllTextAsync(_home.ConfigFile, "[[remotes]]\nid = \"onedrive\"\n");
+        // A file where its config's folder goes
+        Directory.CreateDirectory(_home.State);
+        var inTheWay = Path.Combine(_home.State, "rclone");
+        await File.WriteAllTextAsync(inTheWay, "");
+        using var engine = EngineHost.Build(_home);
+        await engine.StartAsync();
+        var socket = engine.Services.GetServices<IHostedService>().OfType<Remotes>().Single().Options("onedrive").Socket;
+        await Task.Delay(500);
+
+        File.Delete(inTheWay);
+
+        Assert.That(await PidAsync(socket), Is.Positive);
+        await engine.StopAsync();
     }
 
     [Test]
@@ -62,6 +96,30 @@ public class RemotesTests
             Assert.That(Path.GetFileName(options.Socket), Does.Match("^rc-[0-9a-f]{8}\\.sock$"));
             Assert.That(options.Socket, Is.Not.EqualTo(remotes.Options("onedrive").Socket));
             Assert.That(options.UserAgent, Is.EqualTo($"ISV|AmyJeanes|OpenBackupManager/{AppVersion.Current}"));
+        }
+    }
+
+    // The engine starts each without waiting for it, and the one it's replacing may still answer for a moment
+    private static async Task<int> PidAsync(string socket, int? notPid = null)
+    {
+        using var client = new RcClient(socket);
+        var until = DateTime.UtcNow.AddSeconds(15);
+        while (true)
+        {
+            try
+            {
+                var pid = (await client.PidAsync(CancellationToken.None)).Pid;
+                if (pid != notPid)
+                {
+                    return pid;
+                }
+            }
+            catch (HttpRequestException) when (DateTime.UtcNow < until)
+            {
+            }
+
+            Assert.That(DateTime.UtcNow, Is.LessThan(until), $"Nothing new answered on {socket}");
+            await Task.Delay(100);
         }
     }
 }

@@ -20,9 +20,15 @@ public sealed class Rcd : IAsyncDisposable
     {
         _process = process;
         Client = client;
+        Exited = process.WaitForExitAsync();
     }
 
     public RcClient Client { get; }
+
+    // However it ends, stopped or not
+    public Task Exited { get; }
+
+    public int ExitCode => _process.ExitCode;
 
     public static async Task<Rcd> StartAsync(RcdOptions options, CancellationToken cancellationToken)
     {
