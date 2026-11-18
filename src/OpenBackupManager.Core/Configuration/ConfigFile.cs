@@ -225,6 +225,11 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
                 {
                     problems.Add(new ConfigProblem(Line(table), ConfigProblemKind.RemoteNeedsId, IsError: true));
                 }
+                // It names the remote's own files, such as its rclone config
+                else if (value.Length > 32 || !value.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-'))
+                {
+                    problems.Add(new ConfigProblem(Line(id), ConfigProblemKind.RemoteIdNotValid, IsError: true, value));
+                }
                 else if (!ids.Add(value))
                 {
                     problems.Add(new ConfigProblem(Line(id), ConfigProblemKind.RemoteIdUsedTwice, IsError: true, value));

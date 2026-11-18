@@ -46,6 +46,10 @@
     <value>each [[remotes]] needs an id</value>
     <comment>[[remotes]] and id are written in the file, so stay as they are</comment>
   </data>
+  <data name="ConfigProblem_RemoteIdNotValid" xml:space="preserve">
+    <value>the remote id "{0}" can only use lowercase letters, digits and hyphens, up to 32 characters</value>
+    <comment>A remote is a place backups go, such as OneDrive</comment>
+  </data>
   <data name="ConfigProblem_RemoteIdUsedTwice" xml:space="preserve">
     <value>the remote id "{0}" is used twice</value>
     <comment>A remote is a place backups go, such as OneDrive</comment>

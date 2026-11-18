@@ -44,9 +44,9 @@ public class ConfigFileTests
             prereleases = true
 
             [[remotes]]
-            id = "onedrive"
+            id = "onedrive-2"
             name = "OneDrive"
-            root = "onedrive:OpenBackupManager/"
+            root = "OpenBackupManager/"
             """);
 
         using (Assert.EnterMultipleScope())
@@ -56,7 +56,7 @@ public class ConfigFileTests
             Assert.That(result.Config.AskBeforeQuitting, Is.False);
             Assert.That(result.Config.SecretStore, Is.EqualTo("file"));
             Assert.That(result.Config.Updates.Prereleases, Is.True);
-            Assert.That(result.Config.Remotes, Is.EquivalentTo([new RemoteSettings { Id = "onedrive", Name = "OneDrive", Root = "onedrive:OpenBackupManager/" }]));
+            Assert.That(result.Config.Remotes, Is.EquivalentTo([new RemoteSettings { Id = "onedrive-2", Name = "OneDrive", Root = "OpenBackupManager/" }]));
         }
     }
 
@@ -86,6 +86,10 @@ public class ConfigFileTests
     [TestCase("version = 1\nupdates = { automatic = false }", 2, "updates should be [updates]")]
     [TestCase("remotes = { id = \"a\" }", 1, "remotes should be [[remotes]]")]
     [TestCase("[[remotes]]\nname = \"A\"", 1, "each [[remotes]] needs an id")]
+    [TestCase("[[remotes]]\nid = \"One Drive\"", 2, "the remote id \"One Drive\" can only use lowercase letters, digits and hyphens, up to 32 characters")]
+    [TestCase("[[remotes]]\nid = \"../x\"", 2, "the remote id \"../x\" can only use lowercase letters, digits and hyphens, up to 32 characters")]
+    [TestCase("[[remotes]]\nid = \"abcdefghijklmnopqrstuvwxyz-1234567\"", 2,
+        "the remote id \"abcdefghijklmnopqrstuvwxyz-1234567\" can only use lowercase letters, digits and hyphens, up to 32 characters")]
     [TestCase("[[remotes]]\nid = \"a\"\n[[remotes]]\nid = \"a\"", 4, "the remote id \"a\" is used twice")]
     public void Parse_Mistake_IsAnErrorNamingTheLine(string text, int line, string message)
     {

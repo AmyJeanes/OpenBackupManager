@@ -160,6 +160,7 @@ It leaves out crash reports, which `obm crashes list --json` has.
 | `shouldBeTable` | The section should be written as `[section]`. |
 | `shouldBeTableArray` | The section should be written as `[[section]]`. |
 | `remoteNeedsId` | A `[[remotes]]` has no `id`. |
+| `remoteIdNotValid` | A remote's `id` has something other than lowercase letters, digits and hyphens, or is over 32 characters. |
 | `remoteIdUsedTwice` | Two remotes have the same `id`. |
 | `unknownSetting` | It isn't a setting this version knows, such as a misspelt one. |
 | `unknownSection` | It isn't a section this version knows. |
