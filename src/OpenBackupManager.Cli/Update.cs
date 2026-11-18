@@ -10,8 +10,8 @@ using Velopack;
 
 namespace OpenBackupManager.Cli;
 
-// obm update: replaces obm and obmd where they are with the newest release, on macOS and Linux. The engine's
-// UpdateWatcher notices the new obmd, and a service restarts it into it
+// obm update: replaces what the tarball has where it was unpacked with the newest release, on macOS and Linux. The
+// engine's UpdateWatcher notices the new obmd, and a service restarts it into it
 internal static class Update
 {
     private static readonly TimeSpan RestartTimeout = TimeSpan.FromSeconds(30);
@@ -59,7 +59,7 @@ internal static class Update
             if (!CanWrite(folder))
             {
                 throw new UpdateException(
-                    $"can't write to {folder}, so obm and obmd can't be updated there. Unpack the new version there yourself, or move them to a folder of yours, such as ~/.local/bin");
+                    $"can't write to {folder}, so it can't be updated there. Unpack the new version there yourself, or into a folder of yours, such as ~/.local/share/openbackupmanager");
             }
 
             var name = TarballName(newest.Version);
@@ -108,7 +108,7 @@ internal static class Update
                 }
             }
 
-            Console.WriteLine($"Updated obm and obmd in {folder}");
+            Console.WriteLine($"Updated obm, obmd and obm-rclone in {folder}");
             return await RestartedAsync(paths, service, before, newest.Version, cancellationToken);
         }
         catch (Exception e) when (e is UpdateException or EngineException)
@@ -231,9 +231,9 @@ internal static class Update
         using var reader = new TarReader(gzip);
         while (reader.GetNextEntry() is { } entry)
         {
-            // Only the programs, as the guide unpacks only them into a folder on PATH, where a LICENSE may be another
-            // program's. The release's own files carry the licence and notices
-            if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || entry.Name is not ("obm" or "obmd"))
+            // Only files at its top level, as the guide unpacks it into a folder of its own, which keeps a name such as
+            // ../x from writing outside it before the hash is checked
+            if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || entry.Name.Contains('/'))
             {
                 continue;
             }

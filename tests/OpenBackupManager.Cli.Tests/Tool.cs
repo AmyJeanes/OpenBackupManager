@@ -124,12 +124,12 @@ internal sealed class Tool : IDisposable
         return tool;
     }
 
-    // obm and obmd on macOS and Linux, in a folder of their own that a test can change as an update would. The build
-    // needs everything beside them, but what's published is only them
+    // obm, obmd and obm-rclone on macOS and Linux, in a folder of their own that a test can change as an update would.
+    // The build needs everything beside them, but what's published is only them
     public static void CopyTo(string folder)
     {
         var from = Published ?? AppContext.BaseDirectory;
-        var files = Published is null ? Directory.GetFiles(from, "*", SearchOption.AllDirectories) : [Path.Combine(from, "obm"), Path.Combine(from, "obmd")];
+        var files = Published is null ? Directory.GetFiles(from, "*", SearchOption.AllDirectories) : [Path.Combine(from, "obm"), Path.Combine(from, "obmd"), Path.Combine(from, "obm-rclone")];
         foreach (var file in files)
         {
             var to = Path.Combine(folder, Path.GetRelativePath(from, file));

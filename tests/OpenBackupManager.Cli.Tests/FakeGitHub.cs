@@ -82,16 +82,16 @@ internal sealed class FakeGitHub : IDisposable
         }
     }
 
-    // obm and obmd as they are, as they're what runs, but dated later as a newer build's would be, with licences
-    // to tell it apart
+    // The programs as they are, as they're what runs, but dated later as a newer build's would be, with licences to
+    // tell it apart
     [UnsupportedOSPlatform("windows")]
-    public static byte[] NewVersionOf(string programs)
+    public static byte[] NewVersionOf(string programs, string? alsoNamed = null)
     {
         using var stream = new MemoryStream();
         using (var gzip = new GZipStream(stream, CompressionLevel.Fastest))
         using (var writer = new TarWriter(gzip, TarEntryFormat.Ustar))
         {
-            foreach (var name in (string[])["obm", "obmd"])
+            foreach (var name in (string[])["obm", "obmd", "obm-rclone"])
             {
                 var path = Path.Combine(programs, name);
                 using var content = File.OpenRead(path);
@@ -103,7 +103,7 @@ internal sealed class FakeGitHub : IDisposable
                 });
             }
 
-            foreach (var name in (string[])["LICENSE", "THIRD-PARTY-NOTICES.txt"])
+            foreach (var name in (string[])["LICENSE", "THIRD-PARTY-NOTICES.txt", .. alsoNamed is null ? [] : new[] { alsoNamed }])
             {
                 using var text = new MemoryStream(Encoding.UTF8.GetBytes($"The new version's {name}"));
                 writer.WriteEntry(new UstarTarEntry(TarEntryType.RegularFile, name) { Mode = (UnixFileMode)0b110_100_100, DataStream = text });

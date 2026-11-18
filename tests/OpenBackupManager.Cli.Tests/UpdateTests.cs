@@ -29,6 +29,8 @@ public class UpdateTests
 
     private string Obmd => Path.Combine(_programs, "obmd");
 
+    private string Rclone => Path.Combine(_programs, "obm-rclone");
+
     [SetUp]
     public void SetUp()
     {
@@ -61,12 +63,13 @@ public class UpdateTests
         }
     }
 
-    // And the licences only if they were unpacked there too
+    // And the licences, as the folder is theirs alone
     [Test]
     public void Update_ReplacesThemWithTheNewest()
     {
         var obm = File.GetLastWriteTimeUtc(Obm);
         var obmd = File.GetLastWriteTimeUtc(Obmd);
+        var rclone = File.GetLastWriteTimeUtc(Rclone);
         File.WriteAllText(Path.Combine(_programs, "LICENSE"), "The old version's LICENSE");
         File.Delete(Path.Combine(_programs, "THIRD-PARTY-NOTICES.txt"));
         _github.Add("0.2.0", new Asset($"OpenBackupManager-0.2.0-{Runtime}.tar.gz", FakeGitHub.NewVersionOf(_programs)));
@@ -79,12 +82,13 @@ public class UpdateTests
             Assert.That(exitCode, Is.Zero, output);
             Assert.That(output, Does.Contain($"Updating from {Version} to 0.3.0"));
             Assert.That(output, Does.Contain($"Downloaded {Tarball}, and its SHA-256 hash matches the one GitHub gives for it"));
-            Assert.That(output, Does.Contain("Updated obm and obmd in "));
+            Assert.That(output, Does.Contain("Updated obm, obmd and obm-rclone in "));
             Assert.That(output, Does.Contain("The engine isn't running, so it'll run 0.3.0 when it next starts"));
-            Assert.That(File.ReadAllText(Path.Combine(_programs, "LICENSE")), Is.EqualTo("The old version's LICENSE"));
-            Assert.That(Path.Combine(_programs, "THIRD-PARTY-NOTICES.txt"), Does.Not.Exist);
+            Assert.That(File.ReadAllText(Path.Combine(_programs, "LICENSE")), Is.EqualTo("The new version's LICENSE"));
+            Assert.That(File.ReadAllText(Path.Combine(_programs, "THIRD-PARTY-NOTICES.txt")), Is.EqualTo("The new version's THIRD-PARTY-NOTICES.txt"));
             Assert.That(File.GetLastWriteTimeUtc(Obm), Is.EqualTo(obm.AddMinutes(1)).Within(TimeSpan.FromSeconds(1)));
             Assert.That(File.GetLastWriteTimeUtc(Obmd), Is.EqualTo(obmd.AddMinutes(1)).Within(TimeSpan.FromSeconds(1)));
+            Assert.That(File.GetLastWriteTimeUtc(Rclone), Is.EqualTo(rclone.AddMinutes(1)).Within(TimeSpan.FromSeconds(1)));
             Assert.That(Leftovers(), Is.Empty);
             Assert.That(Tool.Run(Obm, "--version").ExitCode, Is.Zero);
         }
@@ -103,9 +107,25 @@ public class UpdateTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(exitCode, Is.Zero, output);
-            Assert.That(output, Does.Contain("Updated obm and obmd in "));
+            Assert.That(output, Does.Contain("Updated obm, obmd and obm-rclone in "));
             Assert.That(File.GetUnixFileMode(Obm), Is.EqualTo((UnixFileMode)0b111_101_101));
             Assert.That(File.GetUnixFileMode(Obmd), Is.EqualTo((UnixFileMode)0b111_101_101));
+        }
+    }
+
+    // As the tarball's hash matches, it would otherwise be renamed into place there
+    [Test]
+    public void Update_WritesNothingOutsideItsFolder()
+    {
+        _github.Add("0.3.0", new Asset(Tarball, FakeGitHub.NewVersionOf(_programs, alsoNamed: "../outside")));
+
+        var (exitCode, output) = Update();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exitCode, Is.Zero, output);
+            Assert.That(Directory.GetFiles(Path.GetDirectoryName(_programs)!), Is.Empty);
+            Assert.That(Leftovers(), Is.Empty);
         }
     }
 
@@ -406,7 +426,7 @@ public class UpdateTests
         {
             Assert.That(exitCode, Is.EqualTo(1), output);
             Assert.That(output, Does.StartWith("obm: can't write to ").And.EndWith(
-                ", so obm and obmd can't be updated there. Unpack the new version there yourself, or move them to a folder of yours, such as ~/.local/bin"));
+                ", so it can't be updated there. Unpack the new version there yourself, or into a folder of yours, such as ~/.local/share/openbackupmanager"));
         }
     }
 
