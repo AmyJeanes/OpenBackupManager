@@ -43,7 +43,8 @@ public static class Program
 
     private static string PackagedCommandLineFolder => Path.Combine(AppContext.BaseDirectory, "bin");
 
-    // Only obm, outside current, as VS Code holds every PATH folder open, which stops Velopack replacing current
+    // Only obm, outside current, as VS Code holds every PATH folder open, which stops Velopack replacing current. With
+    // Velopack's sq.version, as its locator looks beside the exe for it, which obm needs to find the installed app's home
     private static string CommandLineFolder => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "bin"));
 
     private static string HookHome => AppHome.Chosen(null, Environment.GetEnvironmentVariable("OBM_HOME")) ?? AppHome.WindowsDefault(true, LocalAppData);
@@ -148,6 +149,7 @@ public static class Program
     {
         Directory.CreateDirectory(CommandLineFolder);
         File.Copy(Path.Combine(PackagedCommandLineFolder, "obm.exe"), Path.Combine(CommandLineFolder, "obm.exe"), overwrite: true);
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "sq.version"), Path.Combine(CommandLineFolder, "sq.version"), overwrite: true);
     }
 
     // Each on its own, so one that fails doesn't leave the rest behind. Velopack deletes the install folder whatever

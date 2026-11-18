@@ -199,13 +199,13 @@ internal static class Data
         return process.ExitCode;
     }
 
-    // Beside obm, or on Windows, the folder above, as the app keeps obm in bin
+    // Beside obm, or on Windows, where the installed app keeps it: the folder above the packaged obm, or for the copy of
+    // obm on PATH, current beside it
     private static string? Obmd()
     {
         var name = OperatingSystem.IsWindows() ? "obmd.exe" : "obmd";
-        return new[] { Path.Combine(AppContext.BaseDirectory, name), Path.Combine(AppContext.BaseDirectory, "..", name) }
-            .Select(Path.GetFullPath)
-            .FirstOrDefault(File.Exists);
+        string[] places = [AppContext.BaseDirectory, Path.Combine(AppContext.BaseDirectory, ".."), Path.Combine(AppContext.BaseDirectory, "..", "current")];
+        return places.Select(place => Path.GetFullPath(Path.Combine(place, name))).FirstOrDefault(File.Exists);
     }
 
     private static int Fail(string message)

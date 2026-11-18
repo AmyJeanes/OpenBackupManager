@@ -119,7 +119,7 @@ public sealed class InstallTests : AppTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(UserPathEntries(), Does.Contain(CommandLineFolder));
-            Assert.That(Directory.GetFiles(CommandLineFolder).Select(Path.GetFileName), Is.EqualTo((string[])["obm.exe"]));
+            Assert.That(Directory.GetFiles(CommandLineFolder).Select(Path.GetFileName), Is.EquivalentTo((string[])["obm.exe", "sq.version"]));
             Assert.That(Obm("--version"), Does.StartWith("0.0.1+"));
             Assert.That(new FileInfo(Path.Combine(InstallFolder, "current", "LICENSE.txt")).Length, Is.GreaterThan(0));
             // The generated part, not only the hand-written notices the app's build copies
@@ -173,6 +173,8 @@ public sealed class InstallTests : AppTests
             Assert.That(Obm("--version"), Does.StartWith("0.0.2+"));
             Assert.That(Obm("status"), Does.Contain("Version: 0.0.2+"));
         }
+
+        CheckObmFromATerminal();
 
         FindNotification("Update installed", "Version 0.0.2 is now installed");
         ClearNotifications();
@@ -339,6 +341,32 @@ public sealed class InstallTests : AppTests
         var output = obm.StandardOutput.ReadToEnd();
         obm.WaitForExit();
         return output;
+    }
+
+    // From a terminal, with no OBM_HOME, obm should use the installed app's home, and find obmd to remove its secrets
+    // with. With no input, it lists what it would remove and stops at the question, so nothing is removed
+    private static void CheckObmFromATerminal()
+    {
+        var home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenBackupManager");
+        // Only a folder that's there is listed
+        var made = !Directory.Exists(home);
+        Directory.CreateDirectory(home);
+        try
+        {
+            var start = new ProcessStartInfo(Path.Combine(CommandLineFolder, "obm.exe"), "data remove") { RedirectStandardOutput = true, RedirectStandardInput = true };
+            start.Environment.Remove("OBM_HOME");
+            using var obm = Process.Start(start)!;
+            var output = obm.StandardOutput.ReadToEnd();
+            obm.WaitForExit();
+            Assert.That(output.Split('\n').Select(line => line.Trim()), Does.Contain(home), output);
+        }
+        finally
+        {
+            if (made)
+            {
+                Directory.Delete(home, recursive: true);
+            }
+        }
     }
 
     private static string[] UserPathEntries()
