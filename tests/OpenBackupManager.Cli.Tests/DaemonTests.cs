@@ -1,14 +1,17 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
+using OpenBackupManager.Rclone;
 
 namespace OpenBackupManager.Cli.Tests;
 
 public class DaemonTests
 {
     private const string Started = "started, process";
+    private const string StartedRclone = "Started rclone for remote test";
 
     private readonly List<Tool> _running = [];
     private readonly List<string> _homes = [];
@@ -46,6 +49,27 @@ public class DaemonTests
         // The console gets each line just before the file does
         Assert.That(() => Log(home), Does.Contain(Started).After(30_000, 100));
         Assert.That(Directory.GetFiles(Path.Combine(home, "logs"), "engine-*.log"), Has.Length.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Killed_ItsRcloneGoesToo()
+    {
+        var home = NewHome();
+        Directory.CreateDirectory(home);
+        File.WriteAllText(Path.Combine(home, "config.toml"), "[[remotes]]\nid = \"test\"\n");
+        var daemon = Daemon(home);
+        daemon.WaitFor(StartedRclone);
+        using var client = new RcClient(Directory.GetFiles(Path.Combine(home, "run"), "rc-*.sock").Single());
+        using var rclone = Process.GetProcessById((await client.PidAsync(CancellationToken.None)).Pid);
+
+        daemon.Kill();
+        // Nothing takes it with the engine there, so the next engine stops it
+        if (OperatingSystem.IsMacOS())
+        {
+            Daemon(home).WaitFor(StartedRclone);
+        }
+
+        Assert.That(() => rclone.HasExited, Is.True.After(10_000, 100));
     }
 
     [Test]

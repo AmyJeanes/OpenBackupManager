@@ -39,6 +39,8 @@ public sealed class Rcd : IAsyncDisposable
             {
                 "rcd", "--rc-addr", "unix://" + options.Socket, "--rc-no-auth", "--config", options.Config,
                 "--cache-dir", options.CacheFolder, "--log-file", options.LogFile, "--user-agent", options.UserAgent,
+                // As much as the engine keeps of its own
+                "--log-file-max-size", "10M", "--log-file-max-backups", "7",
             },
             // None of the engine's, not even its console, as rclone writes everything to its log file, its crashes too
             StandardInputHandle = none,
