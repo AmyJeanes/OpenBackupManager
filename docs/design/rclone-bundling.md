@@ -11,7 +11,7 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
 
 ## Shipping it
 
-- **Never on PATH as a plain `rclone`,** so it never stands in for an rclone the user has, and the engine runs it by its full path, never one from PATH. The tarball is unpacked into a folder of its own, such as `~/.local/share/openbackupmanager`, with only `obm` and `obmd` linked onto PATH, as the .deb and .rpm do from `/usr/lib/openbackupmanager`. On Windows it's in the app's folder, and only `obm` is on PATH.
+- **Never on PATH as a plain `rclone`,** so it never stands in for an rclone the user has, and the engine runs it by its full path, never one from PATH. It's named `obm-rclone` too, so it still can't if someone unpacks it onto PATH, and it shows as ours among the user's own rclone processes. rclone doesn't mind its name, apart from names starting `mount`, which make it a mount helper. The tarball is unpacked into a folder of its own, such as `~/.local/share/openbackupmanager`, with only `obm` and `obmd` linked onto PATH, as the .deb and .rpm do from `/usr/lib/openbackupmanager`. On Windows it's in the app's folder, and only `obm` is on PATH.
 - **Fetched for the runtime being published,** which `tools/Publish-App.ps1` passes on as `RcloneRuntimeIdentifier`, as the Rclone project is built for any runtime and would otherwise fetch rclone for the machine doing the build.
 
 ## Running it

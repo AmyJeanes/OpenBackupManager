@@ -17,8 +17,8 @@
     <RcloneVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(RcloneVersionFile))), 'v\d+\.\d+\.\d+').Value)</RcloneVersion>
     <RcloneRuntimeIdentifier Condition="'$(RcloneRuntimeIdentifier)' == ''">$(RuntimeIdentifier)</RcloneRuntimeIdentifier>
     <RcloneRuntimeIdentifier Condition="'$(RcloneRuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</RcloneRuntimeIdentifier>
-    <RcloneFileName>rclone</RcloneFileName>
-    <RcloneFileName Condition="$(RcloneRuntimeIdentifier.StartsWith('win'))">rclone.exe</RcloneFileName>
+    <RcloneFileName>obm-rclone</RcloneFileName>
+    <RcloneFileName Condition="$(RcloneRuntimeIdentifier.StartsWith('win'))">obm-rclone.exe</RcloneFileName>
     <RcloneFile>$(BaseIntermediateOutputPath)rclone\$(RcloneVersion)\$(RcloneRuntimeIdentifier)\$(RcloneFileName)</RcloneFile>
   </PropertyGroup>
 

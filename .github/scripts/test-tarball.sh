@@ -15,7 +15,7 @@ home=$(mktemp -d /tmp/obm.XXXXXX)
 
 # Which also fails if it's for another processor
 pinned=$(grep -o 'v[0-9]*\.[0-9]*\.[0-9]*' rclone.version)
-rclone=$("$dir/rclone" version --config "$home/rclone.conf" | head -n 1)
+rclone=$("$dir/obm-rclone" version --config "$home/rclone.conf" | head -n 1)
 test "$rclone" = "rclone $pinned" || { echo "rclone is \"$rclone\", not $pinned"; exit 1; }
 
 mkdir "$home/bin"

@@ -22,7 +22,7 @@ var runtimeOption = new Option<string>("--runtime")
 };
 var outputOption = new Option<FileInfo>("--output")
 {
-    Description = "Where to write the rclone binary",
+    Description = "Where to write the rclone binary, under any name",
     Required = true,
 };
 
@@ -57,7 +57,7 @@ command.SetAction(async (parseResult, cancellationToken) =>
             throw new InvalidDataException($"{asset} has SHA256 {actual}, but the signed SHA256SUMS says {expected}");
         }
 
-        Extract(zip, parseResult.GetRequiredValue(outputOption).FullName);
+        Extract(zip, runtime, parseResult.GetRequiredValue(outputOption).FullName);
         Console.WriteLine($"rclone {version} for {runtime}: signature and hash verified");
         return 0;
     }
@@ -152,10 +152,11 @@ static string FindHash(string sums, string asset) =>
         .FirstOrDefault(parts => parts.Length == 2 && parts[1] == asset)?[0]
     ?? throw new InvalidDataException($"The signed SHA256SUMS has no entry for {asset}");
 
-static void Extract(byte[] zip, string outputFile)
+// The output can be named anything, such as the app's own name for it
+static void Extract(byte[] zip, string runtime, string outputFile)
 {
     using var archive = new ZipArchive(new MemoryStream(zip));
-    var name = Path.GetFileName(outputFile);
+    var name = runtime.StartsWith("win", StringComparison.Ordinal) ? "rclone.exe" : "rclone";
     var entry = archive.Entries.Single(e => e.Name == name);
 
     // Written under a temporary name first, so an interrupted fetch never looks complete to the build

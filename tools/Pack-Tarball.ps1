@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-Packs obm, obmd and rclone, as Publish-App.ps1 published them for macOS or Linux, into the tarball releases offer.
+Packs obm, obmd and obm-rclone, as Publish-App.ps1 published them for macOS or Linux, into the tarball releases offer.
 
 .DESCRIPTION
-Writes OpenBackupManager-<version>-<runtime>.tar.gz, with obm, obmd, rclone, LICENSE and THIRD-PARTY-NOTICES.txt at
+Writes OpenBackupManager-<version>-<runtime>.tar.gz, with obm, obmd, obm-rclone, LICENSE and THIRD-PARTY-NOTICES.txt at
 its top level, to be unpacked into a folder of their own with obm and obmd linked onto PATH, so the bundled rclone never
 stands in for one the user has. It writes the archive itself rather than running tar, whose options differ between
 macOS and Linux, so both come out alike: owned by root, with nothing from the build machine. CI's package-macos and
@@ -32,7 +32,7 @@ $text = [IO.UnixFileMode]'UserRead, UserWrite, GroupRead, OtherRead'
 $entries = @(
     @{ Name = 'obm'; Path = Join-Path $Publish 'obm'; Mode = $program }
     @{ Name = 'obmd'; Path = Join-Path $Publish 'obmd'; Mode = $program }
-    @{ Name = 'rclone'; Path = Join-Path $Publish 'rclone'; Mode = $program }
+    @{ Name = 'obm-rclone'; Path = Join-Path $Publish 'obm-rclone'; Mode = $program }
     @{ Name = 'LICENSE'; Path = Join-Path $root 'LICENSE'; Mode = $text }
     @{ Name = 'THIRD-PARTY-NOTICES.txt'; Path = Join-Path $Publish 'THIRD-PARTY-NOTICES.txt'; Mode = $text }
 )
