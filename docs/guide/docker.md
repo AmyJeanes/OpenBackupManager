@@ -61,7 +61,7 @@ To share diagnostics with a bug report, `docker exec openbackupmanager obm diagn
 
 | Tag | What it is |
 | --- | --- |
-| `latest` | The newest release |
+| `latest` | The newest full release |
 | A version, such as `0.2.0` | That release, which never changes. Prereleases, such as `0.2.0-beta.1`, only have this tag |
 | `edge` | The newest build of the code, which may not work. For trying out what's coming |
 
