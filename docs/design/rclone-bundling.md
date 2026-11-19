@@ -7,21 +7,25 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
 - `rclone.version` pins the release. Renovate proposes updates, which wait for review.
 - `tools/RcloneFetch` downloads the release for one runtime and checks it against rclone's signing key, `rclone-signing-key.asc` beside it.
 - `OpenBackupManager.Rclone` runs the fetcher as it builds, and puts rclone next to anything that references it. `BundledRclone` says where it is and which version it is. `Rcd` starts and stops rcd, and `RcClient` calls it.
-- The engine's `Remotes` runs an rcd for each `[[remotes]]` in `config.toml`.
+- The engine's `Remotes` runs an rcd for each `[[remotes]]` in `config.toml`, and `RcloneConfig` keeps their config files and password.
 
 ## Shipping it
 
-- **Never on PATH as a plain `rclone`,** so it never stands in for an rclone the user has, and the engine runs it by its full path, never one from PATH. It's named `obm-rclone` too, so it still can't if someone unpacks it onto PATH, and it shows as ours among the user's own rclone processes. rclone doesn't mind its name, apart from names starting `mount`, which make it a mount helper. The tarball is unpacked into a folder of its own, such as `~/.local/share/openbackupmanager`, with only `obm` and `obmd` linked onto PATH, as the .deb and .rpm do from `/usr/lib/openbackupmanager`. On Windows it's in the app's folder, and only `obm` is on PATH.
-- **Fetched for the runtime being published,** which `tools/Publish-App.ps1` passes on as `RcloneRuntimeIdentifier`, as the Rclone project is built for any runtime and would otherwise fetch rclone for the machine doing the build.
+- **Never on PATH as `rclone`,** so it can't stand in for the user's own. The engine runs it by full path. The tarball goes in a folder of its own, such as `~/.local/share/openbackupmanager`, with only `obm` and `obmd` linked onto PATH, as the .deb and .rpm do from `/usr/lib/openbackupmanager`, and on Windows only `obm` is on PATH.
+- **Named `obm-rclone`,** so it still can't if it's unpacked onto PATH, and shows as ours in process lists. rclone only minds names starting `mount`.
+- **Fetched for the runtime being published,** as `tools/Publish-App.ps1` passes `RcloneRuntimeIdentifier`. The Rclone project is built for any runtime, so it would otherwise get the build machine's.
 
 ## Running it
 
-- **One rcd for each remote,** never for each folder, as each account has its own sign-in, throttling and limits, and a crash only takes its own folders. Each starts with the engine, even while idle, at about 50 MB.
-- **Only its own config, cache and log.** rclone's defaults are the user's own rclone's, so each rcd gets the remote's own config in the state folder, its cache, and a log beside the engine's, named from the remote's ID, which `config.toml` allows to be only lowercase letters, digits and hyphens. The config is a file for each remote, as rclone rewrites the whole file when it refreshes a token, and two rcds sharing one could lose each other's.
-- **rc over a Unix socket with no password,** in the engine's private `run` folder, as for the engine's own socket, rather than localhost TCP with a password, which any local user can reach and try. Windows has had Unix sockets since Windows 10 1803. The socket is named from a hash of the ID, as a socket's path is limited to about 104 bytes on macOS and Linux.
-- **It goes when the engine does.** .NET 11's `KillOnParentExit` ends it with the engine on Windows, through a job object, and Linux, through `PR_SET_PDEATHSIG`. It does nothing on macOS, where launchd ends a service's process group and a terminal signals its foreground group, and an engine starting stops an rcd still answering on its socket, which only an engine for the same home could have left.
-- **Started again when it stops, or can't start,** after a second, doubling up to a minute between tries so one that keeps failing doesn't spin, and back to a second once one has stayed up a minute. A new rcd numbers its jobs from 1 again, so a job ID from before names a different job.
-- **Stopping sends `core/quit`, then kills it after 4 seconds.** rcd exits 1.5 seconds after answering, and about 3 with a job running. Windows gives the engine about 5 at sign-out, and killing rcd loses nothing a later run can't redo.
+- **One rcd for each remote,** not each folder, as each account has its own sign-in, throttling and limits, and a crash only takes its own folders. Each starts with the engine, at about 50 MB idle.
+- **Its own config, cache and log,** named from the remote's ID, as rclone's defaults are the user's own. The config is a file for each remote, as rclone rewrites the whole file when it refreshes a token, so two rcds sharing one could lose each other's.
+- **None of the user's `RCLONE_` variables,** which rclone reads as settings, such as their own config's password.
+- **One password for every remote's config,** `rclone-config` in the secret store, passed as `RCLONE_CONFIG_PASS`. Setup makes it if there's none and gives it with `config/unlock`, without which rclone writes a new config in plain text. It's never made anew while any config is encrypted, as a new one couldn't read them, which would hide that bringing the old store back would fix them.
+- **No rcd for a remote that can't run,** rather than one failing every minute: no config yet, or an encrypted one without its password, or with the wrong one. To the user they're the same: it needs setting up again, and its file is left. rclone only reads its config when first asked, so the engine lists its remotes once it starts to find a wrong password, with `--ask-password=false` so rclone never waits on a prompt. A secret store that can't be read is retried like a crash.
+- **rc over a Unix socket with no password,** in the engine's private `run` folder, rather than localhost TCP, which any local user can reach. Windows has these since 10 1803. It's named from a hash of the ID, as a socket's path is limited to about 104 bytes on macOS and Linux.
+- **It goes when the engine does,** through .NET 11's `KillOnParentExit` on Windows and Linux. On macOS, which has nothing like it, launchd ends a service's process group, a terminal signals its foreground group, and a starting engine stops an rcd still answering on its socket.
+- **Started again when it stops or can't start,** after a second, doubling up to a minute, and back to a second once one has stayed up a minute. A new rcd numbers its jobs from 1 again, so an old job ID names a different job.
+- **Stopping sends `core/quit`, then kills it after 4 seconds.** rcd exits 1.5 seconds after answering, or about 3 with a job running, Windows gives the engine about 5 at sign-out, and killing rcd loses nothing a later run can't redo.
 
 ## Fetching
 

@@ -30,7 +30,7 @@ public sealed class Rcd : IAsyncDisposable
 
     public int ExitCode => _process.ExitCode;
 
-    public static async Task<Rcd> StartAsync(RcdOptions options, CancellationToken cancellationToken)
+    public static async Task<Rcd> StartAsync(RcdOptions options, string? configPassword, CancellationToken cancellationToken)
     {
         // Only this home's engine starts one here, so one answering was left by an engine that ended without stopping
         // it, as on macOS, which has no KillOnParentExit. A socket left by one that was killed stops the next binding it
@@ -45,6 +45,8 @@ public sealed class Rcd : IAsyncDisposable
             {
                 "rcd", "--rc-addr", "unix://" + options.Socket, "--rc-no-auth", "--config", options.Config,
                 "--cache-dir", options.CacheFolder, "--log-file", options.LogFile, "--user-agent", options.UserAgent,
+                // Fail, rather than prompt, on a config it can't decrypt
+                "--ask-password=false",
                 // As much as the engine keeps of its own
                 "--log-file-max-size", "10M", "--log-file-max-backups", "7",
             },
@@ -54,6 +56,17 @@ public sealed class Rcd : IAsyncDisposable
             StandardErrorHandle = none,
             InheritedHandles = [],
         };
+
+        // rclone reads these as settings, and any set are for the user's own rclone
+        foreach (var name in start.Environment.Keys.Where(name => name.StartsWith("RCLONE_", StringComparison.OrdinalIgnoreCase)).ToList())
+        {
+            start.Environment.Remove(name);
+        }
+
+        if (configPassword is not null)
+        {
+            start.Environment["RCLONE_CONFIG_PASS"] = configPassword;
+        }
 
         if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux())
         {

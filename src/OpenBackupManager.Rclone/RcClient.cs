@@ -41,6 +41,13 @@ public sealed class RcClient : IDisposable
     public Task<VersionResult> VersionAsync(CancellationToken cancellationToken) =>
         CallAsync("core/version", new NoParams(), RcJson.Default.NoParams, RcJson.Default.VersionResult, cancellationToken);
 
+    public Task<ListRemotesResult> ListRemotesAsync(CancellationToken cancellationToken) =>
+        CallAsync("config/listremotes", new NoParams(), RcJson.Default.NoParams, RcJson.Default.ListRemotesResult, cancellationToken);
+
+    // Without it, rclone writes a new config in plain text
+    public Task UnlockConfigAsync(string password, CancellationToken cancellationToken) =>
+        CallAsync("config/unlock", new UnlockParams(password), RcJson.Default.UnlockParams, RcJson.Default.NoResult, cancellationToken);
+
     public Task<PidResult> PidAsync(CancellationToken cancellationToken) =>
         CallAsync("core/pid", new NoParams(), RcJson.Default.NoParams, RcJson.Default.PidResult, cancellationToken);
 
@@ -70,6 +77,10 @@ public sealed record VersionResult(string Version);
 
 public sealed record PidResult(int Pid);
 
+public sealed record ListRemotesResult(IReadOnlyList<string>? Remotes);
+
+internal sealed record UnlockParams(string ConfigPassword);
+
 internal sealed record NoParams;
 
 internal sealed record NoResult;
@@ -80,6 +91,8 @@ internal sealed record RcError(string? Error);
 [JsonSerializable(typeof(NoParams))]
 [JsonSerializable(typeof(NoResult))]
 [JsonSerializable(typeof(PidResult))]
+[JsonSerializable(typeof(ListRemotesResult))]
+[JsonSerializable(typeof(UnlockParams))]
 [JsonSerializable(typeof(RcError))]
 [JsonSerializable(typeof(VersionResult))]
 internal sealed partial class RcJson : JsonSerializerContext;

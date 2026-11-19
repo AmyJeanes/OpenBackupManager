@@ -57,6 +57,8 @@ public class DaemonTests
         var home = NewHome();
         Directory.CreateDirectory(home);
         File.WriteAllText(Path.Combine(home, "config.toml"), "[[remotes]]\nid = \"test\"\n");
+        Directory.CreateDirectory(Path.Combine(home, "rclone"));
+        File.WriteAllText(Path.Combine(home, "rclone", "test.conf"), "[test]\ntype = local\n");
         var daemon = Daemon(home);
         daemon.WaitFor(StartedRclone);
         using var client = new RcClient(Directory.GetFiles(Path.Combine(home, "run"), "rc-*.sock").Single());

@@ -12,7 +12,7 @@ namespace OpenBackupManager.Engine;
 
 // An rclone rcd for each remote in config.toml, as each account has its own sign-in, throttling and limits, and a
 // crash only takes its own folders
-internal sealed partial class Remotes(ConfigWatcher config, AppPaths paths, TimeProvider time, ILogger<Remotes> logger)
+internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneConfig, AppPaths paths, TimeProvider time, ILogger<Remotes> logger)
     : IHostedService, IDisposable
 {
     // Doubling between tries, so one that keeps failing doesn't spin, and back to the first once one has stayed up
@@ -37,6 +37,9 @@ internal sealed partial class Remotes(ConfigWatcher config, AppPaths paths, Time
 
     public void Dispose() => _stopping.Dispose();
 
+    // Ends once every remote has stopped trying
+    internal Task Running => Task.WhenAll(_running);
+
     // Its files are named from its ID, which config.toml only allows to be letters, digits and hyphens. The socket's is
     // a hash, as a socket's path can only be about 104 bytes on macOS and Linux, which --home's path needs the room for
     internal RcdOptions Options(string id)
@@ -45,13 +48,13 @@ internal sealed partial class Remotes(ConfigWatcher config, AppPaths paths, Time
         return new RcdOptions(
             BundledRclone.FilePath,
             Path.Combine(EngineSocket.Folder(paths), $"rc-{hash}.sock"),
-            Path.Combine(paths.State, "rclone", id + ".conf"),
+            rcloneConfig.FileFor(id),
             Path.Combine(paths.Cache, "rclone", id),
             Path.Combine(paths.Logs, $"rclone-{id}.log"),
             $"ISV|AmyJeanes|OpenBackupManager/{AppVersion.Current}");
     }
 
-    // Started again whenever it stops or can't start, until the engine stops
+    // Until the engine stops, or it needs setting up
     private async Task RunAsync(string id, CancellationToken stopping)
     {
         var retry = FirstRetry;
@@ -60,7 +63,13 @@ internal sealed partial class Remotes(ConfigWatcher config, AppPaths paths, Time
             while (true)
             {
                 var started = time.GetTimestamp();
-                if (await StartAsync(id, stopping) is { } rcd)
+                var (rcd, tryAgain) = await StartAsync(id, stopping);
+                if (!tryAgain)
+                {
+                    return;
+                }
+
+                if (rcd is not null)
                 {
                     await using (rcd)
                     {
@@ -83,24 +92,62 @@ internal sealed partial class Remotes(ConfigWatcher config, AppPaths paths, Time
         }
     }
 
-    private async Task<Rcd?> StartAsync(string id, CancellationToken stopping)
+    // Not retried when it needs setting up. Its file is left, as putting its password back brings it back
+    private async Task<(Rcd? Rcd, bool TryAgain)> StartAsync(string id, CancellationToken stopping)
     {
         var options = Options(id);
+        if (!File.Exists(options.Config))
+        {
+            LogNeedsSettingUp(id, "it has no rclone config");
+            return (null, false);
+        }
+
         try
         {
-            foreach (var file in new[] { options.Socket, options.Config, options.LogFile })
+            string? password = null;
+            if (RcloneConfigFile.IsEncrypted(options.Config))
+            {
+                if (await rcloneConfig.ReadPasswordAsync(stopping) is not { } secret)
+                {
+                    LogNeedsSettingUp(id, "the password for its rclone config isn't in the secret store");
+                    return (null, false);
+                }
+
+                password = secret.Reveal();
+            }
+
+            foreach (var file in new[] { options.Socket, options.LogFile })
             {
                 PrivateFiles.CreateFolder(Path.GetDirectoryName(file)!);
             }
 
-            var rcd = await Rcd.StartAsync(options, stopping);
+            var rcd = await Rcd.StartAsync(options, password, stopping);
+            // rclone reads its config lazily, so a wrong password only shows here
+            try
+            {
+                await rcd.Client.ListRemotesAsync(stopping);
+            }
+            catch (RcloneException)
+            {
+                await rcd.DisposeAsync();
+                LogNeedsSettingUp(id, "its rclone config can't be read with the password in the secret store");
+                return (null, false);
+            }
+            catch
+            {
+                await rcd.DisposeAsync();
+                throw;
+            }
+
             LogStarted(id);
-            return rcd;
+            return (rcd, true);
         }
-        catch (Exception e) when (e is RcloneException or IOException or UnauthorizedAccessException or Win32Exception)
+        // Such as a locked secret store
+        catch (Exception e) when (e is RcloneException or HttpRequestException or IOException or UnauthorizedAccessException
+            or Win32Exception or EngineException or InvalidOperationException or InvalidDataException)
         {
             LogCantStart(e, id);
-            return null;
+            return (null, true);
         }
     }
 
@@ -109,6 +156,9 @@ internal sealed partial class Remotes(ConfigWatcher config, AppPaths paths, Time
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Couldn't start rclone for remote {Id}")]
     private partial void LogCantStart(Exception e, string id);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Remote {Id} needs setting up, as {Reason}")]
+    private partial void LogNeedsSettingUp(string id, string reason);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "rclone for remote {Id} stopped with exit code {ExitCode}, restarting in {Seconds} s")]
     private partial void LogExited(string id, int exitCode, double seconds);

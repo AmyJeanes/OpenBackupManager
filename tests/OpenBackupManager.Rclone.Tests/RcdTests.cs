@@ -31,7 +31,7 @@ public class RcdTests
     public async Task StartAsync_AnswersOnItsSocket_AndQuitsCleanly()
     {
         var options = Options();
-        await using (var rcd = await Rcd.StartAsync(options, CancellationToken.None))
+        await using (var rcd = await Rcd.StartAsync(options, null, CancellationToken.None))
         {
             var version = await rcd.Client.VersionAsync(CancellationToken.None);
 
@@ -48,7 +48,7 @@ public class RcdTests
         var options = Options();
         await File.WriteAllTextAsync(options.Socket, "");
 
-        await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
+        await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
 
         Assert.That((await rcd.Client.VersionAsync(CancellationToken.None)).Version, Is.EqualTo(BundledRclone.Version));
     }
@@ -57,10 +57,10 @@ public class RcdTests
     public async Task StartAsync_StopsOneLeftRunning()
     {
         var options = Options();
-        await using var left = await Rcd.StartAsync(options, CancellationToken.None);
+        await using var left = await Rcd.StartAsync(options, null, CancellationToken.None);
         using var leftProcess = Process.GetProcessById((await left.Client.PidAsync(CancellationToken.None)).Pid);
 
-        await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
+        await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
@@ -70,12 +70,31 @@ public class RcdTests
     }
 
     [Test]
+    public async Task StartAsync_LeavesOutTheUsersRcloneVariables()
+    {
+        var options = Options();
+        Environment.SetEnvironmentVariable("RCLONE_LOG_LEVEL", "DEBUG");
+        try
+        {
+            await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
+            await rcd.Client.VersionAsync(CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("RCLONE_LOG_LEVEL", null);
+        }
+
+        // Only made once it writes
+        Assert.That(File.Exists(options.LogFile) ? Log(options.LogFile) : "", Does.Not.Contain("DEBUG"));
+    }
+
+    [Test]
     public void StartAsync_WhenRcdStopsAtOnce_SaysSo()
     {
         // Longer than a socket's path can be
         var options = Options() with { Socket = Path.Combine(_folder, new string('x', 120) + ".sock") };
 
-        Assert.That(() => Rcd.StartAsync(options, CancellationToken.None),
+        Assert.That(() => Rcd.StartAsync(options, null, CancellationToken.None),
             Throws.TypeOf<RcloneException>().With.Message.Contains("stopped as it started"));
     }
 
@@ -83,13 +102,19 @@ public class RcdTests
     public async Task CallAsync_WhenRcloneFails_ThrowsItsMessage_AndItsLogHasIt()
     {
         var options = Options();
-        await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
+        await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
 
         Assert.That(() => rcd.Client.CallAsync("no/such", new NoParams(), RcJson.Default.NoParams, RcJson.Default.NoResult, CancellationToken.None),
             Throws.TypeOf<RcloneException>().With.Message.EqualTo("rclone's no/such failed: couldn't find method \"no/such\""));
-        // Made when it first writes, and still open
-        using var log = new StreamReader(new FileStream(options.LogFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
-        Assert.That(log.ReadToEnd(), Does.Contain("couldn't find method \"no/such\""));
+        // Made when it first writes
+        Assert.That(Log(options.LogFile), Does.Contain("couldn't find method \"no/such\""));
+    }
+
+    // rclone still has it open
+    private static string Log(string file)
+    {
+        using var log = new StreamReader(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+        return log.ReadToEnd();
     }
 
     private RcdOptions Options() => new(

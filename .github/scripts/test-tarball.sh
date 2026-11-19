@@ -24,6 +24,8 @@ ln -s "$dir/obm" "$dir/obmd" "$home/bin/"
 "$home/bin/obmd" --version
 
 printf '[[remotes]]\nid = "test"\n' > "$home/config.toml"
+mkdir "$home/rclone"
+printf '[test]\ntype = local\n' > "$home/rclone/test.conf"
 "$home/bin/obmd" --home "$home" > "$home/obmd.out" 2>&1 &
 engine=$!
 tries=0
