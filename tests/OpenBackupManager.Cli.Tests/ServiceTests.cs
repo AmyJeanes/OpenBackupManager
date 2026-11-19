@@ -105,9 +105,24 @@ public class ServiceTests
 
         // launchd waits 10 seconds between starts
         var until = DateTime.UtcNow + Timeout;
-        StatusResult? next;
-        while (((next = await StatusAsync()) is null || next.ProcessId == first.ProcessId) && DateTime.UtcNow < until)
+        StatusResult? next = null;
+        while (DateTime.UtcNow < until)
         {
+            try
+            {
+                next = await StatusAsync();
+            }
+            // The old one, still stopping, takes a connection and closes it
+            catch (EngineException)
+            {
+                next = null;
+            }
+
+            if (next is not null && next.ProcessId != first.ProcessId)
+            {
+                break;
+            }
+
             await Task.Delay(500);
         }
 
