@@ -162,12 +162,36 @@ public class RemotesTests
         await EncryptedConfigAsync("onedrive", "password");
         await SavePasswordAsync("another");
         using var engine = EngineHost.Build(_home);
-        await engine.StartAsync();
+        var (remotes, _, log) = Unstarted(engine);
+        await remotes.StartAsync(CancellationToken.None);
 
-        Assert.That(async () => await RemotesOf(engine).Running.WaitAsync(Timeout), Throws.Nothing);
-        // Stopped, not left running
-        Assert.That(RemotesOf(engine).Options("onedrive").Socket, Does.Not.Exist);
-        await engine.StopAsync();
+        Assert.That(async () => await remotes.Running.WaitAsync(Timeout), Throws.Nothing);
+        var line = await log.LineAsync("needs setting up");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(line, Does.Contain("with the password in the secret store"));
+            // Stopped, not left running
+            Assert.That(remotes.Options("onedrive").Socket, Does.Not.Exist);
+        }
+    }
+
+    // Without quoting it, as a damaged line may be part of a token
+    [Test]
+    public async Task WhenItsConfigIsDamaged_ItNeedsSettingUp()
+    {
+        await RemotesAsync("onedrive");
+        await File.WriteAllTextAsync(Path.Combine(_home.State, "rclone", "onedrive.conf"), "[test]\ntype = local\nhalf a token\n");
+        using var engine = EngineHost.Build(_home);
+        var (remotes, _, log) = Unstarted(engine);
+        await remotes.StartAsync(CancellationToken.None);
+
+        Assert.That(async () => await remotes.Running.WaitAsync(Timeout), Throws.Nothing);
+        var line = await log.LineAsync("needs setting up");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(line, Does.Contain("rclone can't read its config").And.Contain(remotes.Options("onedrive").LogFile));
+            Assert.That(line, Does.Not.Contain("half a token"));
+        }
     }
 
     [Test]

@@ -122,15 +122,18 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
             }
 
             var rcd = await Rcd.StartAsync(options, password, stopping);
-            // rclone reads its config lazily, so a wrong password only shows here
+            // rclone reads its config lazily, so a wrong password or a damaged file only shows here
             try
             {
                 await rcd.Client.ListRemotesAsync(stopping);
             }
+            // Not rclone's message, which can quote a line of the config
             catch (RcloneException)
             {
                 await rcd.DisposeAsync();
-                LogNeedsSettingUp(id, "its rclone config can't be read with the password in the secret store");
+                LogNeedsSettingUp(id, (password is null
+                    ? "rclone can't read its config"
+                    : "its rclone config can't be read with the password in the secret store") + $". {options.LogFile} says why");
                 return (null, false);
             }
             catch
