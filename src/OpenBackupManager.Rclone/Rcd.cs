@@ -55,6 +55,7 @@ public sealed class Rcd : IAsyncDisposable
             StandardOutputHandle = none,
             StandardErrorHandle = none,
             InheritedHandles = [],
+            CreateNoWindow = true,
         };
 
         // rclone reads these as settings, and any set are for the user's own rclone
