@@ -1,9 +1,13 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Platform;
 using OpenBackupManager.Core.Protocol;
 using OpenBackupManager.Rclone;
@@ -75,17 +79,52 @@ public class RemotesTests
         // Unreadable until it's fixed
         await File.WriteAllTextAsync(Secrets, "not JSON");
         using var engine = EngineHost.Build(_home);
-        await engine.StartAsync();
-        await Task.Delay(500);
+        var (remotes, clock, log) = Unstarted(engine);
+        await remotes.StartAsync(CancellationToken.None);
 
+        var wait = await NextAsync(clock.Waits);
+        Assert.That(await log.LineAsync("Couldn't start"), Does.Contain("onedrive"));
         File.Delete(Secrets);
-        using (var store = new FileStore(Secrets))
+        await SavePasswordAsync("password");
+        clock.Advance(wait);
+
+        Assert.That(await PidAsync(remotes.Options("onedrive").Socket), Is.Positive);
+        await remotes.StopAsync(CancellationToken.None);
+    }
+
+    [Test]
+    public async Task ItsRclone_WhenItKeepsStopping_WaitsLongerEachTime_UntilItStaysUp()
+    {
+        await RemotesAsync("onedrive");
+        using var engine = EngineHost.Build(_home);
+        var (remotes, clock, log) = Unstarted(engine);
+        await remotes.StartAsync(CancellationToken.None);
+        var socket = remotes.Options("onedrive").Socket;
+
+        var waits = new List<double>();
+        for (var i = 0; i < 9; i++)
         {
-            await store.SaveAsync("rclone-config", new Secret("password"));
+            // Not while it's starting, which would be a failed start
+            await log.LineAsync("Started rclone");
+            // Up a minute before the last
+            if (i == 8)
+            {
+                clock.Advance(TimeSpan.FromMinutes(1));
+            }
+
+            using (var rclone = Process.GetProcessById(await PidAsync(socket)))
+            {
+                rclone.Kill();
+            }
+
+            var wait = await NextAsync(clock.Waits);
+            Assert.That(await log.LineAsync("restarting in"), Does.EndWith($"restarting in {wait.TotalSeconds} s"));
+            waits.Add(wait.TotalSeconds);
+            clock.Advance(wait);
         }
 
-        Assert.That(await PidAsync(RemotesOf(engine).Options("onedrive").Socket), Is.Positive);
-        await engine.StopAsync();
+        Assert.That(waits, Is.EqualTo((double[])[1, 2, 4, 8, 16, 32, 60, 60, 1]));
+        await remotes.StopAsync(CancellationToken.None);
     }
 
     [Test]
@@ -199,6 +238,20 @@ public class RemotesTests
         }
     }
 
+    // Its own clock, as the engine's timers would move with it
+    private (Remotes Remotes, Clock Clock, LogLines Log) Unstarted(IHost engine)
+    {
+        var clock = new Clock();
+        var log = new LogLines();
+        return (new Remotes(engine.Services.GetRequiredService<ConfigWatcher>(), engine.Services.GetRequiredService<RcloneConfig>(), _home, clock, log), clock, log);
+    }
+
+    private static async Task<T> NextAsync<T>(ChannelReader<T> reader)
+    {
+        using var timeout = new CancellationTokenSource(Timeout);
+        return await reader.ReadAsync(timeout.Token);
+    }
+
     private static Remotes RemotesOf(IHost engine) => engine.Services.GetServices<IHostedService>().OfType<Remotes>().Single();
 
     // With plain rclone configs, and the file store, which every OS has
@@ -270,6 +323,48 @@ public class RemotesTests
 
             Assert.That(DateTime.UtcNow, Is.LessThan(until), $"Nothing new answered on {socket}");
             await Task.Delay(100);
+        }
+    }
+}
+
+// Says how long each wait is for, so a test moves the clock on only once it's waiting
+internal sealed class Clock : FakeTimeProvider
+{
+    private readonly Channel<TimeSpan> _waits = Channel.CreateUnbounded<TimeSpan>();
+
+    public ChannelReader<TimeSpan> Waits => _waits.Reader;
+
+    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+    {
+        var timer = base.CreateTimer(callback, state, dueTime, period);
+        _waits.Writer.TryWrite(dueTime);
+        return timer;
+    }
+}
+
+internal sealed class LogLines : ILogger<Remotes>
+{
+    private readonly Channel<string> _lines = Channel.CreateUnbounded<string>();
+
+    public IDisposable? BeginScope<TState>(TState state)
+        where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+        _lines.Writer.TryWrite(formatter(state, exception));
+
+    // The next with this in it, skipping any before it
+    public async Task<string> LineAsync(string containing)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        while (true)
+        {
+            var line = await _lines.Reader.ReadAsync(timeout.Token);
+            if (line.Contains(containing, StringComparison.Ordinal))
+            {
+                return line;
+            }
         }
     }
 }

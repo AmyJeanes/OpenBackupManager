@@ -74,12 +74,12 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
                     await using (rcd)
                     {
                         await rcd.Exited.WaitAsync(stopping);
-                        LogExited(id, rcd.ExitCode, retry.TotalSeconds);
-                    }
+                        if (time.GetElapsedTime(started) >= LongestRetry)
+                        {
+                            retry = FirstRetry;
+                        }
 
-                    if (time.GetElapsedTime(started) >= LongestRetry)
-                    {
-                        retry = FirstRetry;
+                        LogExited(id, rcd.ExitCode, retry.TotalSeconds);
                     }
                 }
 
