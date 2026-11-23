@@ -17,7 +17,7 @@ public class EngineClientTests
     public async Task ConnectAsync_SaysTheEngineDidntAnswer_WhenItAcceptsTheConnectionButStaysQuiet()
     {
         var paths = AppPaths.InHome(_home);
-        Directory.CreateDirectory(EngineSocket.Folder(paths));
+        Directory.CreateDirectory(RunFolder.Path(paths));
         await using var engine = new NamedPipeServerStream(
             EngineSocket.Name(paths), PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
         var accepted = engine.WaitForConnectionAsync();

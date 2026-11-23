@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Net.Sockets;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
@@ -132,7 +133,7 @@ public class ListenerTests
     public async Task OverlappingCalls_EachGetTheirOwnAnswer_InWhateverOrderItComes()
     {
         string[] stores = ["a", "b", "c", "d"];
-        Directory.CreateDirectory(EngineSocket.Folder(_home));
+        Directory.CreateDirectory(RunFolder.Path(_home));
         using var engine = new NamedPipeServerStream(EngineSocket.Name(_home), PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         var answering = AnswerInOrderAsync(engine, [1, 3, 0, 2]);
         using var client = await ConnectAsync();
@@ -203,7 +204,7 @@ public class ListenerTests
     [Test]
     public async Task AnEngineOfAnotherProtocol_IsAnotherVersion()
     {
-        Directory.CreateDirectory(EngineSocket.Folder(_home));
+        Directory.CreateDirectory(RunFolder.Path(_home));
         using var engine = new NamedPipeServerStream(EngineSocket.Name(_home), PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         var refusing = RefuseAsync(engine, "The engine running is version 9.9.9");
 
@@ -291,19 +292,19 @@ public class ListenerTests
     [UnsupportedOSPlatform("windows")]
     public async Task TheSocketsFolder_IsPrivate()
     {
-        Directory.CreateDirectory(EngineSocket.Folder(_home));
-        File.SetUnixFileMode(EngineSocket.Folder(_home), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        Directory.CreateDirectory(RunFolder.Path(_home));
+        File.SetUnixFileMode(RunFolder.Path(_home), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
 
         await StartAsync();
 
-        Assert.That(File.GetUnixFileMode(EngineSocket.Folder(_home)), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
+        Assert.That(File.GetUnixFileMode(RunFolder.Path(_home)), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute));
     }
 
     [Test]
     [Platform(Exclude = "Win")]
     public async Task ASocketLeftBehind_IsReplaced()
     {
-        Directory.CreateDirectory(EngineSocket.Folder(_home));
+        Directory.CreateDirectory(RunFolder.Path(_home));
         await File.WriteAllTextAsync(EngineSocket.Name(_home), "");
 
         await StartAsync();
@@ -323,11 +324,14 @@ public class ListenerTests
         Assert.That(File.Exists(EngineSocket.Name(_home)), Is.False);
     }
 
+    // With room for engine.sock, but not the longest name its run folder allows, which on Windows holds only rcds'
     [Test]
-    [Platform(Exclude = "Win")]
-    public async Task AHomeTooLongForASocket_SaysWhy()
+    public async Task AHomeTooLongForItsSockets_SaysWhy()
     {
-        _home = AppPaths.InHome(_home.State + new string('x', 120));
+        var home = _home.State;
+        _home = Enumerable.Range(0, 200).Select(n => AppPaths.InHome(home + new string('x', n)))
+            .First(paths => !Fits(Path.Combine(RunFolder.Path(paths), new string('x', 16))));
+        Assert.That(Fits(Path.Combine(RunFolder.Path(_home), "engine.sock")), "engine.sock alone would fit");
 
         var e = await Assert.ThrowsAsync<EngineException>(() => StartAsync());
 
@@ -374,6 +378,19 @@ public class ListenerTests
 
     private async Task<EngineClient> ConnectAsync() =>
         await EngineClient.ConnectAsync(_home, Timeout, CancellationToken.None) ?? throw new AssertionException("The engine isn't running");
+
+    private static bool Fits(string socket)
+    {
+        try
+        {
+            _ = new UnixDomainSocketEndPoint(socket);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+    }
 
     // As an engine of another protocol answers hello
     private static async Task RefuseAsync(NamedPipeServerStream pipe, string message)

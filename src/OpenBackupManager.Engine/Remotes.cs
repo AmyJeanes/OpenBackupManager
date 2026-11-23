@@ -41,13 +41,13 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     internal Task Running => Task.WhenAll(_running);
 
     // Its files are named from its ID, which config.toml only allows to be letters, digits and hyphens. The socket's is
-    // a hash, as a socket's path can only be about 104 bytes on macOS and Linux, which --home's path needs the room for
+    // a hash, as the run folder limits how long its names can be
     internal RcdOptions Options(string id)
     {
         var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(id)))[..8];
         return new RcdOptions(
             BundledRclone.FilePath,
-            Path.Combine(EngineSocket.Folder(paths), $"rc-{hash}.sock"),
+            RunFolder.Socket(paths, $"rc-{hash}.sock"),
             rcloneConfig.FileFor(id),
             Path.Combine(paths.Cache, "rclone", id),
             Path.Combine(paths.Logs, $"rclone-{id}.log"),

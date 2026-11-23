@@ -30,6 +30,7 @@ internal sealed partial class Listener(
 
     public Task StartAsync()
     {
+        RunFolder.CheckRoom(paths);
         if (!OperatingSystem.IsWindows())
         {
             PrepareFolder();
@@ -68,7 +69,7 @@ internal sealed partial class Listener(
     [UnsupportedOSPlatform("windows")]
     private void PrepareFolder()
     {
-        var folder = EngineSocket.Folder(paths);
+        var folder = RunFolder.Path(paths);
         PrivateFiles.CreateFolder(paths.State);
         if (Directory.CreateDirectory(folder, Private).LinkTarget is not null)
         {
@@ -100,10 +101,6 @@ internal sealed partial class Listener(
                 NamedPipeServerStream.MaxAllowedServerInstances,
                 PipeTransmissionMode.Byte,
                 PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly | (first ? PipeOptions.FirstPipeInstance : PipeOptions.None));
-        }
-        catch (ArgumentOutOfRangeException e) when (first)
-        {
-            throw new EngineException($"The engine's socket, {_name}, would be a longer path than this OS allows. Use a --home folder with a shorter path", e);
         }
         catch (UnauthorizedAccessException e) when (first)
         {

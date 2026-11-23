@@ -307,8 +307,7 @@ public class DaemonTests
     }
 
     [Test]
-    [Platform(Exclude = "Win")]
-    public void AHomeTooLongForItsSocket_SaysWhy()
+    public void AHomeTooLongForItsSockets_SaysWhy()
     {
         var home = NewHome(new string('x', 120));
 
