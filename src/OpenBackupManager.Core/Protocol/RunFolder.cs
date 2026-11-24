@@ -78,13 +78,10 @@ public static class RunFolder
             InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
             PropagationFlags.None,
             AccessControlType.Allow));
+        // Then checked whoever made it, as Create quietly leaves one something else made first, even just now
         var info = new DirectoryInfo(folder);
-        if (!info.Exists)
-        {
-            info.Create(security);
-            return;
-        }
-
+        info.Create(security);
+        info.Refresh();
         if (info.LinkTarget is not null)
         {
             throw new EngineException($"{folder} is a link, so the engine won't keep its sockets there");
