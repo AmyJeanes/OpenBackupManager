@@ -309,6 +309,18 @@ public class RemotesTests
         }
     }
 
+    [Test]
+    public async Task PasswordForSetup_ManyAtOnce_MakesOne()
+    {
+        await RemotesAsync();
+        using var engine = EngineHost.Build(_home);
+        var config = engine.Services.GetRequiredService<RcloneConfig>();
+
+        var passwords = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => config.PasswordForSetupAsync(CancellationToken.None))));
+
+        Assert.That(passwords.Select(p => p.Reveal()).Distinct(), Is.EqualTo([(await config.ReadPasswordAsync(CancellationToken.None))!.Reveal()]));
+    }
+
     // Only the old password can read them
     [Test]
     public async Task PasswordForSetup_WithNone_ButEncryptedConfigs_MakesNone()
