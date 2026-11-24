@@ -90,6 +90,11 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
         catch (OperationCanceledException) when (stopping.IsCancellationRequested)
         {
         }
+        // A bug, logged now rather than thrown when the engine stops
+        catch (Exception e)
+        {
+            LogStoppedRunning(e, id);
+        }
     }
 
     // Not retried when it needs setting up. Its file is left, as putting its password back brings it back when the
@@ -108,7 +113,19 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
             string? password = null;
             if (RcloneConfigFile.IsEncrypted(options.Config))
             {
-                if (await rcloneConfig.ReadPasswordAsync(stopping) is not { } secret)
+                Secret? secret;
+                try
+                {
+                    secret = await rcloneConfig.ReadPasswordAsync(stopping);
+                }
+                // Such as a locked secret store
+                catch (InvalidOperationException e)
+                {
+                    LogCantStart(e, id);
+                    return (null, true);
+                }
+
+                if (secret is null)
                 {
                     LogNeedsSettingUp(id, "the password for its rclone config isn't in the secret store");
                     return (null, false);
@@ -144,9 +161,8 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
             LogStarted(id);
             return (rcd, true);
         }
-        // Such as a locked secret store
         catch (Exception e) when (e is RcloneException or HttpRequestException or IOException or UnauthorizedAccessException
-            or Win32Exception or EngineException or InvalidOperationException or InvalidDataException)
+            or Win32Exception or EngineException or InvalidDataException)
         {
             LogCantStart(e, id);
             return (null, true);
@@ -158,6 +174,9 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Couldn't start rclone for remote {Id}")]
     private partial void LogCantStart(Exception e, string id);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Stopped running rclone for remote {Id}")]
+    private partial void LogStoppedRunning(Exception e, string id);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Remote {Id} needs setting up, as {Reason}")]
     private partial void LogNeedsSettingUp(string id, string reason);

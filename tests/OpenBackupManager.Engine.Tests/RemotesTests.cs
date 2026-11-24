@@ -122,6 +122,21 @@ public class RemotesTests
         Assert.That(await PidAsync(remotes.Options("onedrive").Socket), Is.Positive);
     }
 
+    // Rather than it ending unseen, until the engine stops and throws it
+    [Test]
+    public async Task ItsRclone_WhenABugStopsIt_SaysSo()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await File.WriteAllTextAsync(Secrets, "not JSON");
+        var (remotes, clock, log) = Unstarted();
+        clock.Fails = new NotSupportedException("A bug");
+        await remotes.StartAsync(CancellationToken.None);
+
+        Assert.That(await log.LineAsync("Stopped running"), Does.Contain("onedrive"));
+        Assert.That(async () => await remotes.Running.WaitAsync(Timeout), Throws.Nothing);
+    }
+
     [Test]
     public async Task ItsRclone_WhenItKeepsStopping_WaitsLongerEachTime_UntilItStaysUp()
     {
@@ -410,8 +425,16 @@ internal sealed class Clock : FakeTimeProvider
 
     public ChannelReader<TimeSpan> Waits => _waits.Reader;
 
+    // Thrown by any wait while it's set
+    public Exception? Fails { get; set; }
+
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
+        if (Fails is not null)
+        {
+            throw Fails;
+        }
+
         var timer = base.CreateTimer(callback, state, dueTime, period);
         _waits.Writer.TryWrite(dueTime);
         return timer;
