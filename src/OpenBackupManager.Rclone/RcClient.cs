@@ -60,7 +60,7 @@ public sealed class RcClient : IDisposable
     internal async Task<TResult> CallAsync<TParams, TResult>(
         string method, TParams parameters, JsonTypeInfo<TParams> paramsType, JsonTypeInfo<TResult> resultType, CancellationToken cancellationToken)
     {
-        using var response = await _http.PostAsJsonAsync(method, parameters, paramsType, cancellationToken);
+        using var response = await PostAsync(method, parameters, paramsType, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             // Only its message, as rclone sends the call's parameters back with it, which can hold a password
@@ -70,6 +70,20 @@ public sealed class RcClient : IDisposable
 
         return await response.Content.ReadFromJsonAsync(resultType, cancellationToken)
             ?? throw new RcloneException($"rclone's {method} answered with nothing");
+    }
+
+    // HttpClient doesn't wrap the SocketException macOS gives when rcd goes just as it connects
+    private async Task<HttpResponseMessage> PostAsync<TParams>(
+        string method, TParams parameters, JsonTypeInfo<TParams> paramsType, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _http.PostAsJsonAsync(method, parameters, paramsType, cancellationToken);
+        }
+        catch (SocketException e)
+        {
+            throw new HttpRequestException(HttpRequestError.ConnectionError, $"Couldn't reach rclone for {method}: {e.Message}", e);
+        }
     }
 }
 
