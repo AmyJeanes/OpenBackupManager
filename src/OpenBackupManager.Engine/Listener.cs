@@ -20,8 +20,6 @@ internal sealed partial class Listener(
     TimeProvider time,
     ILogger<Listener> logger) : IDisposable
 {
-    private const UnixFileMode Private = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
-
     private readonly string _name = EngineSocket.Name(paths);
     private readonly CancellationTokenSource _stopping = new();
     private readonly List<Task> _connections = [];
@@ -69,23 +67,7 @@ internal sealed partial class Listener(
     [UnsupportedOSPlatform("windows")]
     private void PrepareFolder()
     {
-        var folder = RunFolder.Path(paths);
-        PrivateFiles.CreateFolder(paths.State);
-        if (Directory.CreateDirectory(folder, Private).LinkTarget is not null)
-        {
-            throw new EngineException($"{folder} is a link, so the engine won't keep its socket there");
-        }
-
-        try
-        {
-            // It may have been made by something else first
-            File.SetUnixFileMode(folder, Private);
-        }
-        catch (UnauthorizedAccessException e)
-        {
-            throw new EngineException($"{folder} belongs to another user, so the engine can't keep its socket there", e);
-        }
-
+        RunFolder.Create(paths);
         // As this engine holds the lock, a socket here was left by one that ended without removing it
         File.Delete(_name);
     }

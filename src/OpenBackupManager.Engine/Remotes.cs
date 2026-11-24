@@ -116,10 +116,8 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
                 password = secret.Reveal();
             }
 
-            foreach (var file in new[] { options.Socket, options.LogFile })
-            {
-                PrivateFiles.CreateFolder(Path.GetDirectoryName(file)!);
-            }
+            RunFolder.Create(paths);
+            PrivateFiles.CreateFolder(Path.GetDirectoryName(options.LogFile)!);
 
             var rcd = await Rcd.StartAsync(options, password, stopping);
             // rclone reads its config lazily, so a wrong password or a damaged file only shows here
