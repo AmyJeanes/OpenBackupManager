@@ -163,7 +163,7 @@ public class ServiceTests
         File.Delete(Path.Combine(programs, "obmd"));
 
         var until = DateTime.UtcNow + Timeout;
-        while ((File.Exists(service.File) || await StatusAsync() is not null) && DateTime.UtcNow < until)
+        while ((File.Exists(service.File) || !await GoneAsync()) && DateTime.UtcNow < until)
         {
             await Task.Delay(500);
         }
@@ -171,7 +171,7 @@ public class ServiceTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(service.File, Does.Not.Exist);
-            Assert.That(await StatusAsync(), Is.Null, "The engine kept running");
+            Assert.That(await GoneAsync(), Is.True, "The engine kept running");
         }
     }
 
@@ -428,6 +428,19 @@ public class ServiceTests
     {
         using var engine = await EngineClient.ConnectAsync(paths ?? AppPaths.InHome(_home), TimeSpan.FromSeconds(2), CancellationToken.None);
         return engine is null ? null : await engine.StatusAsync(CancellationToken.None);
+    }
+
+    // Not while it's still stopping, when it takes a connection and closes it
+    private async Task<bool> GoneAsync()
+    {
+        try
+        {
+            return await StatusAsync() is null;
+        }
+        catch (EngineException)
+        {
+            return false;
+        }
     }
 
     // Until it exits, as one still stopping takes a connection and closes it
