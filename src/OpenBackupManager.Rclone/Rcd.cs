@@ -30,7 +30,7 @@ public sealed class Rcd : IAsyncDisposable
 
     public int ExitCode => _process.ExitCode;
 
-    public static async Task<Rcd> StartAsync(RcdOptions options, string? configPassword, CancellationToken cancellationToken)
+    public static async Task<Rcd> StartAsync(RcdOptions options, CancellationToken cancellationToken)
     {
         // Only this home's engine starts one here, so one answering was left by an engine that ended without
         // stopping it, as on macOS, which has no KillOnParentExit. A killed one leaves its socket, which stops the
@@ -65,11 +65,6 @@ public sealed class Rcd : IAsyncDisposable
         foreach (var name in rcloneVariables.ToList())
         {
             start.Environment.Remove(name);
-        }
-
-        if (configPassword is not null)
-        {
-            start.Environment["RCLONE_CONFIG_PASS"] = configPassword;
         }
 
         if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux())

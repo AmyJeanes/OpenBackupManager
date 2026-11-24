@@ -237,12 +237,29 @@ public class RemotesTests
         await RemotesAsync("onedrive");
         await EncryptedConfigAsync("onedrive", "password");
         await SavePasswordAsync("password");
-        var engine = await StartedAsync();
-        var socket = RemotesOf(engine).Options("onedrive").Socket;
-        await PidAsync(socket);
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        // Not before it's been given the password, which is once it answers
+        await log.LineAsync("Started rclone");
 
-        using var client = new RcClient(socket);
+        using var client = new RcClient(remotes.Options("onedrive").Socket);
         Assert.That((await client.ListRemotesAsync(CancellationToken.None)).Remotes, Is.EqualTo(["test"]));
+    }
+
+    // Where whatever rclone starts would get it too
+    [Test]
+    [Platform("Linux")]
+    public async Task WithItsPassword_KeepsItOutOfRclonesEnvironment()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await SavePasswordAsync("password");
+        var engine = await StartedAsync();
+        var pid = await PidAsync(RemotesOf(engine).Options("onedrive").Socket);
+
+        // Only the names, so a failure doesn't print every value
+        var names = (await File.ReadAllTextAsync($"/proc/{pid}/environ")).Split('\0').Select(variable => variable.Split('=')[0]);
+        Assert.That(names, Does.Not.Contain("RCLONE_CONFIG_PASS"));
     }
 
     // Where a parent rclone leaves its config's key, which rclone would use instead of the password
@@ -372,7 +389,6 @@ public class RemotesTests
         {
             await using var rcd = await Rcd.StartAsync(
                 new RcdOptions(BundledRclone.FilePath, Path.Combine(folder, "rc.sock"), file, Path.Combine(folder, "cache"), Path.Combine(folder, "rclone.log"), "Tests"),
-                null,
                 CancellationToken.None);
             await rcd.Client.UnlockConfigAsync(password, CancellationToken.None);
             await rcd.Client.CallAsync(

@@ -32,7 +32,7 @@ public class RcdTests
     public async Task StartAsync_AnswersOnItsSocket_AndQuitsCleanly()
     {
         var options = Options();
-        await using (var rcd = await Rcd.StartAsync(options, null, CancellationToken.None))
+        await using (var rcd = await Rcd.StartAsync(options, CancellationToken.None))
         {
             var version = await rcd.Client.VersionAsync(CancellationToken.None);
 
@@ -49,7 +49,7 @@ public class RcdTests
         var options = Options();
         await File.WriteAllTextAsync(options.Socket, "");
 
-        await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
+        await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
 
         Assert.That((await rcd.Client.VersionAsync(CancellationToken.None)).Version, Is.EqualTo(BundledRclone.Version));
     }
@@ -58,10 +58,10 @@ public class RcdTests
     public async Task StartAsync_StopsOneLeftRunning()
     {
         var options = Options();
-        await using var left = await Rcd.StartAsync(options, null, CancellationToken.None);
+        await using var left = await Rcd.StartAsync(options, CancellationToken.None);
         using var leftProcess = Process.GetProcessById((await left.Client.PidAsync(CancellationToken.None)).Pid);
 
-        await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
+        await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
@@ -77,7 +77,7 @@ public class RcdTests
         Environment.SetEnvironmentVariable("RCLONE_LOG_LEVEL", "DEBUG");
         try
         {
-            await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
+            await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
             await rcd.Client.VersionAsync(CancellationToken.None);
         }
         finally
@@ -98,7 +98,7 @@ public class RcdTests
         HttpClient.DefaultProxy = new WebProxy("socks5://127.0.0.1:9");
         try
         {
-            await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
+            await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
 
             Assert.That((await rcd.Client.VersionAsync(CancellationToken.None)).Version, Is.EqualTo(BundledRclone.Version));
         }
@@ -114,7 +114,7 @@ public class RcdTests
         // Longer than a socket's path can be
         var options = Options() with { Socket = Path.Combine(_folder, new string('x', 120) + ".sock") };
 
-        Assert.That(() => Rcd.StartAsync(options, null, CancellationToken.None),
+        Assert.That(() => Rcd.StartAsync(options, CancellationToken.None),
             Throws.TypeOf<RcloneException>().With.Message.Contains("stopped as it started"));
     }
 
@@ -122,7 +122,7 @@ public class RcdTests
     public async Task CallAsync_WhenRcloneFails_ThrowsItsMessage_AndItsLogHasIt()
     {
         var options = Options();
-        await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
+        await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
 
         Assert.That(() => rcd.Client.CallAsync("no/such", new NoParams(), RcJson.Default.NoParams, RcJson.Default.NoResult, CancellationToken.None),
             Throws.TypeOf<RcloneException>().With.Message.EqualTo("rclone's no/such failed: couldn't find method \"no/such\""));

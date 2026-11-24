@@ -110,7 +110,7 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
 
         try
         {
-            string? password = null;
+            Secret? password = null;
             if (RcloneConfigFile.IsEncrypted(options.Config))
             {
                 Secret? secret;
@@ -131,16 +131,22 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
                     return (null, false);
                 }
 
-                password = secret.Reveal();
+                password = secret;
             }
 
             RunFolder.Create(paths);
             PrivateFiles.CreateFolder(Path.GetDirectoryName(options.LogFile)!);
 
-            var rcd = await Rcd.StartAsync(options, password, stopping);
+            var rcd = await Rcd.StartAsync(options, stopping);
             // rclone reads its config lazily, so a wrong password or a damaged file only shows here
             try
             {
+                // Rather than in its environment, which anything it starts would get too
+                if (password is not null)
+                {
+                    await rcd.Client.UnlockConfigAsync(password.Reveal(), stopping);
+                }
+
                 await rcd.Client.ListRemotesAsync(stopping);
             }
             // Not rclone's message, which can quote a line of the config
