@@ -94,13 +94,19 @@ public class RemotesTests
     public async Task ItsRclone_WhenItStops_StartsAgain()
     {
         await RemotesAsync("onedrive");
-        var engine = await StartedAsync();
-        var socket = RemotesOf(engine).Options("onedrive").Socket;
-        using var first = Process.GetProcessById(await PidAsync(socket));
+        var (remotes, clock, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        // Not while it's starting, which would be a failed start
+        await log.LineAsync("Started rclone");
+        using (var first = Process.GetProcessById(await PidAsync(remotes.Options("onedrive").Socket)))
+        {
+            first.Kill();
+        }
 
-        first.Kill();
+        clock.Advance(await NextAsync(clock.Waits));
 
-        Assert.That(await PidAsync(socket, notPid: first.Id), Is.Not.EqualTo(first.Id));
+        // Rather than a new process ID, as Windows can give the new one the same
+        Assert.That(await log.LineAsync("Started rclone"), Does.Contain("onedrive"));
     }
 
     [Test]
@@ -409,8 +415,8 @@ public class RemotesTests
         Assert.That(RcloneConfigFile.IsEncrypted(file), Is.True);
     }
 
-    // The engine starts each without waiting for it, and the one it's replacing may still answer for a moment
-    private static async Task<int> PidAsync(string socket, int? notPid = null)
+    // The engine starts each without waiting for it
+    private static async Task<int> PidAsync(string socket)
     {
         using var client = new RcClient(socket);
         var until = DateTime.UtcNow + Timeout;
@@ -418,17 +424,13 @@ public class RemotesTests
         {
             try
             {
-                var pid = (await client.PidAsync(CancellationToken.None)).Pid;
-                if (pid != notPid)
-                {
-                    return pid;
-                }
+                return (await client.PidAsync(CancellationToken.None)).Pid;
             }
             catch (HttpRequestException) when (DateTime.UtcNow < until)
             {
             }
 
-            Assert.That(DateTime.UtcNow, Is.LessThan(until), $"Nothing new answered on {socket}");
+            Assert.That(DateTime.UtcNow, Is.LessThan(until), $"Nothing answered on {socket}");
             await Task.Delay(100);
         }
     }
