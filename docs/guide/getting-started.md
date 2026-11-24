@@ -1,6 +1,6 @@
 # Getting started
 
-Open Backup Manager backs up your folders and keeps them in sync with the cloud. This page gets it installed and shows where things are.
+Open Backup Manager backs up your folders and keeps them in sync with cloud storage, a NAS or another drive. This page gets it installed and shows where things are.
 
 ## Install it
 
