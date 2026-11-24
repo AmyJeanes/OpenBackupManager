@@ -136,10 +136,10 @@ Each remote has these fields:
 | Field | What it is |
 | --- | --- |
 | `id` | Its `id` in `config.toml`. |
-| `state` | `starting`, `running`, `retrying` once it's stopped or couldn't start, `needsSetup`, which isn't tried again until `obm remote retry`, or `stopped` by a bug. More may be added. |
+| `state` | `starting`, `running`, `retrying` once it's stopped or couldn't start, `needsSetup`, which isn't tried again until `obm remote retry`, `stopped` by a bug, or `waitingForSecrets` while the secret store is locked. More may be added. |
 | `reason` | Why it isn't running, as one of the reasons below. Left out while it's starting or running. More may be added. |
-| `value` | What fills in the reason: rclone's log for `wrongPassword` and `configUnreadable`, the exit code for `exited`, or the error's own message for `couldntStart` and `bug`. |
-| `nextTry` | When one that's `retrying` tries again, with its offset from UTC. |
+| `value` | What fills in the reason: rclone's log for `wrongPassword` and `configUnreadable`, the exit code for `exited`, the store as [`secret-store`](settings.md#secret-store) names it for `secretStoreLocked`, or the error's own message for `couldntStart` and `bug`. |
+| `nextTry` | When one that's `retrying` or `waitingForSecrets` tries again, with its offset from UTC. |
 | `message` | Why it isn't running, in English, for showing to people. |
 
 | Reason | Why it isn't running |
@@ -151,6 +151,7 @@ Each remote has these fields:
 | `exited` | rclone stopped. |
 | `couldntStart` | rclone couldn't start. |
 | `bug` | A bug stopped it. |
+| `secretStoreLocked` | The secret store is locked. It carries on once it's unlocked. |
 
 `obm config reload --json` and `obm config validate --json` print the errors and warnings they found as `problems`. They're in the order they were found, and each has these fields:
 

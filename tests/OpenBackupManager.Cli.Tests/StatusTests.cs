@@ -252,6 +252,7 @@ public class StatusTests
                 new RemoteStatus("nas", RemoteState.Retrying, RemoteReason.Exited, "1", now.AddSeconds(3.5)),
                 new RemoteStatus("work", RemoteState.NeedsSetup, RemoteReason.NoPassword),
                 new RemoteStatus("old", RemoteState.Stopped, RemoteReason.Bug, "Something went wrong"),
+                new RemoteStatus("locked", RemoteState.WaitingForSecrets, RemoteReason.SecretStoreLocked, "secret-service", now.AddSeconds(10)),
             ],
             now,
             CultureInfo.InvariantCulture);
@@ -263,6 +264,7 @@ public class StatusTests
             "  nas: trying again in 4s, as rclone stopped with exit code 1",
             "  work: needs setting up, as the password for its rclone config isn't in the secret store",
             "  old: stopped, as a bug stopped it: Something went wrong. The engine's log has more",
+            "  locked: waiting, as Secret Service is locked",
             "Try one again now with obm remote retry <id>",
         ]));
     }

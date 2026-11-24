@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Platform;
 using OpenBackupManager.Core.Protocol;
 using OpenBackupManager.Rclone;
 
@@ -16,6 +17,9 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposabl
     public string FileFor(string remoteId) => Path.Combine(Folder, remoteId + ".conf");
 
     public Task<Secret?> ReadPasswordAsync(CancellationToken cancellationToken) => secrets.ReadAsync(PasswordName, cancellationToken);
+
+    // Where the password is kept, as secret-store names it
+    public string? Store => secrets.Chosen?.Name();
 
     // Never made anew while a config is encrypted, as only the old password can read it
     public async Task<Secret> PasswordForSetupAsync(CancellationToken cancellationToken)

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Configuration;
+using OpenBackupManager.Core.Platform;
 using OpenBackupManager.Core.Protocol;
 using OpenBackupManager.Rclone;
 
@@ -19,6 +20,9 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     // Doubling between tries, so one that keeps failing doesn't spin, and back to the first once one has stayed up
     private static readonly TimeSpan FirstRetry = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan LongestRetry = TimeSpan.FromMinutes(1);
+
+    // Not doubling, so one starts soon after it's unlocked, and a check costs little
+    private static readonly TimeSpan LockedCheck = TimeSpan.FromSeconds(10);
 
     private readonly CancellationTokenSource _stopping = new();
     private readonly Lock _lock = new();
@@ -92,7 +96,7 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
                 remote.Status = new RemoteStatus(id, RemoteState.Starting);
                 remote.Running = Task.Run(() => RunAsync(remote), CancellationToken.None);
             }
-            else if (remote.Status.State == RemoteState.Retrying)
+            else if (remote.Status.State is RemoteState.Retrying or RemoteState.WaitingForSecrets)
             {
                 // Not Cancel, which would carry on its run on this thread, holding the lock
                 _ = remote.TryNow?.CancelAsync();
@@ -161,13 +165,39 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     {
         var stopping = remote.Stopping.Token;
         var retry = FirstRetry;
+        var waiting = false;
         try
         {
             while (true)
             {
                 var started = time.GetTimestamp();
-                Set(remote, new RemoteStatus(remote.Id, RemoteState.Starting));
+                // Not between checks of a locked store, which status would only show for a moment
+                if (!waiting)
+                {
+                    Set(remote, new RemoteStatus(remote.Id, RemoteState.Starting));
+                }
+
                 var (rcd, problem) = await StartAsync(remote, stopping);
+                if (problem?.Reason == RemoteReason.SecretStoreLocked)
+                {
+                    var check = new RemoteStatus(remote.Id, RemoteState.WaitingForSecrets, problem.Reason, problem.Value, time.GetUtcNow() + LockedCheck);
+                    if (!waiting)
+                    {
+                        Set(remote, check);
+                        LogWaitingForSecrets(remote.Id, check.InEnglish!);
+                        waiting = true;
+                    }
+
+                    await WaitToRetryAsync(remote, check, LockedCheck, stopping);
+                    continue;
+                }
+
+                if (waiting)
+                {
+                    LogSecretsUnlocked(remote.Id);
+                    waiting = false;
+                }
+
                 if (rcd is not null)
                 {
                     await using (rcd)
@@ -253,7 +283,12 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
                 {
                     secret = await rcloneConfig.ReadPasswordAsync(stopping);
                 }
-                // Such as a locked secret store
+                // Only a chosen store can be read, and so locked
+                catch (SecretStoreLockedException)
+                {
+                    return (null, new Problem(RemoteReason.SecretStoreLocked, rcloneConfig.Store!));
+                }
+                // Such as Secret Service with no D-Bus session
                 catch (InvalidOperationException e)
                 {
                     LogCantStart(e, remote.Id);
@@ -340,6 +375,12 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "rclone for remote {Id} stopped with exit code {ExitCode}, restarting in {Seconds} s")]
     private partial void LogExited(string id, int exitCode, double seconds);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Remote {Id} is waiting, as {Reason}. It carries on once it's unlocked, which it never asks for")]
+    private partial void LogWaitingForSecrets(string id, string reason);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The secret store is unlocked, so remote {Id} carries on")]
+    private partial void LogSecretsUnlocked(string id);
 
     // Why it's waiting to try again
     private sealed record Problem(RemoteReason Reason, string Value);

@@ -118,7 +118,7 @@ internal static class Status
         }
 
         List<string> lines = ["Remotes:", .. remotes.Select(remote => $"  {remote.Id}: {State(remote, now, culture)}")];
-        if (remotes.Any(remote => remote.State is RemoteState.Retrying or RemoteState.NeedsSetup or RemoteState.Stopped))
+        if (remotes.Any(remote => remote.State is not (RemoteState.Starting or RemoteState.Running)))
         {
             lines.Add("Try one again now with obm remote retry <id>");
         }
@@ -133,6 +133,7 @@ internal static class Status
         RemoteState.Retrying => string.Create(
             culture, $"trying again in {Math.Max(1, Math.Ceiling(((remote.NextTry ?? now) - now).TotalSeconds))}s, as {remote.Message(culture)}"),
         RemoteState.NeedsSetup => $"needs setting up, as {remote.Message(culture)}",
+        RemoteState.WaitingForSecrets => $"waiting, as {remote.Message(culture)}",
         _ => $"stopped, as {remote.Message(culture)}",
     };
 

@@ -88,6 +88,10 @@
     <value>rclone couldn't start: {0}</value>
     <comment>{0} is the error's own message, which is only in English</comment>
   </data>
+  <data name="RemoteReason_SecretStoreLocked" xml:space="preserve">
+    <value>{0} is locked</value>
+    <comment>{0} is the secret store, such as Secret Service or the login Keychain</comment>
+  </data>
   <data name="RemoteReason_Bug" xml:space="preserve">
     <value>a bug stopped it: {0}. The engine's log has more</value>
     <comment>{0} is the error's own message, which is only in English</comment>

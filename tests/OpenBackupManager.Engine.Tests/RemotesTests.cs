@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -261,6 +262,67 @@ public class RemotesTests
         await remotes.StartAsync(CancellationToken.None);
 
         Assert.That(() => remotes.Retry("nas"), Throws.TypeOf<EngineException>().With.Message.EqualTo("There's no remote called nas"));
+    }
+
+    // Checking again every 10 s, as it never asks for it to be unlocked
+    [Test]
+    public async Task WhenItsSecretStoreIsLocked_ItWaits_AndSaysSo()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await SavePasswordAsync("password");
+        using var store = new LockableStore(Secrets) { Locked = true };
+        var (remotes, clock, log) = Unstarted(store);
+        await remotes.StartAsync(CancellationToken.None);
+
+        var wait = await NextAsync(clock.Waits);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(wait, Is.EqualTo(TimeSpan.FromSeconds(10)));
+            Assert.That(
+                remotes.Status(),
+                Is.EqualTo((RemoteStatus[])[new("onedrive", RemoteState.WaitingForSecrets, RemoteReason.SecretStoreLocked, "file", clock.GetUtcNow() + wait)]));
+            Assert.That(await log.LineAsync("is waiting"), Does.Contain("as a file only you can read is locked"));
+        }
+    }
+
+    // Saying it's waiting only once
+    [Test]
+    public async Task WhenItsSecretStoreIsUnlocked_ItCarriesOn()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await SavePasswordAsync("password");
+        using var store = new LockableStore(Secrets) { Locked = true };
+        var (remotes, clock, log) = Unstarted(store);
+        await remotes.StartAsync(CancellationToken.None);
+        clock.Advance(await NextAsync(clock.Waits));
+        var wait = await NextAsync(clock.Waits);
+        store.Locked = false;
+
+        clock.Advance(wait);
+
+        await log.LineAsync("carries on");
+        await log.LineAsync("Started rclone");
+        Assert.That(log.All.Count(line => line.Contains("is waiting", StringComparison.Ordinal)), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Retry_WhenItsWaitingForItsSecretStore_ChecksNow()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await SavePasswordAsync("password");
+        using var store = new LockableStore(Secrets) { Locked = true };
+        var (remotes, clock, log) = Unstarted(store);
+        await remotes.StartAsync(CancellationToken.None);
+        await NextAsync(clock.Waits);
+        store.Locked = false;
+
+        remotes.Retry("onedrive");
+
+        Assert.That(await log.LineAsync("Started rclone"), Does.Contain("onedrive"));
     }
 
     [Test]
@@ -559,9 +621,9 @@ public class RemotesTests
     }
 
     // With the engine's config and secrets, but its own clock, as the engine's timers would move with it
-    private (Remotes Remotes, Clock Clock, LogLines Log) Unstarted()
+    private (Remotes Remotes, Clock Clock, LogLines Log) Unstarted(ISecretStore? fileStore = null)
     {
-        _services = EngineHost.Build(_home);
+        _services = EngineHost.Build(_home, platform: fileStore is null ? null : services => services.AddKeyedSingleton(SecretStoreKind.File, fileStore));
         var clock = new Clock();
         var log = new LogLines();
         _remotes = new Remotes(_services.Services.GetRequiredService<ConfigWatcher>(), _services.Services.GetRequiredService<RcloneConfig>(), _home, clock, log);
@@ -683,17 +745,47 @@ internal sealed class Clock : FakeTimeProvider
     }
 }
 
+// The file store, until it's locked
+internal sealed class LockableStore(string file) : ISecretStore, IDisposable
+{
+    private readonly FileStore _store = new(file);
+
+    public bool Locked { get; set; }
+
+    public Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default) =>
+        Locked ? throw new SecretStoreLockedException("It's locked") : _store.ReadAsync(name, cancellationToken);
+
+    public Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default) =>
+        Locked ? throw new SecretStoreLockedException("It's locked") : _store.SaveAsync(name, secret, cancellationToken);
+
+    public Task<bool> RemoveAsync(string name, CancellationToken cancellationToken = default) =>
+        Locked ? throw new SecretStoreLockedException("It's locked") : _store.RemoveAsync(name, cancellationToken);
+
+    public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default) =>
+        Locked ? throw new SecretStoreLockedException("It's locked") : _store.ListAsync(cancellationToken);
+
+    public void Dispose() => _store.Dispose();
+}
+
 internal sealed class LogLines : ILogger<Remotes>
 {
     private readonly Channel<string> _lines = Channel.CreateUnbounded<string>();
+    private readonly ConcurrentQueue<string> _all = new();
+
+    // Every line so far, whether read or not
+    public IReadOnlyCollection<string> All => _all;
 
     public IDisposable? BeginScope<TState>(TState state)
         where TState : notnull => null;
 
     public bool IsEnabled(LogLevel logLevel) => true;
 
-    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
-        _lines.Writer.TryWrite(formatter(state, exception));
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    {
+        var line = formatter(state, exception);
+        _all.Enqueue(line);
+        _lines.Writer.TryWrite(line);
+    }
 
     // The next with this in it, skipping any before it
     public async Task<string> LineAsync(string containing)
