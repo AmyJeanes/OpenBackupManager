@@ -58,8 +58,10 @@ public sealed class Rcd : IAsyncDisposable
             CreateNoWindow = true,
         };
 
-        // rclone reads these as settings, and any set are for the user's own rclone
-        foreach (var name in start.Environment.Keys.Where(name => name.StartsWith("RCLONE_", StringComparison.OrdinalIgnoreCase)).ToList())
+        // rclone reads these as settings, and any set are for the user's own rclone. With a _ before it, it's where a
+        // parent rclone left its config's key, which would win over the password
+        var rcloneVariables = start.Environment.Keys.Where(name => name.TrimStart('_').StartsWith("RCLONE_", StringComparison.OrdinalIgnoreCase));
+        foreach (var name in rcloneVariables.ToList())
         {
             start.Environment.Remove(name);
         }

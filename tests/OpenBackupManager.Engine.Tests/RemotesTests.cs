@@ -210,6 +210,31 @@ public class RemotesTests
         await engine.StopAsync();
     }
 
+    // Where a parent rclone leaves its config's key, which rclone would use instead of the password
+    [Test]
+    public async Task WithItsPassword_IgnoresTheUsersConfigKeyFile()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await SavePasswordAsync("password");
+        var keyFile = Path.Combine(_home.State, "key");
+        await File.WriteAllTextAsync(keyFile, "not the key");
+        Environment.SetEnvironmentVariable("_RCLONE_CONFIG_KEY_FILE", keyFile);
+        try
+        {
+            using var engine = EngineHost.Build(_home);
+            var (remotes, _, log) = Unstarted(engine);
+            await remotes.StartAsync(CancellationToken.None);
+
+            Assert.That(await log.LineAsync("onedrive"), Does.StartWith("Started rclone"));
+            await remotes.StopAsync(CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("_RCLONE_CONFIG_KEY_FILE", null);
+        }
+    }
+
     [Test]
     public async Task PasswordForSetup_WithNone_MakesAndSavesOne()
     {
