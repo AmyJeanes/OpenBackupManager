@@ -66,12 +66,26 @@ public class DaemonTests
 
         daemon.Kill();
         // Nothing takes it with the engine there, so the next engine stops it
+        Tool? next = null;
         if (OperatingSystem.IsMacOS())
         {
-            Daemon(home).WaitFor(StartedRclone);
+            next = Daemon(home);
+            next.WaitFor(StartedRclone);
         }
 
-        Assert.That(() => rclone.HasExited, Is.True.After(10_000, 100));
+        try
+        {
+            Assert.That(() => rclone.HasExited, Is.True.After(10_000, 100));
+        }
+        finally
+        {
+            // Asked to stop, as TearDown's kill would leave its rclone running too
+            if (OperatingSystem.IsMacOS() && next is not null)
+            {
+                next.Signal(PosixSignal.SIGTERM);
+                next.WaitForExit();
+            }
+        }
     }
 
     [Test]
