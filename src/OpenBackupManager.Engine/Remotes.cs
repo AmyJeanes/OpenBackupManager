@@ -92,7 +92,8 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
         }
     }
 
-    // Not retried when it needs setting up. Its file is left, as putting its password back brings it back
+    // Not retried when it needs setting up. Its file is left, as putting its password back brings it back when the
+    // engine next starts
     private async Task<(Rcd? Rcd, bool TryAgain)> StartAsync(string id, CancellationToken stopping)
     {
         var options = Options(id);
