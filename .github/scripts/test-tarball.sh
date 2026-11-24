@@ -1,8 +1,8 @@
 #!/bin/sh
-# Checks obm and obmd unpacked from a tarball run through links onto PATH, as the guide installs them: the engine starts,
-# obm status reaches it, it runs the rclone beside it for a remote, and it stops cleanly. Also that rclone and the
-# licences came with them. CI runs it on the macOS runners, and for Linux in older distros' containers, which have no
-# PowerShell. It runs from the repository's folder, for rclone.version
+# Checks obm and obmd unpacked from a tarball run through links onto PATH, as the guide installs them: the engine
+# starts, obm status reaches it, it runs the rclone beside it for a remote, and it stops cleanly. Also that rclone and
+# the licences came with them. CI runs it on the macOS runners, and for Linux in older distros' containers, which have
+# no PowerShell. It runs from the repository's folder, for rclone.version
 set -eu
 dir=$(cd "$1" && pwd)
 
