@@ -32,8 +32,9 @@ public sealed class Rcd : IAsyncDisposable
 
     public static async Task<Rcd> StartAsync(RcdOptions options, string? configPassword, CancellationToken cancellationToken)
     {
-        // Only this home's engine starts one here, so one answering was left by an engine that ended without stopping
-        // it, as on macOS, which has no KillOnParentExit. A socket left by one that was killed stops the next binding it
+        // Only this home's engine starts one here, so one answering was left by an engine that ended without
+        // stopping it, as on macOS, which has no KillOnParentExit. A killed one leaves its socket, which stops the
+        // next binding it
         await StopLeftBehindAsync(options.Socket, cancellationToken);
         File.Delete(options.Socket);
 

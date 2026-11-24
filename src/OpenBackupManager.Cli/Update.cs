@@ -232,7 +232,7 @@ internal static class Update
         while (reader.GetNextEntry() is { } entry)
         {
             // Only files at its top level, as the guide unpacks it into a folder of its own, which keeps a name such as
-            // ../x from writing outside it before the hash is checked
+            // ../x from writing outside it
             if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || entry.Name.Contains('/'))
             {
                 continue;
