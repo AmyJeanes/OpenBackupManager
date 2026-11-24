@@ -6,6 +6,9 @@ namespace OpenBackupManager.Core.Tests;
 
 public class ConfigFileTests
 {
+    private const string IdRules =
+        "can only use lowercase letters, digits and hyphens, up to 32 characters, and can't be con, prn, aux, nul, com0 to com9 or lpt0 to lpt9";
+
     private string _folder = "";
 
     private string FilePath => Path.Combine(_folder, "config.toml");
@@ -86,10 +89,11 @@ public class ConfigFileTests
     [TestCase("version = 1\nupdates = { automatic = false }", 2, "updates should be [updates]")]
     [TestCase("remotes = { id = \"a\" }", 1, "remotes should be [[remotes]]")]
     [TestCase("[[remotes]]\nname = \"A\"", 1, "each [[remotes]] needs an id")]
-    [TestCase("[[remotes]]\nid = \"One Drive\"", 2, "the remote id \"One Drive\" can only use lowercase letters, digits and hyphens, up to 32 characters")]
-    [TestCase("[[remotes]]\nid = \"../x\"", 2, "the remote id \"../x\" can only use lowercase letters, digits and hyphens, up to 32 characters")]
-    [TestCase("[[remotes]]\nid = \"abcdefghijklmnopqrstuvwxyz-1234567\"", 2,
-        "the remote id \"abcdefghijklmnopqrstuvwxyz-1234567\" can only use lowercase letters, digits and hyphens, up to 32 characters")]
+    [TestCase("[[remotes]]\nid = \"One Drive\"", 2, "the remote id \"One Drive\" " + IdRules)]
+    [TestCase("[[remotes]]\nid = \"../x\"", 2, "the remote id \"../x\" " + IdRules)]
+    [TestCase("[[remotes]]\nid = \"abcdefghijklmnopqrstuvwxyz-1234567\"", 2, "the remote id \"abcdefghijklmnopqrstuvwxyz-1234567\" " + IdRules)]
+    [TestCase("[[remotes]]\nid = \"nul\"", 2, "the remote id \"nul\" " + IdRules)]
+    [TestCase("[[remotes]]\nid = \"com1\"", 2, "the remote id \"com1\" " + IdRules)]
     [TestCase("[[remotes]]\nid = \"a\"\n[[remotes]]\nid = \"a\"", 4, "the remote id \"a\" is used twice")]
     public void Parse_Mistake_IsAnErrorNamingTheLine(string text, int line, string message)
     {
@@ -101,6 +105,13 @@ public class ConfigFileTests
             Assert.That(result.Problems.Where(p => p.IsError).Select(p => p.ToString()), Has.One.EqualTo($"line {line}: {message}"));
         }
     }
+
+    // Only the device names themselves
+    [TestCase("console")]
+    [TestCase("com10")]
+    [TestCase("nul-2")]
+    public void Parse_ARemoteIdLikeADeviceName_IsFine(string id) =>
+        Assert.That(ConfigFile.Parse($"[[remotes]]\nid = \"{id}\"").Problems, Is.Empty);
 
     // Each OS's own list is checked by the CI runner for that OS
     [TestCase("vault")]

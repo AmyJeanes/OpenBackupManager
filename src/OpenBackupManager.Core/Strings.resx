@@ -47,7 +47,7 @@
     <comment>[[remotes]] and id are written in the file, so stay as they are</comment>
   </data>
   <data name="ConfigProblem_RemoteIdNotValid" xml:space="preserve">
-    <value>the remote id "{0}" can only use lowercase letters, digits and hyphens, up to 32 characters</value>
+    <value>the remote id "{0}" can only use lowercase letters, digits and hyphens, up to 32 characters, and can't be con, prn, aux, nul, com0 to com9 or lpt0 to lpt9</value>
     <comment>A remote is a place backups go, such as OneDrive</comment>
   </data>
   <data name="ConfigProblem_RemoteIdUsedTwice" xml:space="preserve">
