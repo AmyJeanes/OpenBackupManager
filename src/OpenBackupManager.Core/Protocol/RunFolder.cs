@@ -46,7 +46,7 @@ public static class RunFolder
         }
         catch (UnauthorizedAccessException e)
         {
-            throw BelongsToAnother(folder, e);
+            throw new EngineException(BelongsToAnother(folder), e);
         }
     }
 
@@ -69,10 +69,11 @@ public static class RunFolder
     [SupportedOSPlatform("windows")]
     private static void CreateOnWindows(string folder)
     {
+        using var user = WindowsIdentity.GetCurrent();
         var security = new DirectorySecurity();
         security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
         security.AddAccessRule(new FileSystemAccessRule(
-            WindowsIdentity.GetCurrent().User!,
+            user.User!,
             FileSystemRights.FullControl,
             InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
             PropagationFlags.None,
@@ -89,16 +90,22 @@ public static class RunFolder
             throw new EngineException($"{folder} is a link, so the engine won't keep its sockets there");
         }
 
+        // Its owner can always let themselves back in. One this user made has their token's owner, maybe Administrators
+        var owner = info.GetAccessControl(AccessControlSections.Owner).GetOwner(typeof(SecurityIdentifier));
+        if (owner != user.User && owner != user.Owner)
+        {
+            throw new EngineException(BelongsToAnother(folder));
+        }
+
         try
         {
             info.SetAccessControl(security);
         }
         catch (UnauthorizedAccessException e)
         {
-            throw BelongsToAnother(folder, e);
+            throw new EngineException(BelongsToAnother(folder), e);
         }
     }
 
-    private static EngineException BelongsToAnother(string folder, Exception e) =>
-        new($"{folder} belongs to another user, so the engine can't keep its sockets there", e);
+    private static string BelongsToAnother(string folder) => $"{folder} belongs to another user, so the engine can't keep its sockets there";
 }
