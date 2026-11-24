@@ -17,6 +17,7 @@ public static class EngineProtocol
     public const string Stop = "stop";
     public const string MigrateSecrets = "migrateSecrets";
     public const string ReloadConfig = "reloadConfig";
+    public const string RetryRemote = "retryRemote";
 
 #if DEBUG
     // For testing crash reports
@@ -71,6 +72,8 @@ public sealed record StatusResult(
     SecretsStatus Secrets,
     // From the engine's latest read of config.toml. An error leaves the last good settings in use
     IReadOnlyList<ConfigProblem> ConfigProblems,
+    // In config.toml's order
+    IReadOnlyList<RemoteStatus> Remotes,
     // The version an update installed over the engine's own, which runs once the engine is restarted
     string? Installed = null);
 
@@ -82,6 +85,11 @@ public sealed record MigrateSecretsParams(string Store);
 // From is the store they were in, as secret-store names it, or null when none was chosen. When it's the store asked
 // for, nothing was moved. Left names the secrets that couldn't be removed from it. File is the file store's path
 public sealed record MigrateSecretsResult(int Moved, IReadOnlyList<string> Left, string File, string? From = null);
+
+// Starts a remote again that's stopped trying, or tries now one that's waiting to
+public sealed record RetryRemoteParams(string Id);
+
+public sealed record RetryRemoteResult;
 
 // What reading config.toml again found, as status gives it
 public sealed record ReloadConfigResult(IReadOnlyList<ConfigProblem> Problems);
@@ -125,7 +133,12 @@ public sealed record CrashResult;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     RespectNullableAnnotations = true,
     RespectRequiredConstructorParameters = true,
-    Converters = [typeof(CamelCaseEnumConverter<ConfigProblemKind>)])]
+    Converters =
+    [
+        typeof(CamelCaseEnumConverter<ConfigProblemKind>),
+        typeof(CamelCaseEnumConverter<RemoteState>),
+        typeof(CamelCaseEnumConverter<RemoteReason>),
+    ])]
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(RpcRequest))]
 [JsonSerializable(typeof(RpcResponse))]
@@ -137,6 +150,8 @@ public sealed record CrashResult;
 [JsonSerializable(typeof(MigrateSecretsParams))]
 [JsonSerializable(typeof(MigrateSecretsResult))]
 [JsonSerializable(typeof(ReloadConfigResult))]
+[JsonSerializable(typeof(RetryRemoteParams))]
+[JsonSerializable(typeof(RetryRemoteResult))]
 #if DEBUG
 [JsonSerializable(typeof(CrashParams))]
 [JsonSerializable(typeof(CrashResult))]

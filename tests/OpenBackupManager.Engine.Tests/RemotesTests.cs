@@ -144,6 +144,126 @@ public class RemotesTests
     }
 
     [Test]
+    public async Task Status_WhenItsRunning_SaysSo()
+    {
+        await RemotesAsync("onedrive");
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        await log.LineAsync("Started rclone");
+
+        Assert.That(remotes.Status(), Is.EqualTo((RemoteStatus[])[new("onedrive", RemoteState.Running)]));
+    }
+
+    [Test]
+    public async Task Status_WhenItCantStart_SaysWhyAndWhenItTriesAgain()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await File.WriteAllTextAsync(Secrets, "not JSON");
+        var (remotes, clock, _) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+
+        var wait = await NextAsync(clock.Waits);
+
+        var status = remotes.Status().Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(status.State, Is.EqualTo(RemoteState.Retrying));
+            Assert.That(status.Reason, Is.EqualTo(RemoteReason.CouldntStart));
+            Assert.That(status.NextTry, Is.EqualTo(clock.GetUtcNow() + wait));
+        }
+    }
+
+    [Test]
+    public async Task Status_WhenItNeedsSettingUp_SaysWhy()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        await log.LineAsync("needs setting up");
+
+        Assert.That(remotes.Status(), Is.EqualTo((RemoteStatus[])[new("onedrive", RemoteState.NeedsSetup, RemoteReason.NoPassword)]));
+    }
+
+    [Test]
+    public async Task Status_WhenABugStopsIt_SaysWhatItWas()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await File.WriteAllTextAsync(Secrets, "not JSON");
+        var (remotes, clock, log) = Unstarted();
+        clock.Fails = new NotSupportedException("A bug");
+        await remotes.StartAsync(CancellationToken.None);
+        await log.LineAsync("Stopped running");
+
+        Assert.That(remotes.Status(), Is.EqualTo((RemoteStatus[])[new("onedrive", RemoteState.Stopped, RemoteReason.Bug, "A bug")]));
+    }
+
+    [Test]
+    public async Task Retry_WhenItNeedsSettingUp_StartsItAgain()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        await log.LineAsync("needs setting up");
+        await SavePasswordAsync("password");
+
+        remotes.Retry("onedrive");
+
+        await log.LineAsync("Started rclone");
+        Assert.That(remotes.Status().Single().State, Is.EqualTo(RemoteState.Running));
+    }
+
+    [Test]
+    public async Task Retry_WhenABugStoppedIt_StartsItAgain()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await File.WriteAllTextAsync(Secrets, "not JSON");
+        var (remotes, clock, log) = Unstarted();
+        clock.Fails = new NotSupportedException("A bug");
+        await remotes.StartAsync(CancellationToken.None);
+        await log.LineAsync("Stopped running");
+        clock.Fails = null;
+        File.Delete(Secrets);
+        await SavePasswordAsync("password");
+
+        remotes.Retry("onedrive");
+
+        Assert.That(await log.LineAsync("Started rclone"), Does.Contain("onedrive"));
+    }
+
+    // Rather than when it would have
+    [Test]
+    public async Task Retry_WhenItsWaitingToTryAgain_TriesNow()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        await File.WriteAllTextAsync(Secrets, "not JSON");
+        var (remotes, clock, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        await NextAsync(clock.Waits);
+        File.Delete(Secrets);
+        await SavePasswordAsync("password");
+
+        remotes.Retry("onedrive");
+
+        Assert.That(await log.LineAsync("Started rclone"), Does.Contain("onedrive"));
+    }
+
+    [Test]
+    public async Task Retry_ARemoteThatIsntThere_Fails()
+    {
+        await RemotesAsync("onedrive");
+        var (remotes, _, _) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+
+        Assert.That(() => remotes.Retry("nas"), Throws.TypeOf<EngineException>().With.Message.EqualTo("There's no remote called nas"));
+    }
+
+    [Test]
     public async Task ItsRclone_WhenItKeepsStopping_WaitsLongerEachTime_UntilItStaysUp()
     {
         await RemotesAsync("onedrive");
@@ -378,7 +498,7 @@ public class RemotesTests
         return await reader.ReadAsync(timeout.Token);
     }
 
-    private static Remotes RemotesOf(IHost engine) => engine.Services.GetServices<IHostedService>().OfType<Remotes>().Single();
+    private static Remotes RemotesOf(IHost engine) => engine.Services.GetRequiredService<Remotes>();
 
     // With plain rclone configs, and the file store, which every OS has
     private async Task RemotesAsync(params string[] ids)

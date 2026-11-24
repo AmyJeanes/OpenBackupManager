@@ -19,7 +19,8 @@
 | Command | What it does |
 | --- | --- |
 | `obm --version` | Shows the version. |
-| `obm status` | Shows whether the engine is running, its version and what started it, any errors in `config.toml`, and any [crash reports](files.md#crash-reports) you haven't seen. |
+| `obm status` | Shows whether the engine is running, its version and what started it, any errors in `config.toml`, how each remote is doing, and any [crash reports](files.md#crash-reports) you haven't seen. |
+| `obm remote retry <id>` | Has the engine try a remote again now, such as one that needs setting up once its password is back in the secret store. |
 | `obm service install` | macOS and Linux: starts the engine now and whenever you sign in, and again if it fails. See [The engine](#the-engine). |
 | `obm service uninstall` | macOS and Linux: stops the engine, and stops it starting when you sign in. |
 | `obm secrets migrate <store>` | Moves your secrets to another [store](settings.md#secret-store), such as `file`. The engine has to be running. |
@@ -104,7 +105,13 @@ With `--json`, `obm status`, `obm config reload`, `obm config validate` and `obm
   "secrets": {
     "store": "secret-service"
   },
-  "configProblems": []
+  "configProblems": [],
+  "remotes": [
+    {
+      "id": "onedrive",
+      "state": "running"
+    }
+  ]
 }
 ```
 
@@ -119,9 +126,31 @@ With `--json`, `obm status`, `obm config reload`, `obm config validate` and `obm
 | `secrets.store` | Where secrets are kept, as [`secret-store`](settings.md#secret-store) names it. Left out until one is chosen. |
 | `secrets.file` | The file they're in, when `store` is `file`. |
 | `configProblems` | The errors and warnings in `config.toml`, from the engine's latest read of it. |
+| `remotes` | How each remote in `config.toml` is doing, in its order there, as below. |
 | `installed` | The version an update installed, such as a newer `.deb` or `.rpm`, while the engine still runs the one before it. Left out otherwise. |
 
 It leaves out crash reports, which `obm crashes list --json` has.
+
+Each remote has these fields:
+
+| Field | What it is |
+| --- | --- |
+| `id` | Its `id` in `config.toml`. |
+| `state` | `starting`, `running`, `retrying` once it's stopped or couldn't start, `needsSetup`, which isn't tried again until `obm remote retry`, or `stopped` by a bug. More may be added. |
+| `reason` | Why it isn't running, as one of the reasons below. Left out while it's starting or running. More may be added. |
+| `value` | What fills in the reason: rclone's log for `wrongPassword` and `configUnreadable`, the exit code for `exited`, or the error's own message for `couldntStart` and `bug`. |
+| `nextTry` | When one that's `retrying` tries again, with its offset from UTC. |
+| `message` | Why it isn't running, in English, for showing to people. |
+
+| Reason | Why it isn't running |
+| --- | --- |
+| `noConfig` | It has no rclone config. |
+| `noPassword` | The password for its rclone config isn't in the secret store. |
+| `wrongPassword` | Its rclone config can't be read with the password in the secret store. |
+| `configUnreadable` | rclone can't read its config. |
+| `exited` | rclone stopped. |
+| `couldntStart` | rclone couldn't start. |
+| `bug` | A bug stopped it. |
 
 `obm config reload --json` and `obm config validate --json` print the errors and warnings they found as `problems`. They're in the order they were found, and each has these fields:
 

@@ -75,6 +75,11 @@ internal static class Status
                 output.WriteLine("  " + line);
             }
 
+            foreach (var line in Remotes(status.Remotes, DateTimeOffset.UtcNow, CultureInfo.CurrentUICulture))
+            {
+                output.WriteLine("  " + line);
+            }
+
             return 0;
         }
         catch (EngineException e)
@@ -104,6 +109,32 @@ internal static class Status
             ? $"in {file}, protected only by its permissions"
             : "in " + SecretStoreKinds.Parse(secrets.Store)!.Value.Title();
     }
+
+    internal static IEnumerable<string> Remotes(IReadOnlyList<RemoteStatus> remotes, DateTimeOffset now, CultureInfo culture)
+    {
+        if (remotes.Count == 0)
+        {
+            return [];
+        }
+
+        List<string> lines = ["Remotes:", .. remotes.Select(remote => $"  {remote.Id}: {State(remote, now, culture)}")];
+        if (remotes.Any(remote => remote.State is RemoteState.Retrying or RemoteState.NeedsSetup or RemoteState.Stopped))
+        {
+            lines.Add("Try one again now with obm remote retry <id>");
+        }
+
+        return lines;
+    }
+
+    private static string State(RemoteStatus remote, DateTimeOffset now, CultureInfo culture) => remote.State switch
+    {
+        RemoteState.Starting => "starting",
+        RemoteState.Running => "running",
+        RemoteState.Retrying => string.Create(
+            culture, $"trying again in {Math.Max(1, Math.Ceiling(((remote.NextTry ?? now) - now).TotalSeconds))}s, as {remote.Message(culture)}"),
+        RemoteState.NeedsSetup => $"needs setting up, as {remote.Message(culture)}",
+        _ => $"stopped, as {remote.Message(culture)}",
+    };
 
     internal static IEnumerable<string> ConfigProblems(IReadOnlyList<ConfigProblem> problems, CultureInfo culture)
     {

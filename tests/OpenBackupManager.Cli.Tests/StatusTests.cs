@@ -236,6 +236,43 @@ public class StatusTests
         Assert.That(two.First(), Is.EqualTo("config.toml has errors, so its latest changes aren't applied:"));
     }
 
+    [Test]
+    public void WithNoRemotes_ShowsNothing() =>
+        Assert.That(Status.Remotes([], DateTimeOffset.UtcNow, CultureInfo.InvariantCulture), Is.Empty);
+
+    [Test]
+    public void Remotes_SayHowEachIsDoing()
+    {
+        var now = new DateTimeOffset(2026, 11, 24, 12, 0, 0, TimeSpan.Zero);
+
+        var lines = Status.Remotes(
+            [
+                new RemoteStatus("onedrive", RemoteState.Running),
+                new RemoteStatus("starting", RemoteState.Starting),
+                new RemoteStatus("nas", RemoteState.Retrying, RemoteReason.Exited, "1", now.AddSeconds(3.5)),
+                new RemoteStatus("work", RemoteState.NeedsSetup, RemoteReason.NoPassword),
+                new RemoteStatus("old", RemoteState.Stopped, RemoteReason.Bug, "Something went wrong"),
+            ],
+            now,
+            CultureInfo.InvariantCulture);
+
+        Assert.That(lines, Is.EqualTo((string[])[
+            "Remotes:",
+            "  onedrive: running",
+            "  starting: starting",
+            "  nas: trying again in 4s, as rclone stopped with exit code 1",
+            "  work: needs setting up, as the password for its rclone config isn't in the secret store",
+            "  old: stopped, as a bug stopped it: Something went wrong. The engine's log has more",
+            "Try one again now with obm remote retry <id>",
+        ]));
+    }
+
+    [Test]
+    public void RemotesAllRunning_SayNothingOfTryingAgain() =>
+        Assert.That(
+            Status.Remotes([new RemoteStatus("onedrive", RemoteState.Running)], DateTimeOffset.UtcNow, CultureInfo.InvariantCulture),
+            Is.EqualTo((string[])["Remotes:", "  onedrive: running"]));
+
     [TestCase("credential-manager", null, "in Credential Manager")]
     [TestCase("keychain", null, "in the login Keychain")]
     [TestCase(null, null, "no store chosen yet. Choose one with secret-store in config.toml: secret-service or file")]

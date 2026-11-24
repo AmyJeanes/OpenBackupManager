@@ -16,6 +16,7 @@ internal sealed partial class Listener(
     ConfigWatcher config,
     Secrets secrets,
     UpdateWatcher update,
+    Remotes remotes,
     IHostApplicationLifetime lifetime,
     TimeProvider time,
     ILogger<Listener> logger) : IDisposable
@@ -61,7 +62,17 @@ internal sealed partial class Listener(
     public void Dispose() => _stopping.Dispose();
 
     private StatusResult Status() =>
-        new(AppVersion.Current, Environment.ProcessId, _started, paths.Config, paths.State, options.StartedBy, secrets.Status(), config.Result.Problems, update.Installed);
+        new(
+            AppVersion.Current,
+            Environment.ProcessId,
+            _started,
+            paths.Config,
+            paths.State,
+            options.StartedBy,
+            secrets.Status(),
+            config.Result.Problems,
+            remotes.Status(),
+            update.Installed);
 
     // .NET leaves the socket's permissions to the umask, so a private folder keeps other users from reaching it at all
     [UnsupportedOSPlatform("windows")]
@@ -146,7 +157,7 @@ internal sealed partial class Listener(
         {
             try
             {
-                var connection = new Connection(Status, config, secrets, logger);
+                var connection = new Connection(Status, config, secrets, remotes, logger);
                 using var reader = new StreamReader(pipe, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
                 while (!connection.Closing && await reader.ReadLineAsync(cancellationToken) is { } line)
                 {

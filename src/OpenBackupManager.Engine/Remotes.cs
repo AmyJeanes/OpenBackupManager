@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Hosting;
@@ -20,11 +21,20 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     private static readonly TimeSpan LongestRetry = TimeSpan.FromMinutes(1);
 
     private readonly CancellationTokenSource _stopping = new();
-    private Task[] _running = [];
+    private readonly Lock _lock = new();
+    private List<Remote> _remotes = [];
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _running = [.. config.Config.Remotes.Select(remote => RunAsync(remote.Id, _stopping.Token))];
+        lock (_lock)
+        {
+            _remotes = [.. config.Config.Remotes.Select(remote => new Remote(remote.Id))];
+            foreach (var remote in _remotes)
+            {
+                remote.Running = Task.Run(() => RunAsync(remote, _stopping.Token), CancellationToken.None);
+            }
+        }
+
         return Task.CompletedTask;
     }
 
@@ -32,13 +42,54 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         await _stopping.CancelAsync();
-        await Task.WhenAll(_running);
+        await Running;
     }
 
     public void Dispose() => _stopping.Dispose();
 
     // Ends once every remote has stopped trying
-    internal Task Running => Task.WhenAll(_running);
+    internal Task Running
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return Task.WhenAll(_remotes.Select(remote => remote.Running));
+            }
+        }
+    }
+
+    internal IReadOnlyList<RemoteStatus> Status()
+    {
+        lock (_lock)
+        {
+            return [.. _remotes.Select(remote => remote.Status)];
+        }
+    }
+
+    // Starts one again that's stopped trying, such as once its password is back, or tries now one that's waiting to
+    internal void Retry(string id)
+    {
+        lock (_lock)
+        {
+            var remote = _remotes.Find(remote => remote.Id == id) ?? throw new EngineException($"There's no remote called {id}");
+            if (_stopping.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (remote.Status.State is RemoteState.NeedsSetup or RemoteState.Stopped)
+            {
+                remote.Status = new RemoteStatus(id, RemoteState.Starting);
+                remote.Running = Task.Run(() => RunAsync(remote, _stopping.Token), CancellationToken.None);
+            }
+            else if (remote.Status.State == RemoteState.Retrying)
+            {
+                // Not Cancel, which would carry on its run on this thread, holding the lock
+                _ = remote.TryNow?.CancelAsync();
+            }
+        }
+    }
 
     // Its files are named from its ID, which config.toml only allows to be letters, digits and hyphens. The socket's is
     // a hash, as the run folder limits how long its names can be
@@ -55,7 +106,7 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     }
 
     // Until the engine stops, or it needs setting up
-    private async Task RunAsync(string id, CancellationToken stopping)
+    private async Task RunAsync(Remote remote, CancellationToken stopping)
     {
         var retry = FirstRetry;
         try
@@ -63,27 +114,32 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
             while (true)
             {
                 var started = time.GetTimestamp();
-                var (rcd, tryAgain) = await StartAsync(id, stopping);
-                if (!tryAgain)
-                {
-                    return;
-                }
-
+                Set(remote, new RemoteStatus(remote.Id, RemoteState.Starting));
+                var (rcd, problem) = await StartAsync(remote, stopping);
                 if (rcd is not null)
                 {
                     await using (rcd)
                     {
+                        Set(remote, new RemoteStatus(remote.Id, RemoteState.Running));
+                        LogStarted(remote.Id);
                         await rcd.Exited.WaitAsync(stopping);
                         if (time.GetElapsedTime(started) >= LongestRetry)
                         {
                             retry = FirstRetry;
                         }
 
-                        LogExited(id, rcd.ExitCode, retry.TotalSeconds);
+                        LogExited(remote.Id, rcd.ExitCode, retry.TotalSeconds);
+                        problem = new Problem(RemoteReason.Exited, rcd.ExitCode.ToString(CultureInfo.InvariantCulture));
                     }
                 }
 
-                await Task.Delay(retry, time, stopping);
+                if (problem is null)
+                {
+                    return;
+                }
+
+                var status = new RemoteStatus(remote.Id, RemoteState.Retrying, problem.Reason, problem.Value, time.GetUtcNow() + retry);
+                await WaitToRetryAsync(remote, status, retry, stopping);
                 retry = TimeSpan.FromTicks(Math.Min(retry.Ticks * 2, LongestRetry.Ticks));
             }
         }
@@ -93,19 +149,46 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
         // A bug, logged now rather than thrown when the engine stops
         catch (Exception e)
         {
-            LogStoppedRunning(e, id);
+            Set(remote, new RemoteStatus(remote.Id, RemoteState.Stopped, RemoteReason.Bug, e.Message));
+            LogStoppedRunning(e, remote.Id);
         }
     }
 
-    // Not retried when it needs setting up. Its file is left, as putting its password back brings it back when the
-    // engine next starts
-    private async Task<(Rcd? Rcd, bool TryAgain)> StartAsync(string id, CancellationToken stopping)
+    // Until it's time, or it's asked to try now
+    private async Task WaitToRetryAsync(Remote remote, RemoteStatus status, TimeSpan retry, CancellationToken stopping)
     {
-        var options = Options(id);
+        using var tryNow = CancellationTokenSource.CreateLinkedTokenSource(stopping);
+        lock (_lock)
+        {
+            remote.Status = status;
+            remote.TryNow = tryNow;
+        }
+
+        try
+        {
+            await Task.Delay(retry, time, tryNow.Token);
+        }
+        catch (OperationCanceledException) when (!stopping.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            lock (_lock)
+            {
+                remote.TryNow = null;
+            }
+        }
+    }
+
+    // With no rcd and no problem when it needs setting up, which isn't tried again. Its file is left, as putting its
+    // password back brings it back
+    private async Task<(Rcd? Rcd, Problem? Problem)> StartAsync(Remote remote, CancellationToken stopping)
+    {
+        var options = Options(remote.Id);
         if (!File.Exists(options.Config))
         {
-            LogNeedsSettingUp(id, "it has no rclone config");
-            return (null, false);
+            NeedsSettingUp(remote, RemoteReason.NoConfig);
+            return (null, null);
         }
 
         try
@@ -121,14 +204,14 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
                 // Such as a locked secret store
                 catch (InvalidOperationException e)
                 {
-                    LogCantStart(e, id);
-                    return (null, true);
+                    LogCantStart(e, remote.Id);
+                    return (null, new Problem(RemoteReason.CouldntStart, e.Message));
                 }
 
                 if (secret is null)
                 {
-                    LogNeedsSettingUp(id, "the password for its rclone config isn't in the secret store");
-                    return (null, false);
+                    NeedsSettingUp(remote, RemoteReason.NoPassword);
+                    return (null, null);
                 }
 
                 password = secret;
@@ -153,10 +236,8 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
             catch (RcloneException)
             {
                 await rcd.DisposeAsync();
-                LogNeedsSettingUp(id, (password is null
-                    ? "rclone can't read its config"
-                    : "its rclone config can't be read with the password in the secret store") + $". {options.LogFile} says why");
-                return (null, false);
+                NeedsSettingUp(remote, password is null ? RemoteReason.ConfigUnreadable : RemoteReason.WrongPassword, options.LogFile);
+                return (null, null);
             }
             catch
             {
@@ -164,14 +245,29 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
                 throw;
             }
 
-            LogStarted(id);
-            return (rcd, true);
+            return (rcd, null);
         }
         catch (Exception e) when (e is RcloneException or HttpRequestException or IOException or UnauthorizedAccessException
             or Win32Exception or EngineException or InvalidDataException)
         {
-            LogCantStart(e, id);
-            return (null, true);
+            LogCantStart(e, remote.Id);
+            return (null, new Problem(RemoteReason.CouldntStart, e.Message));
+        }
+    }
+
+    private void NeedsSettingUp(Remote remote, RemoteReason reason, string? value = null)
+    {
+        var status = new RemoteStatus(remote.Id, RemoteState.NeedsSetup, reason, value);
+        Set(remote, status);
+        LogNeedsSettingUp(remote.Id, status.InEnglish!);
+    }
+
+    // Before it's logged, so whatever waits for the log sees it
+    private void Set(Remote remote, RemoteStatus status)
+    {
+        lock (_lock)
+        {
+            remote.Status = status;
         }
     }
 
@@ -189,4 +285,19 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "rclone for remote {Id} stopped with exit code {ExitCode}, restarting in {Seconds} s")]
     private partial void LogExited(string id, int exitCode, double seconds);
+
+    // Why it's waiting to try again
+    private sealed record Problem(RemoteReason Reason, string Value);
+
+    private sealed class Remote(string id)
+    {
+        public string Id { get; } = id;
+
+        public RemoteStatus Status { get; set; } = new(id, RemoteState.Starting);
+
+        public Task Running { get; set; } = Task.CompletedTask;
+
+        // While it's waiting to try again
+        public CancellationTokenSource? TryNow { get; set; }
+    }
 }

@@ -8,7 +8,7 @@ using OpenBackupManager.Core.Protocol;
 namespace OpenBackupManager.Engine;
 
 // What the engine says to one client, a line at a time. It closes the connection once it's refused a client
-internal sealed partial class Connection(Func<StatusResult> status, ConfigWatcher config, Secrets secrets, ILogger logger)
+internal sealed partial class Connection(Func<StatusResult> status, ConfigWatcher config, Secrets secrets, Remotes remotes, ILogger logger)
 {
     private bool _greeted;
 
@@ -55,6 +55,7 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
                 EngineProtocol.Stop => Stop(id),
                 EngineProtocol.MigrateSecrets => await MigrateSecretsAsync(id, request.Params, cancellationToken),
                 EngineProtocol.ReloadConfig => ReloadConfig(id),
+                EngineProtocol.RetryRemote => RetryRemote(id, request.Params),
 #if DEBUG
                 EngineProtocol.Crash => Crash(id, request.Params),
 #endif
@@ -119,6 +120,25 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
         }
 
         return Result(id, new ReloadConfigResult(config.Result.Problems), ProtocolJson.Default.ReloadConfigResult);
+    }
+
+    private RpcResponse RetryRemote(JsonElement id, JsonElement? parameters)
+    {
+        if (Params(parameters, ProtocolJson.Default.RetryRemoteParams) is not { } retry)
+        {
+            return Error(id, RpcError.InvalidParams, $"{EngineProtocol.RetryRemote} needs the remote's id");
+        }
+
+        try
+        {
+            remotes.Retry(retry.Id);
+        }
+        catch (EngineException e)
+        {
+            return Error(id, RpcError.Failed, e.Message);
+        }
+
+        return Result(id, new RetryRemoteResult(), ProtocolJson.Default.RetryRemoteResult);
     }
 
     private RpcResponse Stop(JsonElement id)

@@ -144,6 +144,16 @@ var dataCommand = new Command("data", "Everything Open Backup Manager keeps on t
     removeCommand,
 };
 
+var remoteIdArgument = new Argument<string>("id") { Description = "The remote's id in config.toml" };
+var retryCommand = new Command("retry", "Try a remote's rclone again now, such as once its password is back in the secret store") { remoteIdArgument };
+retryCommand.SetAction((parseResult, cancellationToken) =>
+    RefuseUnderSudo() ?? Remote.RetryAsync(Paths(parseResult), parseResult.GetValue(remoteIdArgument)!, Console.Out, Console.Error, cancellationToken));
+
+var remoteCommand = new Command("remote", "Where this device's backups go, such as a cloud account or a NAS")
+{
+    retryCommand,
+};
+
 var checkOption = new Option<bool>("--check") { Description = "Only check whether there's a newer version" };
 var updateCommand = new Command("update", "Update obm and obmd to the newest version on GitHub") { checkOption };
 updateCommand.SetAction((parseResult, cancellationToken) =>
@@ -156,6 +166,7 @@ var command = new RootCommand("Open Backup Manager's command line")
 {
     homeOption,
     statusCommand,
+    remoteCommand,
     serviceCommand,
     secretsCommand,
     configCommand,

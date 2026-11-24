@@ -34,7 +34,8 @@ public static class EngineHost
             .AddHostedService(services => services.GetRequiredService<UpdateWatcher>())
             .AddHostedService<EngineService>()
             // After it, so the engine answers while they start
-            .AddHostedService<Remotes>()
+            .AddSingleton<Remotes>()
+            .AddHostedService(services => services.GetRequiredService<Remotes>())
             .AddSerilog(log => log
                 .MinimumLevel.Information()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)

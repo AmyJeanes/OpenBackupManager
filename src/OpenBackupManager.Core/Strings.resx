@@ -67,4 +67,29 @@
     <value>{0} should be one of: {1}</value>
     <comment>{1} lists the values it can have in a comma-separated list</comment>
   </data>
+  <data name="RemoteReason_NoConfig" xml:space="preserve">
+    <value>it has no rclone config</value>
+  </data>
+  <data name="RemoteReason_NoPassword" xml:space="preserve">
+    <value>the password for its rclone config isn't in the secret store</value>
+  </data>
+  <data name="RemoteReason_WrongPassword" xml:space="preserve">
+    <value>its rclone config can't be read with the password in the secret store. {0} says why</value>
+    <comment>{0} is rclone's log file</comment>
+  </data>
+  <data name="RemoteReason_ConfigUnreadable" xml:space="preserve">
+    <value>rclone can't read its config. {0} says why</value>
+    <comment>{0} is rclone's log file</comment>
+  </data>
+  <data name="RemoteReason_Exited" xml:space="preserve">
+    <value>rclone stopped with exit code {0}</value>
+  </data>
+  <data name="RemoteReason_CouldntStart" xml:space="preserve">
+    <value>rclone couldn't start: {0}</value>
+    <comment>{0} is the error's own message, which is only in English</comment>
+  </data>
+  <data name="RemoteReason_Bug" xml:space="preserve">
+    <value>a bug stopped it: {0}. The engine's log has more</value>
+    <comment>{0} is the error's own message, which is only in English</comment>
+  </data>
 </root>

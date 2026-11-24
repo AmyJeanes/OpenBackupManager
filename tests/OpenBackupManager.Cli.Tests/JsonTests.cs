@@ -19,6 +19,10 @@ public class JsonTests
             EngineStarter.Service,
             new SecretsStatus("file", "/home/me/.local/state/openbackupmanager/secrets.json"),
             [new ConfigProblem(0, ConfigProblemKind.ShouldBeTrueOrFalse, IsError: true, "updates.prereleases", "OBM_UPDATES_PRERELEASES")],
+            [
+                new RemoteStatus("onedrive", RemoteState.Running),
+                new RemoteStatus("nas", RemoteState.Retrying, RemoteReason.Exited, "1", new DateTimeOffset(2026, 11, 4, 9, 13, 0, TimeSpan.Zero)),
+            ],
             "1.3.0");
 
         Assert.That(Json.Format(status, ProtocolJson.Default.StatusResult).ReplaceLineEndings(), Is.EqualTo("""
@@ -41,6 +45,20 @@ public class JsonTests
                   "value": "updates.prereleases",
                   "envVar": "OBM_UPDATES_PRERELEASES",
                   "message": "updates.prereleases should be true or false"
+                }
+              ],
+              "remotes": [
+                {
+                  "id": "onedrive",
+                  "state": "running"
+                },
+                {
+                  "id": "nas",
+                  "state": "retrying",
+                  "reason": "exited",
+                  "value": "1",
+                  "nextTry": "2026-11-04T09:13:00+00:00",
+                  "message": "rclone stopped with exit code 1"
                 }
               ],
               "installed": "1.3.0"

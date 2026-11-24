@@ -113,6 +113,13 @@ public sealed class EngineClient : IDisposable
     public Task<ReloadConfigResult> ReloadConfigAsync(CancellationToken cancellationToken) =>
         CallAsync(EngineProtocol.ReloadConfig, null, ProtocolJson.Default.ReloadConfigResult, cancellationToken);
 
+    public Task RetryRemoteAsync(string id, CancellationToken cancellationToken) =>
+        CallAsync(
+            EngineProtocol.RetryRemote,
+            JsonSerializer.SerializeToElement(new RetryRemoteParams(id), ProtocolJson.Default.RetryRemoteParams),
+            ProtocolJson.Default.RetryRemoteResult,
+            cancellationToken);
+
     // Returns once the engine has closed the connection, as it does as it stops
     public async Task StopAsync(CancellationToken cancellationToken)
     {
