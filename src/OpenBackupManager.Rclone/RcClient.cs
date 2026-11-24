@@ -15,6 +15,7 @@ public sealed class RcClient : IDisposable
     {
         _http = new HttpClient(new SocketsHttpHandler
         {
+            UseProxy = false,
             ConnectCallback = async (_, cancellationToken) =>
             {
                 var connection = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 
 namespace OpenBackupManager.Rclone.Tests;
 
@@ -86,6 +87,25 @@ public class RcdTests
 
         // Only made once it writes
         Assert.That(File.Exists(options.LogFile) ? Log(options.LogFile) : "", Does.Not.Contain("DEBUG"));
+    }
+
+    [Test]
+    public async Task StartAsync_IgnoresTheUsersProxy()
+    {
+        var options = Options();
+        // What all_proxy or https_proxy set
+        var proxy = HttpClient.DefaultProxy;
+        HttpClient.DefaultProxy = new WebProxy("socks5://127.0.0.1:9");
+        try
+        {
+            await using var rcd = await Rcd.StartAsync(options, null, CancellationToken.None);
+
+            Assert.That((await rcd.Client.VersionAsync(CancellationToken.None)).Version, Is.EqualTo(BundledRclone.Version));
+        }
+        finally
+        {
+            HttpClient.DefaultProxy = proxy;
+        }
     }
 
     [Test]
