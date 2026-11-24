@@ -19,6 +19,9 @@ public class RemotesTests
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
 
     private AppPaths _home = null!;
+    private IHost? _engine;
+    private IHost? _services;
+    private Remotes? _remotes;
 
     private string Secrets => Path.Combine(_home.State, "secrets.json");
 
@@ -29,15 +32,46 @@ public class RemotesTests
         Directory.CreateDirectory(_home.Config);
     }
 
+    // Stopped here, so a failed assertion doesn't leave rcds running
     [TearDown]
-    public void TearDown() => Directory.Delete(_home.State, recursive: true);
+    public async Task TearDown()
+    {
+        if (_remotes is not null)
+        {
+            await _remotes.StopAsync(CancellationToken.None);
+            _remotes.Dispose();
+            _remotes = null;
+        }
+
+        if (_engine is not null)
+        {
+            await _engine.StopAsync();
+            _engine.Dispose();
+            _engine = null;
+        }
+
+        _services?.Dispose();
+        _services = null;
+        // On Windows, something else, such as an antivirus scan, can hold rclone's log for a moment after it exits
+        for (var tries = 1; ; tries++)
+        {
+            try
+            {
+                Directory.Delete(_home.State, recursive: true);
+                return;
+            }
+            catch (IOException) when (tries < 20)
+            {
+                Thread.Sleep(100);
+            }
+        }
+    }
 
     [Test]
     public async Task EachRemote_HasItsOwnRclone_UntilTheEngineStops()
     {
         await RemotesAsync("onedrive", "nas");
-        using var engine = EngineHost.Build(_home);
-        await engine.StartAsync();
+        var engine = await StartedAsync();
         string[] sockets = [RemotesOf(engine).Options("onedrive").Socket, RemotesOf(engine).Options("nas").Socket];
 
         var pids = new List<int>();
@@ -60,15 +94,13 @@ public class RemotesTests
     public async Task ItsRclone_WhenItStops_StartsAgain()
     {
         await RemotesAsync("onedrive");
-        using var engine = EngineHost.Build(_home);
-        await engine.StartAsync();
+        var engine = await StartedAsync();
         var socket = RemotesOf(engine).Options("onedrive").Socket;
         using var first = Process.GetProcessById(await PidAsync(socket));
 
         first.Kill();
 
         Assert.That(await PidAsync(socket, notPid: first.Id), Is.Not.EqualTo(first.Id));
-        await engine.StopAsync();
     }
 
     [Test]
@@ -78,8 +110,7 @@ public class RemotesTests
         await EncryptedConfigAsync("onedrive", "password");
         // Unreadable until it's fixed
         await File.WriteAllTextAsync(Secrets, "not JSON");
-        using var engine = EngineHost.Build(_home);
-        var (remotes, clock, log) = Unstarted(engine);
+        var (remotes, clock, log) = Unstarted();
         await remotes.StartAsync(CancellationToken.None);
 
         var wait = await NextAsync(clock.Waits);
@@ -89,15 +120,13 @@ public class RemotesTests
         clock.Advance(wait);
 
         Assert.That(await PidAsync(remotes.Options("onedrive").Socket), Is.Positive);
-        await remotes.StopAsync(CancellationToken.None);
     }
 
     [Test]
     public async Task ItsRclone_WhenItKeepsStopping_WaitsLongerEachTime_UntilItStaysUp()
     {
         await RemotesAsync("onedrive");
-        using var engine = EngineHost.Build(_home);
-        var (remotes, clock, log) = Unstarted(engine);
+        var (remotes, clock, log) = Unstarted();
         await remotes.StartAsync(CancellationToken.None);
         var socket = remotes.Options("onedrive").Socket;
 
@@ -124,7 +153,6 @@ public class RemotesTests
         }
 
         Assert.That(waits, Is.EqualTo((double[])[1, 2, 4, 8, 16, 32, 60, 60, 1]));
-        await remotes.StopAsync(CancellationToken.None);
     }
 
     [Test]
@@ -132,12 +160,10 @@ public class RemotesTests
     {
         await RemotesAsync("onedrive");
         File.Delete(Path.Combine(_home.State, "rclone", "onedrive.conf"));
-        using var engine = EngineHost.Build(_home);
-        await engine.StartAsync();
+        var engine = await StartedAsync();
 
         Assert.That(async () => await RemotesOf(engine).Running.WaitAsync(Timeout), Throws.Nothing);
         Assert.That(RemotesOf(engine).Options("onedrive").Socket, Does.Not.Exist);
-        await engine.StopAsync();
     }
 
     // And makes no new password
@@ -146,13 +172,11 @@ public class RemotesTests
     {
         await RemotesAsync("onedrive");
         await EncryptedConfigAsync("onedrive", "password");
-        using var engine = EngineHost.Build(_home);
-        await engine.StartAsync();
+        var engine = await StartedAsync();
 
         Assert.That(async () => await RemotesOf(engine).Running.WaitAsync(Timeout), Throws.Nothing);
         using var store = new FileStore(Secrets);
         Assert.That(await store.ReadAsync("rclone-config"), Is.Null);
-        await engine.StopAsync();
     }
 
     [Test]
@@ -161,8 +185,7 @@ public class RemotesTests
         await RemotesAsync("onedrive");
         await EncryptedConfigAsync("onedrive", "password");
         await SavePasswordAsync("another");
-        using var engine = EngineHost.Build(_home);
-        var (remotes, _, log) = Unstarted(engine);
+        var (remotes, _, log) = Unstarted();
         await remotes.StartAsync(CancellationToken.None);
 
         Assert.That(async () => await remotes.Running.WaitAsync(Timeout), Throws.Nothing);
@@ -181,8 +204,7 @@ public class RemotesTests
     {
         await RemotesAsync("onedrive");
         await File.WriteAllTextAsync(Path.Combine(_home.State, "rclone", "onedrive.conf"), "[test]\ntype = local\nhalf a token\n");
-        using var engine = EngineHost.Build(_home);
-        var (remotes, _, log) = Unstarted(engine);
+        var (remotes, _, log) = Unstarted();
         await remotes.StartAsync(CancellationToken.None);
 
         Assert.That(async () => await remotes.Running.WaitAsync(Timeout), Throws.Nothing);
@@ -200,14 +222,12 @@ public class RemotesTests
         await RemotesAsync("onedrive");
         await EncryptedConfigAsync("onedrive", "password");
         await SavePasswordAsync("password");
-        using var engine = EngineHost.Build(_home);
-        await engine.StartAsync();
+        var engine = await StartedAsync();
         var socket = RemotesOf(engine).Options("onedrive").Socket;
         await PidAsync(socket);
 
         using var client = new RcClient(socket);
         Assert.That((await client.ListRemotesAsync(CancellationToken.None)).Remotes, Is.EqualTo(["test"]));
-        await engine.StopAsync();
     }
 
     // Where a parent rclone leaves its config's key, which rclone would use instead of the password
@@ -222,12 +242,10 @@ public class RemotesTests
         Environment.SetEnvironmentVariable("_RCLONE_CONFIG_KEY_FILE", keyFile);
         try
         {
-            using var engine = EngineHost.Build(_home);
-            var (remotes, _, log) = Unstarted(engine);
+            var (remotes, _, log) = Unstarted();
             await remotes.StartAsync(CancellationToken.None);
 
             Assert.That(await log.LineAsync("onedrive"), Does.StartWith("Started rclone"));
-            await remotes.StopAsync(CancellationToken.None);
         }
         finally
         {
@@ -287,12 +305,21 @@ public class RemotesTests
         }
     }
 
-    // Its own clock, as the engine's timers would move with it
-    private (Remotes Remotes, Clock Clock, LogLines Log) Unstarted(IHost engine)
+    private async Task<IHost> StartedAsync()
     {
+        _engine = EngineHost.Build(_home);
+        await _engine.StartAsync();
+        return _engine;
+    }
+
+    // With the engine's config and secrets, but its own clock, as the engine's timers would move with it
+    private (Remotes Remotes, Clock Clock, LogLines Log) Unstarted()
+    {
+        _services = EngineHost.Build(_home);
         var clock = new Clock();
         var log = new LogLines();
-        return (new Remotes(engine.Services.GetRequiredService<ConfigWatcher>(), engine.Services.GetRequiredService<RcloneConfig>(), _home, clock, log), clock, log);
+        _remotes = new Remotes(_services.Services.GetRequiredService<ConfigWatcher>(), _services.Services.GetRequiredService<RcloneConfig>(), _home, clock, log);
+        return (_remotes, clock, log);
     }
 
     private static async Task<T> NextAsync<T>(ChannelReader<T> reader)
