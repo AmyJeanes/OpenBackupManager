@@ -24,15 +24,15 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     private readonly Lock _lock = new();
     private List<Remote> _remotes = [];
 
+    // Taken out of config.toml, until their rcd has quit
+    private readonly List<Remote> _leaving = [];
+
     public Task StartAsync(CancellationToken cancellationToken)
     {
         lock (_lock)
         {
-            _remotes = [.. config.Config.Remotes.Select(remote => new Remote(remote.Id))];
-            foreach (var remote in _remotes)
-            {
-                remote.Running = Task.Run(() => RunAsync(remote, _stopping.Token), CancellationToken.None);
-            }
+            _remotes = [.. config.Config.Remotes.Select(remote => Start(remote.Id))];
+            config.Changed += Follow;
         }
 
         return Task.CompletedTask;
@@ -41,11 +41,20 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     // All at once, as each takes 1.5 s to quit
     public async Task StopAsync(CancellationToken cancellationToken)
     {
+        config.Changed -= Follow;
         await _stopping.CancelAsync();
         await Running;
     }
 
-    public void Dispose() => _stopping.Dispose();
+    public void Dispose()
+    {
+        foreach (var remote in _remotes.Concat(_leaving))
+        {
+            remote.Stopping.Dispose();
+        }
+
+        _stopping.Dispose();
+    }
 
     // Ends once every remote has stopped trying
     internal Task Running
@@ -54,7 +63,7 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
         {
             lock (_lock)
             {
-                return Task.WhenAll(_remotes.Select(remote => remote.Running));
+                return Task.WhenAll(_remotes.Concat(_leaving).Select(remote => remote.Running));
             }
         }
     }
@@ -81,7 +90,7 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
             if (remote.Status.State is RemoteState.NeedsSetup or RemoteState.Stopped)
             {
                 remote.Status = new RemoteStatus(id, RemoteState.Starting);
-                remote.Running = Task.Run(() => RunAsync(remote, _stopping.Token), CancellationToken.None);
+                remote.Running = Task.Run(() => RunAsync(remote), CancellationToken.None);
             }
             else if (remote.Status.State == RemoteState.Retrying)
             {
@@ -89,6 +98,48 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
                 _ = remote.TryNow?.CancelAsync();
             }
         }
+    }
+
+    // Starts those added to config.toml and stops those taken out. An edit with an error leaves Config as it was
+    private void Follow(ConfigResult result)
+    {
+        lock (_lock)
+        {
+            if (_stopping.IsCancellationRequested)
+            {
+                return;
+            }
+
+            var ids = config.Config.Remotes.Select(remote => remote.Id).ToHashSet();
+            foreach (var gone in _remotes.Where(remote => !ids.Contains(remote.Id)))
+            {
+                LogTakenOut(gone.Id);
+                _leaving.Add(gone);
+                _ = LeaveAsync(gone);
+            }
+
+            _remotes = [.. config.Config.Remotes.Select(settings => _remotes.Find(remote => remote.Id == settings.Id) ?? Start(settings.Id))];
+        }
+    }
+
+    private Remote Start(string id)
+    {
+        var remote = new Remote(id, _stopping.Token);
+        remote.Running = Task.Run(() => RunAsync(remote), CancellationToken.None);
+        return remote;
+    }
+
+    private async Task LeaveAsync(Remote remote)
+    {
+        // Not Cancel, which would quit its rcd on this thread, holding the lock
+        await remote.Stopping.CancelAsync();
+        await remote.Running;
+        lock (_lock)
+        {
+            _leaving.Remove(remote);
+        }
+
+        remote.Stopping.Dispose();
     }
 
     // Its files are named from its ID, which config.toml only allows to be letters, digits and hyphens. The socket's is
@@ -106,8 +157,9 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     }
 
     // Until the engine stops, or it needs setting up
-    private async Task RunAsync(Remote remote, CancellationToken stopping)
+    private async Task RunAsync(Remote remote)
     {
+        var stopping = remote.Stopping.Token;
         var retry = FirstRetry;
         try
         {
@@ -283,15 +335,21 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     [LoggerMessage(Level = LogLevel.Warning, Message = "Remote {Id} needs setting up, as {Reason}")]
     private partial void LogNeedsSettingUp(string id, string reason);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Stopping rclone for remote {Id}, as it's been taken out of config.toml")]
+    private partial void LogTakenOut(string id);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "rclone for remote {Id} stopped with exit code {ExitCode}, restarting in {Seconds} s")]
     private partial void LogExited(string id, int exitCode, double seconds);
 
     // Why it's waiting to try again
     private sealed record Problem(RemoteReason Reason, string Value);
 
-    private sealed class Remote(string id)
+    private sealed class Remote(string id, CancellationToken engineStopping)
     {
         public string Id { get; } = id;
+
+        // Once the engine stops, or it's taken out of config.toml
+        public CancellationTokenSource Stopping { get; } = CancellationTokenSource.CreateLinkedTokenSource(engineStopping);
 
         public RemoteStatus Status { get; set; } = new(id, RemoteState.Starting);
 

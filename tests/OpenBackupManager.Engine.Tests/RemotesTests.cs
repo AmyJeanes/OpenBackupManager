@@ -264,6 +264,82 @@ public class RemotesTests
     }
 
     [Test]
+    public async Task AddedToConfig_ItStarts()
+    {
+        await RemotesAsync("onedrive");
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        await log.LineAsync("Started rclone");
+        await File.WriteAllTextAsync(Path.Combine(_home.State, "rclone", "nas.conf"), "[test]\ntype = local\n");
+        await ConfigAsync("onedrive", "nas");
+
+        Reload();
+
+        Assert.That(await log.LineAsync("Started rclone"), Does.Contain("nas"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(await PidAsync(remotes.Options("nas").Socket), Is.Positive);
+            Assert.That(remotes.Status().Select(status => status.Id), Is.EqualTo(["onedrive", "nas"]));
+        }
+    }
+
+    [Test]
+    public async Task TakenOutOfConfig_ItStops()
+    {
+        await RemotesAsync("onedrive", "nas");
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        using var nas = await RcloneAsync(remotes, log, "nas");
+        await ConfigAsync("onedrive");
+
+        Reload();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(remotes.Status().Select(status => status.Id), Is.EqualTo(["onedrive"]));
+            Assert.That(nas.WaitForExit(Timeout), Is.True);
+        }
+    }
+
+    // Not while its last one is still quitting, which starting stops first, as it still answers on its socket
+    [Test]
+    public async Task TakenOutAndPutBack_ItStartsAgain_AfterItsLastRcloneHasGone()
+    {
+        await RemotesAsync("onedrive");
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        using var first = await RcloneAsync(remotes, log, "onedrive");
+        var gone = first.WaitForExitAsync().ContinueWith(_ => DateTime.Now, TaskScheduler.Default);
+        await ConfigAsync();
+        Reload();
+        await ConfigAsync("onedrive");
+
+        Reload();
+
+        using var second = await RcloneAsync(remotes, log, "onedrive");
+        // Allowing for when this sees it go, as rcd takes over a second to quit
+        Assert.That(second.StartTime, Is.GreaterThan(await gone - TimeSpan.FromMilliseconds(500)));
+    }
+
+    [Test]
+    public async Task ConfigWithAnError_ChangesNothing()
+    {
+        await RemotesAsync("onedrive");
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+        using var onedrive = await RcloneAsync(remotes, log, "onedrive");
+        await File.WriteAllTextAsync(_home.ConfigFile, "version = \"one\"\n");
+
+        Reload();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(remotes.Status(), Is.EqualTo((RemoteStatus[])[new("onedrive", RemoteState.Running)]));
+            Assert.That(onedrive.HasExited, Is.False);
+        }
+    }
+
+    [Test]
     public async Task ItsRclone_WhenItKeepsStopping_WaitsLongerEachTime_UntilItStaysUp()
     {
         await RemotesAsync("onedrive");
@@ -503,13 +579,19 @@ public class RemotesTests
     // With plain rclone configs, and the file store, which every OS has
     private async Task RemotesAsync(params string[] ids)
     {
-        await File.WriteAllTextAsync(_home.ConfigFile, "secret-store = \"file\"\n" + string.Concat(ids.Select(id => $"\n[[remotes]]\nid = \"{id}\"\n")));
+        await ConfigAsync(ids);
         Directory.CreateDirectory(Path.Combine(_home.State, "rclone"));
         foreach (var id in ids)
         {
             await File.WriteAllTextAsync(Path.Combine(_home.State, "rclone", id + ".conf"), "[test]\ntype = local\n");
         }
     }
+
+    private Task ConfigAsync(params string[] ids) =>
+        File.WriteAllTextAsync(_home.ConfigFile, "secret-store = \"file\"\n" + string.Concat(ids.Select(id => $"\n[[remotes]]\nid = \"{id}\"\n")));
+
+    // Rather than waiting for the engine to see the file change
+    private void Reload() => _services!.Services.GetRequiredService<ConfigWatcher>().Reload();
 
     private async Task SavePasswordAsync(string password)
     {
@@ -545,6 +627,16 @@ public class RemotesTests
         }
 
         Assert.That(RcloneConfigFile.IsEncrypted(file), Is.True);
+    }
+
+    // Once it's started
+    private static async Task<Process> RcloneAsync(Remotes remotes, LogLines log, string id)
+    {
+        while (!(await log.LineAsync("Started rclone")).Contains(id, StringComparison.Ordinal))
+        {
+        }
+
+        return Process.GetProcessById(await PidAsync(remotes.Options(id).Socket));
     }
 
     // The engine starts each without waiting for it

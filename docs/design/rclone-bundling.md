@@ -17,7 +17,7 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
 
 ## Running it
 
-- **One rcd for each remote,** not each folder, as each account has its own sign-in, throttling and limits, and a crash only takes its own folders. Each starts with the engine, at about 50 MB idle.
+- **One rcd for each remote,** not each folder, as each account has its own sign-in, throttling and limits, and a crash only takes its own folders. Each starts with the engine, at about 50 MB idle, or once it's added to `config.toml`, and stops once it's taken out. One taken out and put back while its rcd is still quitting starts again once it's gone, as starting stops one still answering on its socket.
 - **Its own config, cache and log,** named from the remote's ID, as rclone's defaults are the user's own. The config is a file for each remote, as rclone rewrites the whole file when it refreshes a token, so two rcds sharing one could lose each other's.
 - **None of the user's `RCLONE_` variables,** which rclone reads as settings, such as their own config's password.
 - **Our own User-Agent,** `ISV|AmyJeanes|OpenBackupManager/<version>`, in the form Microsoft prioritises over clients it can't identify.
@@ -38,6 +38,5 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
 
 - **rclone signs its releases with a 2001 DSA-1024 key, using SHA-1.** That's weak by today's standards, but it's the only signature rclone publishes, and it sits on top of HTTPS from GitHub. The key's fingerprint is `FBF7 37EC E9F8 AB18 604B D2AC 9393 5E02 FF3B 54FA`, which matched on [rclone.org](https://rclone.org/release_signing/), in rclone's GitHub repository and on keyserver.ubuntu.com. If rclone changes key, replace the key file by hand, after checking the new fingerprint the same way.
 - **Only x64 and ARM64 builds of Windows, macOS and Linux are fetched.** Other runtimes fail the build with a clear message.
-- **The engine reads `[[remotes]]` only as it starts.** A remote added or removed while it runs starts or stops at the next start, until setting a remote up starts its rcd itself.
 - **A config something holds open with no sharing as rcd starts reads as damaged,** so that remote needs setting up until it's tried again. Only Windows has such locks, nothing usual opens it that way, and the engine's own read of it just before is retried like a crash, so only the second or so while rcd starts is open to it.
 - **rcds share a foreground engine's process group,** so closing its terminal ends them while the engine, which takes SIGHUP as a reload, carries on and starts them again a second later, and Ctrl+C can log their exit as a restart as the engine stops. A service has no terminal, and systemd's `KillMode=mixed` signals only the engine.
