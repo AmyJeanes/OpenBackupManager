@@ -52,6 +52,8 @@ Everything Open Backup Manager keeps about this device, such as its logs, is its
 
 With [`secret-store`](settings.md#secret-store) set to `file`, the engine keeps your secrets in `secrets.json`, in the data folder on Windows and the engine's own folder on macOS and Linux. It's protected only by its permissions, so anyone who can read it, including an administrator, can use your sign-ins. A backup or synced copy of the folder has your secrets in plain text, so keep it out of anything you share or sync.
 
+Each remote, somewhere your backups go, has an rclone config of its own beside `secrets.json`, such as `rclone/onedrive.conf`, with what it needs to sign in. It's encrypted with a password kept with your secrets. rclone, which the engine uses to reach your remotes, writes a log for each, such as `rclone-onedrive.log`, with the other logs, and keeps its cache in `%LocalAppData%\OpenBackupManager\cache\` on Windows, `~/Library/Caches/OpenBackupManager/` on macOS and `~/.cache/openbackupmanager/` on Linux.
+
 If `--home <folder>` was given, or the `OBM_HOME` environment variable is set, everything goes in that folder instead.
 
 ## Logs

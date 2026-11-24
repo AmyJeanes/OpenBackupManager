@@ -15,11 +15,15 @@ internal static class Data
         "app.lock", "app.running", "engine.lock", "engine.running",
     ];
 
-    // And in the folders they make there, which may hold theirs too. Nothing writes in cache yet
+    // And in the folders they make there, which may hold theirs too
     private static readonly (string Folder, string[] Files)[] MadeInAHomesFolders =
     [
-        ("logs", AppPaths.LogFiles), ("crashes", ["crash-*.txt", "crash-*.txt.tmp", "shown"]), ("run", ["engine.sock"]), ("cache", []),
+        ("logs", [.. AppPaths.LogFiles, "rclone-*.log"]), ("crashes", ["crash-*.txt", "crash-*.txt.tmp", "shown"]),
+        ("run", ["engine.sock", "rc-*.sock"]), ("rclone", ["*.conf*"]), ("cache", []),
     ];
+
+    // Only rclone writes in it
+    private static readonly string RcloneCache = Path.Combine("cache", "rclone");
 
     public static async Task<int> RemoveAsync(AppPaths paths, string? home, EngineService? service, bool yes, CancellationToken cancellationToken)
     {
@@ -128,6 +132,11 @@ internal static class Data
             {
                 File.Delete(Path.Combine(home, name));
             }
+        }
+
+        if (Directory.Exists(Path.Combine(home, RcloneCache)))
+        {
+            Directory.Delete(Path.Combine(home, RcloneCache), recursive: true);
         }
 
         foreach (var (name, files) in MadeInAHomesFolders)

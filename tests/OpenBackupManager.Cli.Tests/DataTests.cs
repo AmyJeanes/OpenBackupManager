@@ -34,10 +34,12 @@ public class DataTests
             await store.SaveAsync("token", new Secret("not really a token"));
         }
 
-        File.WriteAllText(Path.Combine(_home, "config.toml"), "secret-store = \"file\"\n");
+        File.WriteAllText(Path.Combine(_home, "config.toml"), "secret-store = \"file\"\n\n[[remotes]]\nid = \"test\"\n");
+        Directory.CreateDirectory(Path.Combine(_home, "rclone"));
+        File.WriteAllText(Path.Combine(_home, "rclone", "test.conf"), "[test]\ntype = local\n");
         File.WriteAllText(Path.Combine(_home, "notes.txt"), "Someone's own file");
         using var daemon = Tool.Start("obmd", "--home", _home);
-        daemon.WaitFor("started, process");
+        daemon.WaitFor("Started rclone for remote test");
 
         var (exitCode, output) = Tool.Run("obm", "data", "remove", "--home", _home, "--yes");
 
@@ -56,13 +58,18 @@ public class DataTests
     [Test]
     public void Remove_LeavesSomeonesOwnFiles_InTheFoldersItMakes()
     {
-        string[] made = ["logs/engine-20261107.log", "logs/app-20261107.log", "logs/obmd-stderr.log", "crashes/crash-20261107-101500-000-engine.txt", "crashes/shown", "run/engine.sock"];
-        string[] theirs = ["logs/build.log", "crashes/core.txt", "run/start.sh", "cache/big.dat"];
+        string[] made =
+        [
+            "logs/engine-20261107.log", "logs/app-20261107.log", "logs/obmd-stderr.log", "crashes/crash-20261107-101500-000-engine.txt", "crashes/shown",
+            "run/engine.sock", "logs/rclone-onedrive.log", "logs/rclone-onedrive-2026-11-07T10-15-00.000.log", "run/rc-0123abcd.sock", "rclone/onedrive.conf",
+            "rclone/onedrive.conf.old", "cache/rclone/onedrive/vfs/onedrive/file.bin",
+        ];
+        string[] theirs = ["logs/build.log", "crashes/core.txt", "run/start.sh", "cache/big.dat", "rclone/notes.txt"];
         foreach (var file in made.Concat(theirs))
         {
             var path = Path.Combine(_home, file);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            if (file == "run/engine.sock" && !OperatingSystem.IsWindows())
+            if (file.EndsWith(".sock", StringComparison.Ordinal) && !OperatingSystem.IsWindows())
             {
                 // As an engine that's gone leaves it. On macOS, a plain file there reads as a socket obm can't open
                 using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
