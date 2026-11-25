@@ -42,6 +42,103 @@ public class SecretsTests
     public void TheChosenStore_IsUsed() =>
         Assert.That(SecretsWith("secret-store = \"file\"").Chosen, Is.EqualTo(SecretStoreKind.File));
 
+    // Keeping a different one, as that's the one that works, and the variable the mistake
+    [Test]
+    public async Task Read_WithItsVariable_UsesIt_RatherThanTheStore()
+    {
+        var secrets = SecretsWith("secret-store = \"file\"");
+        await _file.SaveAsync("heartbeat", new Secret("stored"));
+        using var given = new EnvironmentVariable("OBM_HEARTBEAT_SECRET", "given");
+
+        var secret = await secrets.ReadAsync("heartbeat");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(secret?.Reveal(), Is.EqualTo("given"));
+            Assert.That((await _file.ReadAsync("heartbeat"))?.Reveal(), Is.EqualTo("stored"));
+        }
+    }
+
+    // Such as one setup made before it was given, as the point of giving it is that it's not kept there
+    [Test]
+    public async Task Read_WithItsVariable_RemovesTheSameOneFromTheStore()
+    {
+        var secrets = SecretsWith("secret-store = \"file\"");
+        await _file.SaveAsync("heartbeat", new Secret("given"));
+        using var given = new EnvironmentVariable("OBM_HEARTBEAT_SECRET", "given");
+
+        var secret = await secrets.ReadAsync("heartbeat");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(secret?.Reveal(), Is.EqualTo("given"));
+            Assert.That(await _file.ReadAsync("heartbeat"), Is.Null);
+        }
+    }
+
+    // Without the newlines at its end, as an editor or echo leaves, but with any spaces
+    [TestCase("given\n", "given")]
+    [TestCase("given\r\n", "given")]
+    [TestCase("given\n\n", "given")]
+    [TestCase(" given \n", " given ")]
+    public async Task Read_WithItsFileVariable_UsesWhatsInIt(string text, string expected)
+    {
+        var secrets = SecretsWith("secret-store = \"file\"");
+        var file = Path.Combine(_home, "heartbeat.txt");
+        await File.WriteAllTextAsync(file, text);
+        using var given = new EnvironmentVariable("OBM_HEARTBEAT_SECRET_FILE", file);
+
+        Assert.That((await secrets.ReadAsync("heartbeat"))?.Reveal(), Is.EqualTo(expected));
+    }
+
+    // Rather than one winning over the other unseen
+    [Test]
+    public void Read_WithBothVariables_IsRefused()
+    {
+        var secrets = SecretsWith("secret-store = \"file\"");
+        using var given = new EnvironmentVariable("OBM_HEARTBEAT_SECRET", "given");
+        using var file = new EnvironmentVariable("OBM_HEARTBEAT_SECRET_FILE", Path.Combine(_home, "heartbeat.txt"));
+
+        Assert.That(
+            () => secrets.ReadAsync("heartbeat"),
+            Throws.TypeOf<EngineException>().With.Message.Contains("OBM_HEARTBEAT_SECRET and OBM_HEARTBEAT_SECRET_FILE are set"));
+    }
+
+    [Test]
+    public void Read_WithAFileThatIsntThere_SaysWhich()
+    {
+        var secrets = SecretsWith("secret-store = \"file\"");
+        var file = Path.Combine(_home, "not-here.txt");
+        using var given = new EnvironmentVariable("OBM_HEARTBEAT_SECRET_FILE", file);
+
+        Assert.That(() => secrets.ReadAsync("heartbeat"), Throws.TypeOf<EngineException>().With.Message.StartsWith($"OBM_HEARTBEAT_SECRET_FILE is {file}, which can't be read"));
+    }
+
+    [Test]
+    public async Task Read_WithAnEmptyFile_SaysSo()
+    {
+        var secrets = SecretsWith("secret-store = \"file\"");
+        var file = Path.Combine(_home, "heartbeat.txt");
+        await File.WriteAllTextAsync(file, "\n");
+        using var given = new EnvironmentVariable("OBM_HEARTBEAT_SECRET_FILE", file);
+
+        Assert.That(() => secrets.ReadAsync("heartbeat"), Throws.TypeOf<EngineException>().With.Message.EqualTo($"{file}, which OBM_HEARTBEAT_SECRET_FILE names, is empty"));
+    }
+
+    [Test]
+    public void Status_NamesTheVariablesGivingSecrets()
+    {
+        var secrets = SecretsWith("secret-store = \"file\"");
+        using var given = new EnvironmentVariable("OBM_HEARTBEAT_SECRET_FILE", "/run/secrets/heartbeat");
+        using var empty = new EnvironmentVariable("OBM_WEBHOOK_SECRET", "");
+
+        Assert.That(secrets.Status().FromEnvironment, Is.EqualTo(["OBM_HEARTBEAT_SECRET_FILE"]));
+    }
+
+    [Test]
+    public void Status_WithNoVariables_LeavesThemOut() =>
+        Assert.That(SecretsWith("secret-store = \"file\"").Status().FromEnvironment, Is.Null);
+
     [Test]
     public async Task Migrate_MovesEverySecret_ThenUsesTheNewStore()
     {
@@ -314,7 +411,7 @@ public class SecretsTests
             .AddKeyedSingleton<ISecretStore>(OSStore, _os)
             .AddKeyedSingleton<ISecretStore>(SecretStoreKind.File, _file)
             .BuildServiceProvider();
-        return new Secrets(services, _config, _file);
+        return new Secrets(services, _config, _file, NullLogger<Secrets>.Instance);
     }
 
     private async Task<Dictionary<string, string>> InTheFile()

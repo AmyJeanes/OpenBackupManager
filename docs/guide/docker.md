@@ -18,26 +18,46 @@ services:
     user: "1000:1000"
     environment:
       TZ: Europe/London
+      OBM_RCLONE_CONFIG_SECRET_FILE: /run/secrets/password
+    secrets:
+      - password
     volumes:
       - ./config:/config
     restart: unless-stopped
+
+secrets:
+  password:
+    file: ./password.txt
 ```
 
 - **`image`**'s `latest` is the newest full release. Until the first one, there's no `latest`, so use a version from the [releases on GitHub](https://github.com/AmyJeanes/OpenBackupManager/releases), without its `v`, such as `ghcr.io/amyjeanes/openbackupmanager:<version>`.
 - **`container_name`** is the name the commands below use for it.
 - **`user`** is the user and group the engine runs as, so the files it writes are theirs. Use your own, which `id` shows, such as `uid=1000(me) gid=1000(me)`. On Unraid, files usually belong to `nobody` and `users`, which are `99:100`. With rootless Docker, use `"0:0"`, as the container's root is you outside it, and any other user is one Docker set aside for it.
-- **`/config`** is where it keeps everything, such as `config.toml`, its logs and its crash reports. The folder must belong to that user. Without `user`, the engine runs as the image's own user, which suits a named volume rather than a folder.
 - **`TZ`** sets the time zone for the times in its logs. Without it, they're in UTC.
+- **`OBM_RCLONE_CONFIG_SECRET_FILE`** and **`secrets`** give the engine its password from `password.txt`, which you'll make next.
+- **`/config`** is where it keeps everything else, such as `config.toml`, its logs and its crash reports. Without `user`, the engine runs as the image's own user, which suits a named volume rather than a folder.
 
-Then, in that folder, run `mkdir config` and `docker compose up -d`. Make the folder yourself first, as Docker would otherwise make it as root, and the engine couldn't write to it.
+Then, in that folder, run:
 
-If the folder belongs to someone else, the engine stops straight away, and `docker logs openbackupmanager` says why:
+```
+mkdir config                                     # before Docker makes it, as root
+head -c 30 /dev/urandom | base64 > password.txt  # a long random password
+chmod 600 password.txt                           # only its owner can read it
+sudo chown 1000:1000 config password.txt         # change owner to the engine's user
+docker compose up -d
+```
+
+Leave out `sudo` if you're root, as on Unraid's console. Both have to belong to the engine's user: `config` so it can write there, and `password.txt` because Docker passes it in as it is, so only its owner can read it.
+
+`password.txt` is the password that protects your remotes' connection details. Docker gives it to the engine as a [secret](https://docs.docker.com/compose/how-tos/use-secrets/), rather than it being kept in `config` with them, so a copy of `config`, such as a backup of your appdata, can't connect to your remotes. Keep a copy of it somewhere safe, such as a password manager, as without it each remote needs setting up again.
+
+If `config` belongs to someone else, the engine stops straight away, and `docker logs openbackupmanager` says why:
 
 ```
 obmd: the engine can't keep its state in /config. Access to the path '/config/engine.lock' is denied.
 ```
 
-Change the folder's owner with `sudo chown -R 1000:1000 config`, using the same numbers as `user`, or change `user` to whoever owns it.
+Change its owner with `sudo chown -R 1000:1000 config`, or change `user` to whoever owns it. If `password.txt` does, the engine runs, but `obm status` says it can't read it, and `sudo chown 1000:1000 password.txt` fixes it.
 
 ## Use it
 
@@ -51,9 +71,15 @@ docker exec openbackupmanager obm status
 
 Docker checks the engine with `obm status` every minute, so `docker ps` shows it as healthy or unhealthy.
 
-Secrets, such as the password that will protect your sign-ins, are kept in `config/secrets.json`, protected only by its permissions, as there's no keyring in a container. Anyone who can read the folder, or a copy of it, such as a backup of your appdata, can read them too, so keep it private. See [`secret-store`](settings.md#secret-store).
+Other secrets are kept in `config/secrets.json`, protected only by its permissions, as there's no keyring in a container. Anyone who can read the folder, or a copy of it, can read them too, so keep it private. See [`secret-store`](settings.md#secret-store).
 
 To share diagnostics with a bug report, `docker exec openbackupmanager obm diagnostics export` saves the zip in `config`. See [Sharing diagnostics](files.md#sharing-diagnostics).
+
+### Moving the password out of config {#moving-the-password}
+
+When neither `OBM_RCLONE_CONFIG_SECRET_FILE` nor `OBM_RCLONE_CONFIG_SECRET` is set, the engine makes the password itself when you first set up a remote, and keeps it in `config/secrets.json`, where a copy of `config` could connect to your remotes. To move it, put that password, the value after `"rclone-config"` in `secrets.json`, in `password.txt` as [Run it](#run-it) makes it, then add `OBM_RCLONE_CONFIG_SECRET_FILE` and the secret to `compose.yaml` as there, and run `docker compose up -d`. The engine takes it out of `secrets.json` once it's using the file. A different password would mean setting your remotes up again.
+
+`OBM_RCLONE_CONFIG_SECRET` takes the password itself instead of a file, though `docker inspect` shows it to anyone who can run Docker.
 
 ## Updating
 

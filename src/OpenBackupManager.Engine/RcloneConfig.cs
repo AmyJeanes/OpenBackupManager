@@ -9,14 +9,12 @@ namespace OpenBackupManager.Engine;
 // Each remote's rclone config file, all encrypted with one password kept in the secret store
 internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposable
 {
-    private const string PasswordName = "rclone-config";
-
     // So two setups at once can't each make one, leaving a config encrypted with a password that's been replaced
     private readonly SemaphoreSlim _setup = new(1, 1);
 
     public string FileFor(string remoteId) => Path.Combine(Folder, remoteId + ".conf");
 
-    public Task<Secret?> ReadPasswordAsync(CancellationToken cancellationToken) => secrets.ReadAsync(PasswordName, cancellationToken);
+    public Task<Secret?> ReadPasswordAsync(CancellationToken cancellationToken) => secrets.ReadAsync(SecretName.RcloneConfig, cancellationToken);
 
     // Where the password is kept, as secret-store names it
     public string? Store => secrets.Chosen?.Name();
@@ -39,7 +37,7 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposabl
             }
 
             var created = new Secret(RandomNumberGenerator.GetString("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 40));
-            await secrets.SaveAsync(PasswordName, created, cancellationToken);
+            await secrets.SaveAsync(SecretName.RcloneConfig, created, cancellationToken);
             return created;
         }
         finally

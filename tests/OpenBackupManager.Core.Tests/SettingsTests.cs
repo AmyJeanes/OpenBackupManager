@@ -15,6 +15,13 @@ public class SettingsTests
     public void MatchAppConfig() =>
         Assert.That(Settings.All.Select(s => (s.Path, s.Kind)), Is.EquivalentTo(Read(typeof(AppConfig), section: null)));
 
+    // Which a secret's would be, such as OBM_RCLONE_CONFIG_SECRET
+    [Test]
+    public void EnvVars_AreNoSecrets() =>
+        Assert.That(
+            Settings.All.Select(s => s.EnvVar).OfType<string>(),
+            Has.None.EndsWith("_SECRET").And.None.EndsWith("_SECRET_FILE"));
+
     [TestCaseSource(nameof(Documented))]
     public void Documented_HaveASummary(string path) => Assert.That(Settings.Find(path)!.Summary, Is.Not.Empty);
 

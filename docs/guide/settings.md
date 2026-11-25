@@ -103,7 +103,7 @@ ask-before-quitting = false
 
 ### `secret-store` {#secret-store}
 
-Where this device keeps its secrets, such as the password that protects your sign-ins.
+Where this device keeps its secrets, such as the password that protects your remotes' connection details.
 
 <div class="obm-facts" markdown>
 

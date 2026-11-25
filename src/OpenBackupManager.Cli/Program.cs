@@ -40,7 +40,7 @@ var migrateCommand = new Command("migrate", "Move this device's secrets to anoth
 migrateCommand.SetAction((parseResult, cancellationToken) =>
     RefuseUnderSudo() ?? Migrate.RunAsync(Paths(parseResult), parseResult.GetValue(storeArgument)!, cancellationToken));
 
-var secretsCommand = new Command("secrets", "Where this device keeps its secrets, such as the password that protects your sign-ins")
+var secretsCommand = new Command("secrets", "Where this device keeps its secrets, such as the password that protects your remotes' connection details")
 {
     migrateCommand,
 };

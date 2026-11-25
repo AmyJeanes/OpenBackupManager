@@ -33,7 +33,7 @@ public static class Settings
         },
         new("secret-store", SettingKind.Text)
         {
-            Summary = "Where this device keeps its secrets, such as the password that protects your sign-ins.",
+            Summary = "Where this device keeps its secrets, such as the password that protects your remotes' connection details.",
             Values = "`credential-manager` on Windows, `keychain` on macOS, `secret-service` on Linux, or `file` on any",
             Choices = [.. SecretStoreKinds.NamesOn(CurrentOS.Platform)],
             Default = "The OS's own store",

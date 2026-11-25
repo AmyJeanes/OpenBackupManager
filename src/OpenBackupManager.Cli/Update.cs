@@ -144,7 +144,7 @@ internal static class Update
             return null;
         }
 
-        var download = $"https://github.com/AmyJeanes/OpenBackupManager/releases/download/v{newest}/OpenBackupManager-{newest}-{Runtime}";
+        var download = $"{AppLinks.Repository}/releases/download/v{newest}/OpenBackupManager-{newest}-{Runtime}";
         var nl = Environment.NewLine;
         var how = by switch
         {

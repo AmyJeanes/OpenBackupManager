@@ -549,6 +549,39 @@ public class RemotesTests
         }
     }
 
+    // So it's never in the volume, which is the point of giving it
+    [Test]
+    public async Task PasswordForSetup_FromItsVariable_SavesNothing()
+    {
+        await RemotesAsync();
+        using var given = new EnvironmentVariable("OBM_RCLONE_CONFIG_SECRET", "given");
+        using var engine = EngineHost.Build(_home);
+        var config = engine.Services.GetRequiredService<RcloneConfig>();
+
+        var password = await config.PasswordForSetupAsync(CancellationToken.None);
+
+        using var store = new FileStore(Secrets);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(password.Reveal(), Is.EqualTo("given"));
+            Assert.That(await store.ReadAsync("rclone-config"), Is.Null);
+        }
+    }
+
+    [Test]
+    public async Task WithItsPasswordInAFile_ItReadsItsEncryptedConfig()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        var file = Path.Combine(_home.State, "password.txt");
+        await File.WriteAllTextAsync(file, "password\n");
+        using var given = new EnvironmentVariable("OBM_RCLONE_CONFIG_SECRET_FILE", file);
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
+
+        Assert.That(await log.LineAsync("onedrive"), Does.StartWith("Started rclone"));
+    }
+
     [Test]
     public async Task PasswordForSetup_WithNone_MakesAndSavesOne()
     {

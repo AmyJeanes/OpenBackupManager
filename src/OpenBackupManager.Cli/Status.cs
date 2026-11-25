@@ -70,6 +70,12 @@ internal static class Status
             }
 
             output.WriteLine("  Secrets: " + Secrets(status.Secrets, CurrentOS.Platform));
+            var inDocker = Update.InstalledBy(Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory)) == "docker";
+            foreach (var line in SecretNotes(status, inDocker))
+            {
+                output.WriteLine("  " + line);
+            }
+
             foreach (var line in ConfigProblems(status.ConfigProblems, CultureInfo.CurrentUICulture))
             {
                 output.WriteLine("  " + line);
@@ -108,6 +114,24 @@ internal static class Status
         return secrets.File is { } file
             ? $"in {file}, protected only by its permissions"
             : "in " + SecretStoreKinds.Parse(secrets.Store)!.Value.Title();
+    }
+
+    // Those given by the environment, and in Docker, a password kept beside the rclone configs it opens, which a copy
+    // of the volume, such as a NAS's appdata backup, would hold both of
+    internal static IEnumerable<string> SecretNotes(StatusResult status, bool inDocker)
+    {
+        var fromEnvironment = status.Secrets.FromEnvironment ?? [];
+        if (fromEnvironment.Count > 0)
+        {
+            yield return "Secrets from the environment: " + string.Join(", ", fromEnvironment);
+        }
+
+        var variable = SecretName.EnvVar(SecretName.RcloneConfig);
+        if (inDocker && status.Secrets.File is not null && status.Remotes.Count > 0 && !fromEnvironment.Any(v => v == variable || v == variable + "_FILE"))
+        {
+            yield return $"Warning: a backup of {status.State} can open your remotes, as the password protecting them is kept there too.";
+            yield return "To keep it elsewhere: " + AppLinks.Guide("docker/#moving-the-password");
+        }
     }
 
     internal static IEnumerable<string> Remotes(IReadOnlyList<RemoteStatus> remotes, DateTimeOffset now, CultureInfo culture)

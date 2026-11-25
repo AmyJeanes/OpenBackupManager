@@ -12,8 +12,15 @@
     <Company>Amy Jeanes</Company>
     <Product>Open Backup Manager</Product>
     <RepositoryUrl>https://github.com/AmyJeanes/OpenBackupManager</RepositoryUrl>
+    <!-- As site_url in docs/zensical.toml, which a test checks -->
+    <GuideUrl>https://amyjeanes.github.io/OpenBackupManager/</GuideUrl>
     <CopyrightYears>2026</CopyrightYears>
     <CopyrightYears Condition="$([System.DateTime]::UtcNow.Year) &gt; 2026">2026&#x2013;$([System.DateTime]::UtcNow.Year)</CopyrightYears>
     <Copyright>© $(CopyrightYears) $(Company)</Copyright>
   </PropertyGroup>
+
+  <!-- The SDK does this for RepositoryUrl itself -->
+  <ItemGroup>
+    <AssemblyMetadata Include="GuideUrl" Value="$(GuideUrl)" />
+  </ItemGroup>
 </Project>

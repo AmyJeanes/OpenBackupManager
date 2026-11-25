@@ -1,4 +1,7 @@
+using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Platform;
@@ -8,19 +11,32 @@ namespace OpenBackupManager.Engine;
 
 // The setting is read on every use, so a change to config.toml applies straight away. Each use waits while secrets
 // are being moved, so none is saved to the store they're leaving after it's been listed, and lost when it's emptied
-public sealed class Secrets(IServiceProvider services, ConfigWatcher config, FileStore fileStore) : IDisposable
+public sealed partial class Secrets(IServiceProvider services, ConfigWatcher config, FileStore fileStore, ILogger<Secrets> logger) : IDisposable
 {
     private const string Setting = "secret-store";
 
     private readonly SemaphoreSlim _lock = new(1, 1);
+
+    // Those given by the environment whose stored copy has been looked for
+    private readonly ConcurrentDictionary<string, bool> _tidied = new();
 
     // Null when none is chosen yet, on Linux. Reading config.toml has already refused a store this OS doesn't have
     public SecretStoreKind? Chosen => config.Config.SecretStore is { } name
         ? SecretStoreKinds.Parse(name)!.Value
         : SecretStoreKinds.DefaultOn(CurrentOS.Platform);
 
-    public Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default) =>
-        UseAsync(store => store.ReadAsync(name, cancellationToken), cancellationToken);
+    // From its environment variable before the store, so a container can keep it out of the volume, such as in a
+    // Docker secret, and a copy of the volume doesn't hold both a config and the password that opens it
+    public async Task<Secret?> ReadAsync(string name, CancellationToken cancellationToken = default)
+    {
+        if (FromEnvironment(name) is not { } given)
+        {
+            return await UseAsync(store => store.ReadAsync(name, cancellationToken), cancellationToken);
+        }
+
+        await RemoveStoredCopyAsync(name, given, cancellationToken);
+        return given;
+    }
 
     public Task SaveAsync(string name, Secret secret, CancellationToken cancellationToken = default) =>
         UseAsync(async store =>
@@ -34,9 +50,80 @@ public sealed class Secrets(IServiceProvider services, ConfigWatcher config, Fil
 
     public void Dispose() => _lock.Dispose();
 
-    internal SecretsStatus Status() => Chosen is { } kind
-        ? new SecretsStatus(kind.Name(), kind == SecretStoreKind.File ? fileStore.Path : null)
-        : new SecretsStatus();
+    internal SecretsStatus Status()
+    {
+        var fromEnvironment = Environment.GetEnvironmentVariables().Keys.Cast<string>()
+            .Where(variable => EnvVarPattern().IsMatch(variable) && Environment.GetEnvironmentVariable(variable) is { Length: > 0 })
+            .Order(StringComparer.Ordinal)
+            .ToList() is { Count: > 0 } found ? found : null;
+        return Chosen is { } kind
+            ? new SecretsStatus(kind.Name(), kind == SecretStoreKind.File ? fileStore.Path : null, fromEnvironment)
+            : new SecretsStatus(FromEnvironment: fromEnvironment);
+    }
+
+    // Such as one setup made before it was given, as the point of giving it is that it's not kept here. Only the same
+    // value, as a different one is the one that works. Once each run, or again after a failed look
+    private async Task RemoveStoredCopyAsync(string name, Secret given, CancellationToken cancellationToken)
+    {
+        if (!_tidied.TryAdd(name, true))
+        {
+            return;
+        }
+
+        try
+        {
+            if (await UseAsync(async store => (await store.ReadAsync(name, cancellationToken))?.Reveal() == given.Reveal() && await store.RemoveAsync(name, cancellationToken), cancellationToken))
+            {
+                LogRemovedStoredCopy(name);
+            }
+        }
+        // Such as a locked store, or none chosen. It's still given, so this can wait
+        catch (Exception e) when (e is EngineException or InvalidOperationException or InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            _tidied.TryRemove(name, out _);
+        }
+    }
+
+    private static Secret? FromEnvironment(string name)
+    {
+        var variable = SecretName.EnvVar(name);
+        var value = Environment.GetEnvironmentVariable(variable);
+        var file = Environment.GetEnvironmentVariable(variable + "_FILE");
+        if (value is { Length: > 0 } && file is { Length: > 0 })
+        {
+            throw new EngineException($"Both {variable} and {variable}_FILE are set, so it's not clear which to use. Set only one");
+        }
+
+        if (value is { Length: > 0 })
+        {
+            return new Secret(value);
+        }
+
+        if (file is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        string text;
+        try
+        {
+            text = File.ReadAllText(file);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new EngineException($"{variable}_FILE is {file}, which can't be read: {e.Message}", e);
+        }
+
+        // As an editor or echo adds them, and as Docker images' own _FILE variables do. Not spaces, which may be in it
+        text = text.TrimEnd('\r', '\n');
+        return text.Length > 0 ? new Secret(text) : throw new EngineException($"{file}, which {variable}_FILE names, is empty");
+    }
+
+    [GeneratedRegex(@"\AOBM_[A-Z0-9_]+_SECRET(_FILE)?\z")]
+    private static partial Regex EnvVarPattern();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Name} from the secret store, as its environment variable gives it")]
+    private partial void LogRemovedStoredCopy(string name);
 
     // Each is copied and read back before the setting changes, and only then removed from the old store, so wherever
     // this stops, the setting points to a store holding them all. Until the setting changes, a failure puts the new

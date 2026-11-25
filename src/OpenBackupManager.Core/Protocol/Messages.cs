@@ -77,8 +77,9 @@ public sealed record StatusResult(
     // The version an update installed over the engine's own, which runs once the engine is restarted
     string? Installed = null);
 
-// Store is the store in use, as secret-store names it, or null when none is chosen yet. File is the file store's path
-public sealed record SecretsStatus(string? Store = null, string? File = null);
+// Store is the store in use, as secret-store names it, or null when none is chosen yet. File is the file store's path.
+// FromEnvironment names the variables that give secrets instead, such as OBM_RCLONE_CONFIG_SECRET_FILE
+public sealed record SecretsStatus(string? Store = null, string? File = null, IReadOnlyList<string>? FromEnvironment = null);
 
 public sealed record MigrateSecretsParams(string Store);
 

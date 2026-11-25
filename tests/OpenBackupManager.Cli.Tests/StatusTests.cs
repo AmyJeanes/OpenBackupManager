@@ -237,6 +237,31 @@ public class StatusTests
     }
 
     [Test]
+    public void SecretsFromTheEnvironment_AreNamed() =>
+        Assert.That(
+            Status.SecretNotes(StatusWith(new SecretsStatus("file", "/config/secrets.json", ["OBM_RCLONE_CONFIG_SECRET_FILE"]), remotes: 1), inDocker: true),
+            Is.EqualTo(["Secrets from the environment: OBM_RCLONE_CONFIG_SECRET_FILE"]));
+
+    // As a copy of /config, such as a NAS's appdata backup, would hold both
+    [Test]
+    public void InDocker_APasswordBesideItsConfig_SaysHowToKeepItElsewhere() =>
+        Assert.That(
+            Status.SecretNotes(StatusWith(new SecretsStatus("file", "/config/secrets.json"), remotes: 1), inDocker: true),
+            Is.EqualTo([
+                "Warning: a backup of /config can open your remotes, as the password protecting them is kept there too.",
+                "To keep it elsewhere: https://amyjeanes.github.io/OpenBackupManager/docker/#moving-the-password",
+            ]));
+
+    [Test]
+    public void InDocker_WithNoRemotes_SaysNothingOfThePassword() =>
+        Assert.That(Status.SecretNotes(StatusWith(new SecretsStatus("file", "/config/secrets.json"), remotes: 0), inDocker: true), Is.Empty);
+
+    // Where the file store is the user's own choice
+    [Test]
+    public void OutsideDocker_SaysNothingOfThePassword() =>
+        Assert.That(Status.SecretNotes(StatusWith(new SecretsStatus("file", "/home/me/.local/state/openbackupmanager/secrets.json"), remotes: 1), inDocker: false), Is.Empty);
+
+    [Test]
     public void WithNoRemotes_ShowsNothing() =>
         Assert.That(Status.Remotes([], DateTimeOffset.UtcNow, CultureInfo.InvariantCulture), Is.Empty);
 
@@ -287,4 +312,16 @@ public class StatusTests
     [TestCase(90061, "1d 1h 1m 1s")]
     public void Uptime(int seconds, string expected) =>
         Assert.That(Status.Uptime(TimeSpan.FromSeconds(seconds)), Is.EqualTo(expected));
+
+    private static StatusResult StatusWith(SecretsStatus secrets, int remotes) =>
+        new(
+            "1.2.3",
+            4321,
+            DateTimeOffset.UtcNow,
+            "/config",
+            "/config",
+            EngineStarter.Other,
+            secrets,
+            [],
+            [.. Enumerable.Range(1, remotes).Select(i => new RemoteStatus($"remote-{i}", RemoteState.Running))]);
 }

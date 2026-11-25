@@ -125,6 +125,7 @@ With `--json`, `obm status`, `obm config reload`, `obm config validate` and `obm
 | `startedBy` | `app` for the app, which stops it when you quit, `service` for its service, or `other`. |
 | `secrets.store` | Where secrets are kept, as [`secret-store`](settings.md#secret-store) names it. Left out until one is chosen. |
 | `secrets.file` | The file they're in, when `store` is `file`. |
+| `secrets.fromEnvironment` | The environment variables giving secrets instead, such as `OBM_RCLONE_CONFIG_SECRET_FILE` in [Docker](docker.md#run-it). Left out when there are none. |
 | `configProblems` | The errors and warnings in `config.toml`, from the engine's latest read of it. |
 | `remotes` | How each remote in `config.toml` is doing, in its order there, as below. |
 | `installed` | The version an update installed, such as a newer `.deb` or `.rpm`, while the engine still runs the one before it. Left out otherwise. |
