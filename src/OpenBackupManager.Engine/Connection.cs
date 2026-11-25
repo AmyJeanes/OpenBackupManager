@@ -7,9 +7,12 @@ using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Engine;
 
-// What the engine says to one client, a line at a time. It closes the connection once it's refused a client
-internal sealed partial class Connection(Func<StatusResult> status, ConfigWatcher config, Secrets secrets, Remotes remotes, ILogger logger)
+// What the engine says to one client, a line at a time. It closes the connection once it's refused a client, and
+// ends the setups it started as it closes
+internal sealed partial class Connection(Func<StatusResult> status, ConfigWatcher config, Secrets secrets, Remotes remotes, Setups setups, ILogger logger)
+    : IAsyncDisposable
 {
+    private readonly Dictionary<string, Setup> _setups = [];
     private bool _greeted;
 
     public bool Closing { get; private set; }
@@ -56,6 +59,9 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
                 EngineProtocol.MigrateSecrets => await MigrateSecretsAsync(id, request.Params, cancellationToken),
                 EngineProtocol.ReloadConfig => ReloadConfig(id),
                 EngineProtocol.RetryRemote => RetryRemote(id, request.Params),
+                EngineProtocol.SetupRemote => await SetupRemoteAsync(id, request.Params, cancellationToken),
+                EngineProtocol.AnswerSetup => await AnswerSetupAsync(id, request.Params, cancellationToken),
+                EngineProtocol.CancelSetup => await CancelSetupAsync(id, request.Params),
 #if DEBUG
                 EngineProtocol.Crash => Crash(id, request.Params),
 #endif
@@ -139,6 +145,93 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
         }
 
         return Result(id, new RetryRemoteResult(), ProtocolJson.Default.RetryRemoteResult);
+    }
+
+    private async Task<RpcResponse> SetupRemoteAsync(JsonElement id, JsonElement? parameters, CancellationToken cancellationToken)
+    {
+        if (Params(parameters, ProtocolJson.Default.SetupRemoteParams) is not { } start)
+        {
+            return Error(id, RpcError.InvalidParams, $"{EngineProtocol.SetupRemote} needs the remote's id and its rclone type");
+        }
+
+        Setup setup;
+        try
+        {
+            setup = await setups.StartAsync(start, cancellationToken);
+        }
+        catch (EngineException e)
+        {
+            return Error(id, RpcError.Failed, e.Message);
+        }
+
+        if (setup.Question is not null)
+        {
+            _setups[start.Id] = setup;
+        }
+
+        return Result(id, new SetupStep(setup.Question), ProtocolJson.Default.SetupStep);
+    }
+
+    // A step that fails ends it, as rclone's own setup can't be told to go back
+    private async Task<RpcResponse> AnswerSetupAsync(JsonElement id, JsonElement? parameters, CancellationToken cancellationToken)
+    {
+        if (Params(parameters, ProtocolJson.Default.AnswerSetupParams) is not { } answer)
+        {
+            return Error(id, RpcError.InvalidParams, $"{EngineProtocol.AnswerSetup} needs the remote's id and the answer");
+        }
+
+        if (!_setups.TryGetValue(answer.Id, out var setup))
+        {
+            return Error(id, RpcError.Failed, $"There's no setup of {answer.Id} waiting for an answer here. It may have finished or been cancelled, or another program may have started it");
+        }
+
+        try
+        {
+            await setup.AnswerAsync(answer.Answer, cancellationToken);
+        }
+        catch (EngineException e)
+        {
+            await EndAsync(setup);
+            return Error(id, RpcError.Failed, e.Message);
+        }
+
+        if (setup.Question is null)
+        {
+            _setups.Remove(answer.Id);
+        }
+
+        return Result(id, new SetupStep(setup.Question), ProtocolJson.Default.SetupStep);
+    }
+
+    private async Task<RpcResponse> CancelSetupAsync(JsonElement id, JsonElement? parameters)
+    {
+        if (Params(parameters, ProtocolJson.Default.CancelSetupParams) is not { } cancel)
+        {
+            return Error(id, RpcError.InvalidParams, $"{EngineProtocol.CancelSetup} needs the remote's id");
+        }
+
+        if (_setups.TryGetValue(cancel.Id, out var setup))
+        {
+            await EndAsync(setup);
+        }
+
+        return Result(id, new CancelSetupResult(), ProtocolJson.Default.CancelSetupResult);
+    }
+
+    private async Task EndAsync(Setup setup)
+    {
+        _setups.Remove(setup.Id);
+        await setup.DisposeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var setup in _setups.Values)
+        {
+            await setup.DisposeAsync();
+        }
+
+        _setups.Clear();
     }
 
     private RpcResponse Stop(JsonElement id)

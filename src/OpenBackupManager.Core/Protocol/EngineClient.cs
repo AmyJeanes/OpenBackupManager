@@ -120,6 +120,30 @@ public sealed class EngineClient : IDisposable
             ProtocolJson.Default.RetryRemoteResult,
             cancellationToken);
 
+    // Not limited, as a step can wait on a sign-in in the browser. The setup is this connection's, and ends with it
+    public Task<SetupStep> SetupRemoteAsync(SetupRemoteParams setup, CancellationToken cancellationToken) =>
+        CallAsync(
+            EngineProtocol.SetupRemote,
+            JsonSerializer.SerializeToElement(setup, ProtocolJson.Default.SetupRemoteParams),
+            ProtocolJson.Default.SetupStep,
+            cancellationToken,
+            limited: false);
+
+    public Task<SetupStep> AnswerSetupAsync(string id, string answer, CancellationToken cancellationToken) =>
+        CallAsync(
+            EngineProtocol.AnswerSetup,
+            JsonSerializer.SerializeToElement(new AnswerSetupParams(id, answer), ProtocolJson.Default.AnswerSetupParams),
+            ProtocolJson.Default.SetupStep,
+            cancellationToken,
+            limited: false);
+
+    public Task CancelSetupAsync(string id, CancellationToken cancellationToken) =>
+        CallAsync(
+            EngineProtocol.CancelSetup,
+            JsonSerializer.SerializeToElement(new CancelSetupParams(id), ProtocolJson.Default.CancelSetupParams),
+            ProtocolJson.Default.CancelSetupResult,
+            cancellationToken);
+
     // Returns once the engine has closed the connection, as it does as it stops
     public async Task StopAsync(CancellationToken cancellationToken)
     {

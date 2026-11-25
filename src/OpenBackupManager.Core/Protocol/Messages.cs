@@ -18,6 +18,9 @@ public static class EngineProtocol
     public const string MigrateSecrets = "migrateSecrets";
     public const string ReloadConfig = "reloadConfig";
     public const string RetryRemote = "retryRemote";
+    public const string SetupRemote = "setupRemote";
+    public const string AnswerSetup = "answerSetup";
+    public const string CancelSetup = "cancelSetup";
 
 #if DEBUG
     // For testing crash reports
@@ -92,6 +95,40 @@ public sealed record RetryRemoteParams(string Id);
 
 public sealed record RetryRemoteResult;
 
+// Sets a remote up through rclone's own questions, or one that needs setting up again. Parameters answer any question
+// by its name, such as a preset's. Name and root are only for a new one, which is added to config.toml once it's set up
+public sealed record SetupRemoteParams(
+    string Id,
+    string Type,
+    string? Name = null,
+    string? Root = null,
+    IReadOnlyDictionary<string, string>? Parameters = null);
+
+public sealed record AnswerSetupParams(string Id, string Answer);
+
+// The next question, or none once it's set up
+public sealed record SetupStep(SetupQuestion? Question = null);
+
+// One of rclone's questions, in its own words, which are only in English. Choices are the answers it suggests, and
+// Exclusive says it has to be one of them. Error is what rclone said about the step before, if anything
+public sealed record SetupQuestion(
+    string Name,
+    string Help,
+    string Default,
+    IReadOnlyList<SetupChoice> Choices,
+    bool Required,
+    bool IsPassword,
+    bool Exclusive,
+    string Type,
+    string? Error = null);
+
+public sealed record SetupChoice(string Value, string Help);
+
+// Leaves a remote that needs setting up again as it was
+public sealed record CancelSetupParams(string Id);
+
+public sealed record CancelSetupResult;
+
 // What reading config.toml again found, as status gives it
 public sealed record ReloadConfigResult(IReadOnlyList<ConfigProblem> Problems);
 
@@ -153,6 +190,11 @@ public sealed record CrashResult;
 [JsonSerializable(typeof(ReloadConfigResult))]
 [JsonSerializable(typeof(RetryRemoteParams))]
 [JsonSerializable(typeof(RetryRemoteResult))]
+[JsonSerializable(typeof(SetupRemoteParams))]
+[JsonSerializable(typeof(AnswerSetupParams))]
+[JsonSerializable(typeof(SetupStep))]
+[JsonSerializable(typeof(CancelSetupParams))]
+[JsonSerializable(typeof(CancelSetupResult))]
 #if DEBUG
 [JsonSerializable(typeof(CrashParams))]
 [JsonSerializable(typeof(CrashResult))]

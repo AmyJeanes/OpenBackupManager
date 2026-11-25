@@ -147,14 +147,15 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
     }
 
     // Its files are named from its ID, which config.toml only allows to be letters, digits and hyphens. The socket's is
-    // a hash, as the run folder limits how long its names can be
-    internal RcdOptions Options(string id)
+    // a hash, as the run folder limits how long its names can be. Setup's has its own socket and a copy of the config,
+    // so the remote's own rcd can start beside it
+    internal RcdOptions Options(string id, bool setup = false)
     {
         var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(id)))[..8];
         return new RcdOptions(
             BundledRclone.FilePath,
-            RunFolder.Socket(paths, $"rc-{hash}.sock"),
-            rcloneConfig.FileFor(id),
+            RunFolder.Socket(paths, $"{(setup ? "su" : "rc")}-{hash}.sock"),
+            rcloneConfig.FileFor(id) + (setup ? ".setup" : ""),
             Path.Combine(paths.Cache, "rclone", id),
             Path.Combine(paths.Logs, $"rclone-{id}.log"),
             $"ISV|AmyJeanes|OpenBackupManager/{AppVersion.Current}");

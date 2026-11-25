@@ -28,6 +28,7 @@ public static class EngineHost
             .AddKeyedSingleton<ISecretStore>(SecretStoreKind.File, (services, _) => services.GetRequiredService<FileStore>())
             .AddSingleton<Secrets>()
             .AddSingleton<RcloneConfig>()
+            .AddSingleton<Setups>()
             .AddSingleton<Listener>()
             // Before the engine, as they stop in reverse, so the engine stops answering first
             .AddSingleton<UpdateWatcher>()

@@ -1,0 +1,236 @@
+using System.ComponentModel;
+using System.Globalization;
+using Microsoft.Extensions.Logging;
+using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
+using OpenBackupManager.Core.Protocol;
+using OpenBackupManager.Rclone;
+using SetupChoice = OpenBackupManager.Core.Protocol.SetupChoice;
+using SetupQuestion = OpenBackupManager.Core.Protocol.SetupQuestion;
+
+namespace OpenBackupManager.Engine;
+
+// Sets remotes up through rclone's own questions, each with an rcd of its own while it lasts. It writes a copy of the
+// remote's config, which replaces its own only once it's set up, so one stopped part way, or one being set up again,
+// leaves what was there. A new one is added to config.toml last, which starts its own rcd
+internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, RcloneConfig rcloneConfig, Remotes remotes, ILogger<Setups> logger)
+{
+    // The account's section in the remote's config, as crypt over it would be [crypt]
+    private const string Section = "remote";
+
+    private readonly HashSet<string> _settingUp = [];
+
+    // Its first question is in Question, which is null when nothing needed asking
+    public async Task<Setup> StartAsync(SetupRemoteParams start, CancellationToken cancellationToken)
+    {
+        var id = start.Id;
+        if (!RemoteSettings.IsValidId(id))
+        {
+            throw new EngineException("It can't be set up, as " + new ConfigProblem(0, ConfigProblemKind.RemoteIdNotValid, IsError: true, id).Message(CultureInfo.InvariantCulture));
+        }
+
+        if (remotes.Status().FirstOrDefault(remote => remote.Id == id) is { State: not RemoteState.NeedsSetup })
+        {
+            throw new EngineException($"{id} is already set up. To set it up again, take it out of config.toml first");
+        }
+
+        // Or it couldn't be added once it's set up
+        if (config.Result.HasErrors)
+        {
+            throw new EngineException($"config.toml has to be fixed first: {config.Result.Problems.First(p => p.IsError)}");
+        }
+
+        lock (_settingUp)
+        {
+            if (!_settingUp.Add(id))
+            {
+                throw new EngineException($"{id} is already being set up");
+            }
+        }
+
+        var options = remotes.Options(id, setup: true);
+        Rcd? rcd = null;
+        Setup? setup = null;
+        try
+        {
+            var password = await RcloneAsync(id, () => rcloneConfig.PasswordForSetupAsync(cancellationToken));
+            rcd = await RcloneAsync(id, async () =>
+            {
+                RunFolder.Create(paths);
+                PrivateFiles.CreateFolder(Path.GetDirectoryName(options.Config)!);
+                PrivateFiles.CreateFolder(Path.GetDirectoryName(options.LogFile)!);
+                // Left by an engine that stopped in the middle of one
+                File.Delete(options.Config);
+                var started = await Rcd.StartAsync(options, cancellationToken);
+                try
+                {
+                    // Before anything's written, as without it rclone writes the config in plain text
+                    await started.Client.UnlockConfigAsync(password.Reveal(), cancellationToken);
+                }
+                catch
+                {
+                    await started.DisposeAsync();
+                    throw;
+                }
+
+                return started;
+            });
+
+            LogSettingUp(id, start.Type);
+            setup = new Setup(this, start, rcd, new RemoteSetup(rcd.Client, Section, start.Parameters ?? new Dictionary<string, string>()), options.Config);
+            await setup.StepAsync(remoteSetup => remoteSetup.StartAsync(start.Type, cancellationToken));
+            return setup;
+        }
+        catch
+        {
+            if (setup is not null)
+            {
+                await setup.DisposeAsync();
+            }
+            else if (rcd is not null)
+            {
+                await EndAsync(id, rcd, options.Config);
+            }
+            else
+            {
+                Release(id);
+            }
+
+            throw;
+        }
+    }
+
+    // A step's failure, as rclone's and the engine's own both say what's wrong
+    internal static async Task<T> RcloneAsync<T>(string id, Func<Task<T>> step)
+    {
+        try
+        {
+            return await step();
+        }
+        catch (Exception e) when (e is RcloneException or HttpRequestException or IOException or UnauthorizedAccessException or Win32Exception
+            or InvalidOperationException)
+        {
+            throw new EngineException($"{id} couldn't be set up: {e.Message}", e);
+        }
+    }
+
+    // Once the copy is in place, so the rcd config.toml starts finds it
+    internal async Task FinishAsync(Setup setup, Rcd rcd, string copy)
+    {
+        var id = setup.Id;
+        try
+        {
+            // So nothing writes it once it's moved
+            await rcd.DisposeAsync();
+            var file = rcloneConfig.FileFor(id);
+            await RcloneAsync(id, () =>
+            {
+                File.Move(copy, file, overwrite: true);
+                return Task.FromResult(true);
+            });
+
+            if (config.Config.Remotes.Any(remote => remote.Id == id))
+            {
+                remotes.Retry(id);
+            }
+            else
+            {
+                try
+                {
+                    config.Add("remotes", [("id", id), ("name", setup.Name), ("root", setup.Root)]);
+                }
+                catch (Exception e) when (e is ConfigException or InvalidOperationException or IOException or UnauthorizedAccessException)
+                {
+                    File.Delete(file);
+                    throw new EngineException($"{id} wasn't set up, as adding it to config.toml failed: {e.Message.TrimEnd('.')}. Once that's fixed, set it up again", e);
+                }
+            }
+
+            LogSetUp(id);
+        }
+        finally
+        {
+            Release(id);
+        }
+    }
+
+    // Leaving the remote's own config as it was
+    internal async Task EndAsync(string id, Rcd rcd, string copy)
+    {
+        try
+        {
+            await rcd.DisposeAsync();
+            File.Delete(copy);
+        }
+        // Deleted as the next setup of it starts
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+        }
+        finally
+        {
+            Release(id);
+        }
+    }
+
+    private void Release(string id)
+    {
+        lock (_settingUp)
+        {
+            _settingUp.Remove(id);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Setting up remote {Id}, of type {Type}")]
+    private partial void LogSettingUp(string id, string type);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Set up remote {Id}")]
+    private partial void LogSetUp(string id);
+}
+
+// One remote's setup, which belongs to the connection that started it, and ends with it
+internal sealed class Setup(Setups setups, SetupRemoteParams start, Rcd rcd, RemoteSetup remoteSetup, string copy) : IAsyncDisposable
+{
+    private bool _ended;
+
+    public string Id => start.Id;
+
+    public string? Name => start.Name;
+
+    public string? Root => start.Root;
+
+    // Null once it's set up
+    public SetupQuestion? Question { get; private set; }
+
+    public Task AnswerAsync(string answer, CancellationToken cancellationToken) =>
+        StepAsync(remoteSetup => remoteSetup.AnswerAsync(answer, cancellationToken));
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_ended)
+        {
+            _ended = true;
+            await setups.EndAsync(Id, rcd, copy);
+        }
+    }
+
+    internal async Task StepAsync(Func<RemoteSetup, Task<Rclone.SetupQuestion?>> step)
+    {
+        Question = await Setups.RcloneAsync(Id, () => step(remoteSetup)) is { } asked
+            ? new SetupQuestion(
+                asked.Name,
+                asked.Help,
+                asked.Default,
+                [.. asked.Choices.Select(choice => new SetupChoice(choice.Value, choice.Help))],
+                asked.Required,
+                asked.IsPassword,
+                asked.Exclusive,
+                asked.Type,
+                asked.Error)
+            : null;
+        if (Question is null)
+        {
+            _ended = true;
+            await setups.FinishAsync(this, rcd, copy);
+        }
+    }
+}
