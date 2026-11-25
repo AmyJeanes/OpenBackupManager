@@ -41,6 +41,11 @@ public sealed record RemoteSettings
     public string? Name { get; init; }
 
     public string? Root { get; init; }
+
+    // It names the remote's own files, such as its rclone config, on any OS, as config.toml can be copied to another
+    public static bool IsValidId(string id) =>
+        id.Length is > 0 and <= 32 && id.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-')
+        && FileNames.Check(id, allPlatforms: true) is null;
 }
 
 [TomlSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.KebabCaseLower)]

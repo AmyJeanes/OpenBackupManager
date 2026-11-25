@@ -240,8 +240,7 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
                 {
                     problems.Add(new ConfigProblem(Line(table), ConfigProblemKind.RemoteNeedsId, IsError: true));
                 }
-                // It names the remote's own files, such as its rclone config
-                else if (value.Length > 32 || !value.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-') || IsDeviceName(value))
+                else if (!RemoteSettings.IsValidId(value))
                 {
                     problems.Add(new ConfigProblem(Line(id), ConfigProblemKind.RemoteIdNotValid, IsError: true, value));
                 }
@@ -252,11 +251,6 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
             }
         }
     }
-
-    // Windows opens the device for a file or folder with one of these names, whatever its extension
-    private static bool IsDeviceName(string name) =>
-        name is "con" or "prn" or "aux" or "nul"
-        || (name.Length == 4 && (name.StartsWith("com", StringComparison.Ordinal) || name.StartsWith("lpt", StringComparison.Ordinal)) && char.IsAsciiDigit(name[3]));
 
     private static void CheckKey(string path, KeyValueSyntax kv, List<ConfigProblem> problems)
     {
