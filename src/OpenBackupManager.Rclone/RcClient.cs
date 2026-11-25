@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
@@ -49,6 +50,21 @@ public sealed class RcClient : IDisposable
     public Task UnlockConfigAsync(string password, CancellationToken cancellationToken) =>
         CallAsync("config/unlock", new UnlockParams(password), RcJson.Default.UnlockParams, RcJson.Default.NoResult, cancellationToken);
 
+    // Asking every question, not only those after the options, and each one back rather than at a terminal
+    internal Task<ConfigStep> CreateConfigAsync(string name, string type, IReadOnlyDictionary<string, string> parameters, CancellationToken cancellationToken) =>
+        CallAsync("config/create", new CreateConfigParams(name, type, parameters, new ConfigOpt(NonInteractive: true, All: true)),
+            RcJson.Default.CreateConfigParams, RcJson.Default.ConfigStep, cancellationToken);
+
+    // Parameters answer only the questions of the call they're in, so each passes them again
+    internal Task<ConfigStep> ContinueConfigAsync(
+        string name, IReadOnlyDictionary<string, string> parameters, string state, string result, CancellationToken cancellationToken) =>
+        CallAsync("config/update", new UpdateConfigParams(name, parameters, new ConfigOpt(NonInteractive: true, Continue: true, State: state, Result: result)),
+            RcJson.Default.UpdateConfigParams, RcJson.Default.ConfigStep, cancellationToken);
+
+    // As rclone keeps passwords in its config
+    internal async Task<string> ObscureAsync(string clear, CancellationToken cancellationToken) =>
+        (await CallAsync("core/obscure", new ObscureParams(clear), RcJson.Default.ObscureParams, RcJson.Default.ObscureResult, cancellationToken)).Obscured;
+
     public Task<PidResult> PidAsync(CancellationToken cancellationToken) =>
         CallAsync("core/pid", new NoParams(), RcJson.Default.NoParams, RcJson.Default.PidResult, cancellationToken);
 
@@ -96,13 +112,46 @@ public sealed record ListRemotesResult(IReadOnlyList<string>? Remotes);
 
 internal sealed record UnlockParams(string ConfigPassword);
 
+internal sealed record CreateConfigParams(string Name, string Type, IReadOnlyDictionary<string, string> Parameters, ConfigOpt Opt);
+
+internal sealed record UpdateConfigParams(string Name, IReadOnlyDictionary<string, string> Parameters, ConfigOpt Opt);
+
+internal sealed record ConfigOpt(bool NonInteractive, bool All = false, bool Continue = false, string? State = null, string? Result = null);
+
+// Where it goes next, with the question to ask there, if any. Done once State is empty
+internal sealed record ConfigStep(string? State, ConfigOption? Option, string? Error, string? Result);
+
+// Default is null for none, which DefaultStr says as <nil>
+internal sealed record ConfigOption(
+    string Name,
+    string? Help,
+    JsonElement Default,
+    string? DefaultStr,
+    IReadOnlyList<ConfigExample>? Examples,
+    bool Required,
+    bool IsPassword,
+    bool Exclusive,
+    string? Type);
+
+internal sealed record ConfigExample(string Value, string? Help);
+
+internal sealed record ObscureParams(string Clear);
+
+internal sealed record ObscureResult(string Obscured);
+
 internal sealed record NoParams;
 
 internal sealed record NoResult;
 
 internal sealed record RcError(string? Error);
 
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+// Case-insensitive, as rclone answers config steps with Go's own field names, such as State
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true)]
+[JsonSerializable(typeof(CreateConfigParams))]
+[JsonSerializable(typeof(UpdateConfigParams))]
+[JsonSerializable(typeof(ConfigStep))]
+[JsonSerializable(typeof(ObscureParams))]
+[JsonSerializable(typeof(ObscureResult))]
 [JsonSerializable(typeof(NoParams))]
 [JsonSerializable(typeof(NoResult))]
 [JsonSerializable(typeof(PidResult))]

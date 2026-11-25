@@ -6,7 +6,7 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
 
 - `rclone.version` pins the release. Renovate proposes updates, which wait for review.
 - `tools/RcloneFetch` downloads the release for one runtime and checks it against rclone's signing key, `rclone-signing-key.asc` beside it.
-- `OpenBackupManager.Rclone` runs the fetcher as it builds, and puts rclone next to anything that references it. `BundledRclone` says where it is and which version it is. `Rcd` starts and stops rcd, and `RcClient` calls it.
+- `OpenBackupManager.Rclone` runs the fetcher as it builds, and puts rclone next to anything that references it. `BundledRclone` says where it is and which version it is. `Rcd` starts and stops rcd, `RcClient` calls it, and `RemoteSetup` sets a remote up through rclone's own questions, a step at a time.
 - The engine's `Remotes` runs an rcd for each `[[remotes]]` in `config.toml`, and keeps how each is doing for `obm status`. `RcloneConfig` keeps their config files and password.
 
 ## Shipping it
