@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using OpenBackupManager.Core.Configuration;
 
@@ -30,6 +31,14 @@ public static class SecretStoreKinds
     // Linux has none, as Secret Service can't be read while you're not signed in with your password
     public static SecretStoreKind? DefaultOn(OSPlatform os) =>
         os == OSPlatform.Windows ? SecretStoreKind.CredentialManager : os == OSPlatform.OSX ? SecretStoreKind.Keychain : null;
+
+    // For choosing one on Linux, the only OS with no default
+    public static string Facts(this SecretStoreKind kind, CultureInfo culture) => Strings.ResourceManager.GetString(kind switch
+    {
+        SecretStoreKind.SecretService => nameof(Strings.SecretStore_SecretService_Facts),
+        SecretStoreKind.File => nameof(Strings.SecretStore_File_Facts),
+        _ => throw new InvalidOperationException($"{kind.Name()} is the default where it works, so it's never chosen from a list"),
+    }, culture)!;
 
     public static SecretStoreKind? Parse(string name) => All.FirstOrDefault(k => k.Name == name) is { Name: not null } match ? match.Kind : null;
 

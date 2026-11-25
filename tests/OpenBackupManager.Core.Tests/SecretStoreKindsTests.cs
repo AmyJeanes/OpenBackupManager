@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Platform;
@@ -26,6 +27,13 @@ public class SecretStoreKindsTests
     [Test]
     public void EveryStoreHasANameThatParsesBack() =>
         Assert.That(Enum.GetValues<SecretStoreKind>().Select(k => SecretStoreKinds.Parse(k.Name())), Is.EqualTo(Enum.GetValues<SecretStoreKind>().Cast<SecretStoreKind?>()));
+
+    // So the list asked from has something to say about each
+    [Test]
+    public void EveryStoreOnLinux_HasItsFacts() =>
+        Assert.That(
+            SecretStoreKinds.NamesOn(OSPlatform.Linux).Select(name => SecretStoreKinds.Parse(name)!.Value.Facts(CultureInfo.InvariantCulture)),
+            Has.All.Not.Empty);
 
     [Test]
     public void TheSettingsChoices_AreThisOSsStores() =>

@@ -96,4 +96,12 @@
     <value>a bug stopped it: {0}. The engine's log has more</value>
     <comment>{0} is the error's own message, which is only in English</comment>
   </data>
+  <data name="SecretStore_SecretService_Facts" xml:space="preserve">
+    <value>the keyring your desktop provides, such as GNOME Keyring or KWallet, encrypted with your login password. It's locked while you're not signed in with your password, so the engine can't read your secrets then, such as on a server with nobody signed in, or after an automatic sign-in until it's unlocked</value>
+    <comment>Shown on Linux when choosing where to keep secrets. Facts only, without recommending it over a file</comment>
+  </data>
+  <data name="SecretStore_File_Facts" xml:space="preserve">
+    <value>secrets.json in the engine's folder, protected only by its permissions. The engine can read it with nobody signed in, but so can anyone who can read the file, or a copy of it</value>
+    <comment>Shown on Linux when choosing where to keep secrets. Facts only, without recommending it over Secret Service</comment>
+  </data>
 </root>
