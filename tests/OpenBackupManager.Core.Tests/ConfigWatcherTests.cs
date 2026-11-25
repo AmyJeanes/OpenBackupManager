@@ -212,6 +212,18 @@ public class ConfigWatcherTests
         Assert.That(watcher.Config.Updates.Prereleases, Is.True);
     }
 
+    // So what's started from it, such as a remote's rclone, starts straight away
+    [Test]
+    public void Add_IsReadStraightAway()
+    {
+        _file.CreateIfMissing();
+        using var watcher = new ConfigWatcher(_file, NullLogger<ConfigWatcher>.Instance);
+
+        watcher.Add("remotes", [("id", "nas"), ("root", "/")]);
+
+        Assert.That(watcher.Config.Remotes, Is.EqualTo([new RemoteSettings { Id = "nas", Root = "/" }]));
+    }
+
     [Test]
     public void FollowsEditsToTheFileALinkPointsTo()
     {

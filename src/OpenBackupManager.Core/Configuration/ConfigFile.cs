@@ -6,9 +6,9 @@ using Tomlyn.Syntax;
 namespace OpenBackupManager.Core.Configuration;
 
 /// <summary>
-/// Reads and writes config.toml. A write changes one value in place, so comments and layout written by hand stay,
-/// and moves the new file over the old one in one step, keeping the last one as config.toml.bak. Reading applies each
-/// setting's environment variable over the file, which writing leaves out
+/// Reads and writes config.toml. A write changes one value in place, or adds an entry at the end, so comments and
+/// layout written by hand stay, and moves the new file over the old one in one step, keeping the last one as
+/// config.toml.bak. Reading applies each setting's environment variable over the file, which writing leaves out
 /// </summary>
 public sealed class ConfigFile(string path, Func<string, string?>? environment = null)
 {
@@ -104,7 +104,12 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
     }
 
     // Changes one setting, or removes it when the value is null
-    public void Set(string? table, string key, object? value)
+    public void Set(string? table, string key, object? value) => Change(text => Edit(text, table, key, value), $"Changing {key}");
+
+    // Adds an entry to a list of sections, such as [[remotes]], leaving out the keys with no value
+    public void Add(string list, IReadOnlyList<(string Key, object? Value)> values) => Change(text => Append(text, list, values), $"Adding to {list}");
+
+    private void Change(Func<string, string> edit, string what)
     {
         var text = ReadText(Path) ?? DefaultText.ReplaceLineEndings("\n");
         var result = Parse(text);
@@ -119,13 +124,23 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
             throw new ConfigException("config.toml was written by a newer version of the app, so this version won't change it");
         }
 
-        var updated = Edit(text, table, key, value);
+        var updated = edit(text);
         if (Parse(updated) is { HasErrors: true } check)
         {
-            throw new InvalidOperationException($"Changing {key} would break config.toml: {check.Problems.First(p => p.IsError)}");
+            throw new InvalidOperationException($"{what} would break config.toml: {check.Problems.First(p => p.IsError)}");
         }
 
         Write(updated);
+    }
+
+    // At the end, where nothing after it can be read as its own
+    internal static string Append(string text, string list, IReadOnlyList<(string Key, object? Value)> values)
+    {
+        var newLine = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var ending = text.Length == 0 || text.EndsWith('\n') ? "" : newLine;
+        var gap = text.Length == 0 ? "" : newLine;
+        return text + ending + gap + $"[[{list}]]{newLine}"
+            + string.Concat(values.Where(v => v.Value is not null).Select(v => $"{v.Key} = {Value(v.Value!)}{newLine}"));
     }
 
     internal static string Edit(string text, string? table, string key, object? value)

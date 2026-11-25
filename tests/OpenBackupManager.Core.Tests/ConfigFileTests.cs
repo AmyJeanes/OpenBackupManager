@@ -319,6 +319,32 @@ public class ConfigFileTests
         Assert.That(ConfigFile.Edit("version = 1\r\n", "updates", "prereleases", true), Is.EqualTo("version = 1\r\n\r\n[updates]\r\nprereleases = true\r\n"));
 
     [Test]
+    public void Append_AddsAnEntryAtTheEnd_LeavingOutKeysWithNoValue() =>
+        Assert.That(
+            ConfigFile.Append("version = 1\n\n[updates]\nautomatic = false # mine\n", "remotes", [("id", "onedrive"), ("name", null), ("root", "OpenBackupManager/")]),
+            Is.EqualTo("version = 1\n\n[updates]\nautomatic = false # mine\n\n[[remotes]]\nid = \"onedrive\"\nroot = \"OpenBackupManager/\"\n"));
+
+    [TestCase("", "[[remotes]]\nid = \"nas\"\n")]
+    [TestCase("version = 1", "version = 1\n\n[[remotes]]\nid = \"nas\"\n")]
+    [TestCase("version = 1\r\n", "version = 1\r\n\r\n[[remotes]]\r\nid = \"nas\"\r\n")]
+    public void Append_FitsTheFile(string text, string appended) =>
+        Assert.That(ConfigFile.Append(text, "remotes", [("id", "nas")]), Is.EqualTo(appended));
+
+    [Test]
+    public void Add_LeavesTheFileAlone_WhenItWouldBreakIt()
+    {
+        var text = "version = 1\n\n[[remotes]]\nid = \"nas\"\n";
+        File.WriteAllText(FilePath, text);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(() => new ConfigFile(FilePath).Add("remotes", [("id", "nas")]),
+                Throws.TypeOf<InvalidOperationException>().With.Message.StartsWith("Adding to remotes would break config.toml"));
+            Assert.That(File.ReadAllText(FilePath), Is.EqualTo(text));
+        }
+    }
+
+    [Test]
     public void Read_MissingFile_GivesTheDefaults()
     {
         var result = new ConfigFile(FilePath, EnvVars()).Read();

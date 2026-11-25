@@ -79,6 +79,12 @@ public sealed partial class ConfigWatcher : IDisposable
         Reload();
     }
 
+    public void Add(string list, IReadOnlyList<(string Key, object? Value)> values)
+    {
+        _file.Add(list, values);
+        Reload();
+    }
+
     // When the setting's env var is set, which wins over the file, so changing the file wouldn't change the setting
     public string? EnvVarOverriding(string path) =>
         Settings.Find(path)?.EnvVar is { } envVar && _file.Environment(envVar) is { Length: > 0 } ? envVar : null;
