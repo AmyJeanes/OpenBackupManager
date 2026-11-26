@@ -2,6 +2,9 @@ namespace OpenBackupManager.Rclone;
 
 public sealed class RcloneException : Exception
 {
+    // rclone found nothing there, such as a folder to list
+    public bool NotFound { get; init; }
+
     public RcloneException()
     {
     }
