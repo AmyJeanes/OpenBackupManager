@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace OpenBackupManager.Rclone.Tests;
 
 public class RemoteSetupTests
@@ -86,7 +88,8 @@ public class RemoteSetupTests
             // Only the one answered, as an empty one stays empty
             Assert.That(saved, Has.Count.EqualTo(1));
             Assert.That(saved[0], Does.StartWith("password = ").And.Not.Contain(Password));
-            Assert.That(saved[0]["password = ".Length..], Is.Not.Empty);
+            // Once, as rclone takes it, not twice
+            Assert.That(await RevealAsync(saved[0]["password = ".Length..]), Is.EqualTo(Password));
         }
     }
 
@@ -180,6 +183,15 @@ public class RemoteSetupTests
     private string Socket => Path.Combine(_folder, "fake.sock");
 
     private string Config() => File.ReadAllText(Path.Combine(_folder, "rclone.conf"));
+
+    // With rclone's own reveal, and no config of the user's
+    private static async Task<string> RevealAsync(string obscured)
+    {
+        using var reveal = Process.Start(new ProcessStartInfo(BundledRclone.FilePath, ["reveal", "--config", "", obscured]) { RedirectStandardOutput = true })!;
+        var clear = await reveal.StandardOutput.ReadToEndAsync();
+        await reveal.WaitForExitAsync();
+        return clear.TrimEnd('\r', '\n');
+    }
 
     private RcdOptions Options() => new(
         BundledRclone.FilePath,
