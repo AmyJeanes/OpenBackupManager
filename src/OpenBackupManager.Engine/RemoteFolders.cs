@@ -110,17 +110,35 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
         var name = ".obm-write-test-" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(4));
         var content = "Open Backup Manager checks it can write here, then deletes this\n"u8.ToArray();
         await rclone.MkdirAsync(fs, "", cancellationToken);
-        await rclone.UploadFileAsync(fs, "", name, content, cancellationToken);
+        var failed = true;
         try
         {
+            // A write that fails may still leave the file
+            await rclone.UploadFileAsync(fs, "", name, content, cancellationToken);
             if ((await rclone.StatAsync(fs, name, cancellationToken))?.Size != content.Length)
             {
                 throw new RcloneException("What was written couldn't be read back");
             }
+
+            failed = false;
         }
         finally
         {
-            await rclone.DeleteFileAsync(fs, name, cancellationToken);
+            await DeleteTestFileAsync(fs, name, quietly: failed);
+        }
+    }
+
+    // Even once what asked has gone, though not for long, as the setup's rclone stops once the check returns. Quietly
+    // after a failure, such as when the file never got there, which would hide why
+    private async Task DeleteTestFileAsync(string fs, string name, bool quietly)
+    {
+        using var deleting = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try
+        {
+            await rclone.DeleteFileAsync(fs, name, deleting.Token);
+        }
+        catch (Exception e) when (quietly && e is RcloneException or HttpRequestException or IOException or OperationCanceledException)
+        {
         }
     }
 
