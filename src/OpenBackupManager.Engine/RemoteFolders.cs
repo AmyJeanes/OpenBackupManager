@@ -27,9 +27,46 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote)
         var found = new List<string>();
         string? backupAbove = null;
         string? nearMiss = null;
-        var items = await rclone.ListAsync(remote + top, "", dirsOnly: false, cancellationToken);
-        foreach (var part in parts)
+        var aboveUnlisted = false;
+        var missing = false;
+        // Not in the listing above, so only there if that listing hid it
+        var unseen = false;
+        IReadOnlyList<ListItem>? items = null;
+        for (var level = 0; ; level++)
         {
+            var root = level == parts.Length;
+            if (missing)
+            {
+                items = null;
+            }
+            else
+            {
+                try
+                {
+                    items = await rclone.ListAsync(remote + top + string.Join(separator, found), "", dirsOnly: !root, cancellationToken);
+                    missing = items is null;
+                    // As local's does, listing a folder it can't open as empty
+                    if (unseen && !missing)
+                    {
+                        aboveUnlisted = true;
+                        nearMiss = null;
+                    }
+                }
+                catch (RcloneException) when (!root)
+                {
+                    // Such as the top of an S3 key kept to one bucket, or an SFTP folder that can only be passed
+                    // through. The root itself still has to list
+                    items = null;
+                    aboveUnlisted = true;
+                }
+            }
+
+            if (root)
+            {
+                break;
+            }
+
+            var part = parts[level];
             var folders = items?.Where(item => item.IsDir).Select(item => item.Name).Order(StringComparer.Ordinal).ToList();
             if (folders?.Contains(Backup) == true)
             {
@@ -38,6 +75,7 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote)
 
             var name = folders?.FirstOrDefault(folder => Same(folder, part, ignoreCase: false))
                 ?? (_features.CaseInsensitive ? folders?.FirstOrDefault(folder => Same(folder, part, ignoreCase: true)) : null);
+            unseen = name is null && folders is not null;
             if (name is null && folders is not null)
             {
                 nearMiss = folders.FirstOrDefault(folder => Near(folder, part)) is { } near
@@ -46,7 +84,6 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote)
             }
 
             found.Add(name ?? part);
-            items = name is null ? null : await rclone.ListAsync(remote + top + string.Join(separator, found), "", dirsOnly: false, cancellationToken);
         }
 
         return new FoundFolder(
@@ -54,7 +91,8 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote)
             items?.Where(item => item.IsDir).Select(item => item.Name).Order(StringComparer.Ordinal).ToList(),
             items?.Count(item => !item.IsDir) ?? 0,
             backupAbove,
-            nearMiss);
+            nearMiss,
+            aboveUnlisted);
     }
 
     // That it can hold files, by writing one, reading it back and deleting it, which makes the folder if it isn't there
@@ -129,8 +167,15 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote)
 
 // Path is as far as it exists in the remote's own case, then as asked, ending in a separator unless it's the remote's
 // top. Folders are those directly in it, or null when it isn't there. BackupAbove is the highest folder above it holding
-// a backup's .obm, and NearMiss is a path that's there for one that isn't, that it may have been meant to be
-internal sealed record FoundFolder(string Path, IReadOnlyList<string>? Folders, int Files, string? BackupAbove, string? NearMiss)
+// a backup's .obm, and NearMiss is a path that's there for one that isn't, that it may have been meant to be.
+// AboveUnlisted is when a folder above couldn't be listed, so a backup or case there wasn't seen
+internal sealed record FoundFolder(
+    string Path,
+    IReadOnlyList<string>? Folders,
+    int Files,
+    string? BackupAbove,
+    string? NearMiss,
+    bool AboveUnlisted)
 {
     public bool HasBackup => Folders?.Contains(".obm") == true;
 }

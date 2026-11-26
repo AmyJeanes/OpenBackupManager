@@ -92,7 +92,7 @@ internal sealed class RootConfirmQuestion(RemoteFolders folders, SetupChoices ch
             IsPassword: false,
             Exclusive: true,
             "string",
-            Folder: new RootFolder(found.Path, state, found.Folders?.Count ?? 0, found.Files, found.NearMiss));
+            Folder: new RootFolder(found.Path, state, found.Folders?.Count ?? 0, found.Files, found.NearMiss, found.AboveUnlisted));
     }
 
     public override async Task<Answered> AnswerAsync(string answer, CancellationToken cancellationToken)

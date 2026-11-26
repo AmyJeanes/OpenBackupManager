@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
@@ -221,6 +223,60 @@ public class SetupsTests
             Assert.That(again.Question?.Name, Is.EqualTo(SetupQuestion.Root));
             Assert.That(again.Question?.Error, Does.StartWith("rclone's operations/fsinfo failed:"));
         }
+    }
+
+    // As an S3 key kept to one bucket can't list the top: here an http server that refuses to
+    [Test]
+    public async Task ATopThatCantBeListed_IsPassedOver()
+    {
+        using var server = new TcpListener(IPAddress.Loopback, 0);
+        server.Start();
+        using var stopping = new CancellationTokenSource();
+        var serving = ServeAsync(server, path => path switch
+        {
+            "/" => (403, ""),
+            "/Backups/" => (200, "<a href=\"notes.txt\">notes.txt</a>"),
+            "/Backups/notes.txt" => (200, ""),
+            _ => (404, ""),
+        }, stopping.Token);
+        var url = $"http://{server.LocalEndpoint}/";
+        await StartAsync();
+        using var client = await ConnectAsync();
+        var step = await client.SetupRemoteAsync(
+            new SetupRemoteParams("nas", "http", Parameters: new Dictionary<string, string> { ["url"] = url }),
+            CancellationToken.None);
+        while (step.Question is { Name: not SetupQuestion.Root } question)
+        {
+            step = await client.AnswerSetupAsync("nas", question.Default, CancellationToken.None);
+        }
+
+        var confirm = await client.AnswerSetupAsync("nas", "Backups", CancellationToken.None);
+        await stopping.CancelAsync();
+        await serving;
+
+        Assert.That(confirm.Question?.Folder, Is.EqualTo(new RootFolder("Backups/", RootFolderState.HasFiles, 0, 1, AboveUnlisted: true)));
+    }
+
+    // As local lists a folder it can't open as empty
+    [Test]
+    public async Task AFolderAboveThatCantBeListed_IsPassedOver()
+    {
+        var locked = Path.Combine(Target, "Locked");
+        Directory.CreateDirectory(Path.Combine(locked, "Backups"));
+        await File.WriteAllTextAsync(Path.Combine(locked, "Backups", "notes.txt"), "");
+        using var client = await SignedInAsync();
+        SetListable(locked, false);
+        SetupStep confirm;
+        try
+        {
+            confirm = await client.AnswerSetupAsync("nas", "Locked/Backups", CancellationToken.None);
+        }
+        finally
+        {
+            SetListable(locked, true);
+        }
+
+        Assert.That(confirm.Question?.Folder, Is.EqualTo(new RootFolder("Locked/Backups/", RootFolderState.HasFiles, 0, 1, AboveUnlisted: true)));
     }
 
     [Test]
@@ -536,6 +592,58 @@ public class SetupsTests
         catch (EngineException)
         {
             return new SetupStep();
+        }
+    }
+
+    // Answers each request by its path with a status and a page, until it's stopped
+    private static async Task ServeAsync(TcpListener server, Func<string, (int Status, string Page)> answer, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (true)
+            {
+                using var asked = await server.AcceptTcpClientAsync(cancellationToken);
+                await using var stream = asked.GetStream();
+                using var reader = new StreamReader(stream, leaveOpen: true);
+                var request = (await reader.ReadLineAsync(cancellationToken))!.Split(' ');
+                while (await reader.ReadLineAsync(cancellationToken) is { Length: > 0 })
+                {
+                }
+
+                var (status, page) = answer(Uri.UnescapeDataString(request[1]));
+                var body = request[0] == "HEAD" ? "" : page;
+                await stream.WriteAsync(System.Text.Encoding.UTF8.GetBytes(
+                    $"HTTP/1.1 {status} {status}\r\nContent-Type: text/html\r\nContent-Length: {page.Length}\r\nConnection: close\r\n\r\n{body}"),
+                    cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    // Listable or only to be passed through, into what's in it
+    private static void SetListable(string folder, bool listable)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var info = new DirectoryInfo(folder);
+            var acl = info.GetAccessControl();
+            var rule = new FileSystemAccessRule(WindowsIdentity.GetCurrent().User!, FileSystemRights.ListDirectory, AccessControlType.Deny);
+            if (listable)
+            {
+                acl.RemoveAccessRule(rule);
+            }
+            else
+            {
+                acl.AddAccessRule(rule);
+            }
+
+            info.SetAccessControl(acl);
+        }
+        else
+        {
+            File.SetUnixFileMode(folder, UnixFileMode.UserWrite | UnixFileMode.UserExecute | (listable ? UnixFileMode.UserRead : 0));
         }
     }
 

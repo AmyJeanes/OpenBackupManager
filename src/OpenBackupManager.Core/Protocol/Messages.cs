@@ -142,8 +142,9 @@ public sealed record SetupQuestion(
 }
 
 // Path is the root in the remote's own case. NearMiss is a folder that's there, for one that isn't, that it may have
-// been meant to be
-public sealed record RootFolder(string Path, RootFolderState State, int Folders, int Files, string? NearMiss = null);
+// been meant to be. AboveUnlisted is when a folder above couldn't be listed, so a backup there, which would be refused,
+// or the case of its name, couldn't be checked
+public sealed record RootFolder(string Path, RootFolderState State, int Folders, int Files, string? NearMiss = null, bool AboveUnlisted = false);
 
 public enum RootFolderState
 {
