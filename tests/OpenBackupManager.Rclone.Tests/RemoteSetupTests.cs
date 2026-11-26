@@ -13,23 +13,8 @@ public class RemoteSetupTests
     [SetUp]
     public void SetUp() => _folder = Directory.CreateTempSubdirectory("obm-setup-").FullName;
 
-    // On Windows, something else, such as an antivirus scan, can hold rclone's new log for a moment after it exits
     [TearDown]
-    public void TearDown()
-    {
-        for (var tries = 1; ; tries++)
-        {
-            try
-            {
-                Directory.Delete(_folder, recursive: true);
-                return;
-            }
-            catch (IOException) when (tries < 20)
-            {
-                Thread.Sleep(100);
-            }
-        }
-    }
+    public void TearDown() => TestFolders.Delete(_folder);
 
     [Test]
     public async Task AsksRclonesQuestions_AndSavesTheAnswers()

@@ -53,19 +53,7 @@ public class RemotesTests
 
         _services?.Dispose();
         _services = null;
-        // On Windows, something else, such as an antivirus scan, can hold rclone's log for a moment after it exits
-        for (var tries = 1; ; tries++)
-        {
-            try
-            {
-                Directory.Delete(_home.State, recursive: true);
-                return;
-            }
-            catch (IOException) when (tries < 20)
-            {
-                Thread.Sleep(100);
-            }
-        }
+        TestFolders.Delete(_home.State);
     }
 
     [Test]

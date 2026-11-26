@@ -32,7 +32,6 @@ public class OperationsTests
             CancellationToken.None);
     }
 
-    // On Windows, something else, such as an antivirus scan, can hold rclone's log for a moment after it exits
     [TearDown]
     public async Task TearDown()
     {
@@ -42,18 +41,7 @@ public class OperationsTests
             _rcd = null;
         }
 
-        for (var tries = 1; ; tries++)
-        {
-            try
-            {
-                Directory.Delete(_folder, recursive: true);
-                return;
-            }
-            catch (IOException) when (tries < 20)
-            {
-                Thread.Sleep(100);
-            }
-        }
+        TestFolders.Delete(_folder);
     }
 
     [Test]
