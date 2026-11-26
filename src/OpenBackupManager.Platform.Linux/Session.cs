@@ -28,7 +28,7 @@ internal sealed class Session(string path, byte[] key)
         var (output, path) = await openSession(Algorithm, ourPublicKey.ToByteArray(isUnsigned: true, isBigEndian: true));
         var theirPublicKey = new BigInteger(output, isUnsigned: true, isBigEndian: true);
 
-        // These would make the shared value one anyone could work out. Its length isn't checked, as KDE Wallet puts a zero
+        // These would let anyone work out the shared value. Its length isn't checked, as KDE Wallet puts a zero
         // byte in front when the top bit is set, which libsecret accepts. Newer KDE no longer does, but older KDE still
         // will (https://bugs.kde.org/show_bug.cgi?id=514194)
         if (theirPublicKey < 2 || theirPublicKey > Prime - 2)

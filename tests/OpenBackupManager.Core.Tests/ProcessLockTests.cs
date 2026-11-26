@@ -81,7 +81,7 @@ public class ProcessLockTests
         }
     }
 
-    // As a backup program or antivirus might while the engine starts. Only Windows checks this for every program: an flock
+    // As a backup tool or antivirus might while the engine starts. Only Windows checks this for every program: an flock
     // only meets other flocks, and .NET's reader here would take one
     [Test]
     [Platform("Win")]

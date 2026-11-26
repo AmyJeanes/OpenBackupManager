@@ -152,7 +152,7 @@ public class DaemonTests
         Assert.That(() => Daemon(home).WaitFor(Started), Throws.Nothing);
     }
 
-    // As Ctrl+C and service managers ask it to. Windows can't send these to another process, so there it's checked by hand
+    // As Ctrl+C and service managers ask it to. Windows can't signal another process, so there it's checked by hand
     [TestCase(PosixSignal.SIGINT)]
     [TestCase(PosixSignal.SIGTERM)]
     [Platform(Exclude = "Win")]
@@ -473,7 +473,7 @@ public class DaemonTests
         }
     }
 
-    // On Windows, from what Windows recorded. On macOS and Linux from the running file it left, with whatever the OS kept
+    // On Windows, from Windows' records. On macOS and Linux from the running file it left, with whatever the OS kept
     [Test]
     [Explicit("Crashes obmd, which the system records")]
     [Category("Sandbox")]

@@ -46,7 +46,7 @@ internal static class CrashEvents
     }
 
     // Why .NET ended the process, with the stack, as for a stack overflow or FailFast. The crashing process writes it
-    // itself, so it's the event's own process. Windows can give the ID to another process once the app has ended, so the
+    // itself, so it's the event's own process. Windows can give the ID to another process once the app ends, so the
     // exe must be named in it too, which it is whatever language the rest is in
     [SupportedOSPlatform("windows")]
     private static CrashEvent? RuntimeEntry(string exe, int processId, DateTimeOffset started)

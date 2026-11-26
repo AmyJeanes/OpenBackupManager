@@ -18,7 +18,7 @@ public static partial class BugReport
     // GitHub's limit for an issue's title
     private const int LongestTitle = 256;
 
-    // The bug report form's labels, and its hints as comments, which don't show in the issue, so they needn't be removed
+    // The bug report form's labels, and its hints as comments, which don't show in the issue, so needn't be removed
     private static readonly (string Heading, string Hint)[] Sections =
     [
         ("What happened", "What were you doing when it closed?"),

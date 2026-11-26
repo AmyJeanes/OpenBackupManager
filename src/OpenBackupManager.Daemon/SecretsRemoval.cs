@@ -78,7 +78,7 @@ internal static class SecretsRemoval
         return left ? 1 : 0;
     }
 
-    // As config.toml says, or this OS's own store when it says none. Null if it can't be read, as it may be what's wrong
+    // As config.toml says, or this OS's store when it says none. Null if it can't be read, as it may be what's wrong
     private static SecretStoreKind? Chosen(AppPaths paths)
     {
         try

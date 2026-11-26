@@ -403,7 +403,7 @@ public class ListenerTests
             $$$"""{"jsonrpc":"2.0","id":{{{id}}},"error":{"code":{{{RpcError.ProtocolMismatch}}},"message":"{{{message}}}"}}""" + "\n"));
     }
 
-    // Answers hello, then reads a migrateSecrets call for each place in order, and answers them in that order, each with
+    // Answers hello, then reads a migrateSecrets call for each place in order, and answers in that order, each with
     // its own store as the file
     private static async Task AnswerInOrderAsync(NamedPipeServerStream pipe, int[] order)
     {
@@ -461,7 +461,7 @@ public class ListenerTests
             return await _reader.ReadLineAsync(timeout.Token);
         }
 
-        // The reader and writer hold nothing of their own, and the writer would throw writing to a pipe the engine closed
+        // The reader and writer hold nothing of their own, and the writer would throw on a pipe the engine closed
         public void Dispose() => pipe.Dispose();
     }
 }

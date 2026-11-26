@@ -64,7 +64,7 @@ static async Task<int> RunAsync(AppPaths paths, EngineOptions options, Cancellat
         return 1;
     }
 
-    // Made first so one it can't make or write to is explained, such as when a file has its name or it belongs to someone
+    // Made first so one it can't make or write to is explained, as when a file has its name or it belongs to someone
     // else, rather than crashing it
     ProcessLock? taken;
     try

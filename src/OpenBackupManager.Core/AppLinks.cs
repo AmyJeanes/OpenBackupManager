@@ -9,7 +9,7 @@ public static class AppLinks
 
     public static string GuideHome { get; } = Metadata("GuideUrl");
 
-    // A page of the guide, with a heading's anchor after it if wanted, such as docker/#keeping-the-password-out-of-config
+    // A guide page, with a heading's anchor after it if wanted, such as docker/#keeping-the-password-out-of-config
     public static string Guide(string page) => GuideHome.TrimEnd('/') + "/" + page;
 
     private static string Metadata(string key) =>

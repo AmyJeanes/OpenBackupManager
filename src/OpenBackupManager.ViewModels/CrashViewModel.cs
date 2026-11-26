@@ -12,7 +12,7 @@ public sealed class CrashViewModel(AppInfo app, CrashReport report)
     // Redacted, so what's shown is what's shared, by the buttons or by copying it by hand
     public string Report { get; } = Redaction.Redact(report.Text);
 
-    // What Report on GitHub puts on the clipboard first, when it's too long for the link, as VS Code's issue reporter does
+    // What Report on GitHub puts on the clipboard first, when too long for the link, as VS Code's issue reporter does
     public string? ToPaste => BugReport.Fits(Report, Report) ? null : Report;
 
     // A new GitHub issue, filled in

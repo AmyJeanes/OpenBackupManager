@@ -49,8 +49,7 @@ internal static class Crashes
         return 0;
     }
 
-    // Prints what it shares, then opens a new GitHub issue with it filled in, or prints the link where there's no browser
-    // to open it in
+    // Prints what it shares, then opens a GitHub issue with it filled in, or prints the link if there's no browser
     public static int Report(AppPaths paths, int number, bool noBrowser)
     {
         if (Find(paths, number) is not { } report)

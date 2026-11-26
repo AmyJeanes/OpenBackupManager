@@ -120,7 +120,7 @@ public sealed partial class AppActions(IHost host, AppPaths paths, ILogger<AppAc
         Quit();
     }
 
-    // When Windows signs out or shuts down, it can end the app as soon as this returns, so the clean end is noted first.
+    // When Windows signs out or shuts down, it can end the app once this returns, so the clean end is noted first.
     // The rest of quitting follows if there's time, but not installing an update, which Windows could cut off part way.
     // A waiting update installs at the next start instead
     public void EndSession()

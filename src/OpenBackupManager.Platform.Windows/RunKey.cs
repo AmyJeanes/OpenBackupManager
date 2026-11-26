@@ -47,7 +47,7 @@ public sealed class RunKey : IStartAtLogin
         key?.DeleteValue(_name, throwOnMissingValue: false);
     }
 
-    // When uninstalling, which doesn't know the homes the app was used with, so each one's entry is found by the exe it starts
+    // When uninstalling, which doesn't know the app's homes, so each one's entry is found by the exe it starts
     public static void RemoveFor(string exe) => RemoveFor(exe, UserRunKey);
 
     internal static void RemoveFor(string exe, string path)

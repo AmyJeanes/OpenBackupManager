@@ -73,8 +73,7 @@ public sealed partial class CrashCapture(CrashReports reports, ILogger<CrashCapt
     // Once it has stopped as it should, or found it can't run
     public void Stopped() => reports.Stopped();
 
-    // On macOS and Linux, a run still going when the computer restarted or lost power isn't a crash, and only the boot ID
-    // tells them apart
+    // On macOS and Linux, a run cut off by a restart or power loss isn't a crash, and only the boot ID tells them apart
     private void Ended(Run previous)
     {
         if (previous.Boot is null || reports.Current!.Boot is null)

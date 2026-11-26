@@ -150,7 +150,7 @@ public sealed partial class Secrets(IServiceProvider services, ConfigWatcher con
                 return Result(to, 0, []);
             }
 
-            // So a store that can't be used, such as Secret Service with no default keyring, is refused before the setting
+            // So an unusable store, such as Secret Service with no default keyring, is refused before the setting
             // points to it, even with nothing to move
             try
             {

@@ -43,7 +43,7 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
         // SearchItems matches whole values only, so the prefix has its own attribute for listing
         var saved = await keyring.CreateItemAsync(Service(name), new(Attributes(name)) { ["home"] = prefix }, Encoding.UTF8.GetBytes(secret.Reveal()));
 
-        // So it's the only copy: saving replaces one with the same attributes only if the keyring does as the spec says,
+        // So it's the only copy: saving replaces one with the same attributes only if the keyring follows the spec,
         // and only in the default keyring
         var (unlocked, _) = await keyring.SearchEveryKeyringAsync(Attributes(name));
         foreach (var item in unlocked)
@@ -117,7 +117,7 @@ public sealed class SecretService(string prefix, string? bus = null) : ISecretSt
             var keyring = await Keyring.DefaultAsync(connection, reason => Failed(action, what, reason), cancellationToken)
                 ?? throw Unavailable(action, what, "it has no default keyring, which is the only one secrets are saved in");
 
-            // secret-tool reports a secret in a locked keyring as missing, so this checks first, and never asks to unlock it
+            // secret-tool reports one in a locked keyring as missing, so this checks first, and never asks to unlock it
             if (await keyring.LockedAsync())
             {
                 throw Locked(action, what, "the keyring is locked");

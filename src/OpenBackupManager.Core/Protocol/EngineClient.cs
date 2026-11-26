@@ -40,7 +40,7 @@ public sealed class EngineClient : IDisposable
     // Null if no engine is running, which takes the whole timeout to find out, as one may be starting
     public static async Task<EngineClient?> ConnectAsync(AppPaths paths, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        // .NET's own check on Windows expects the pipe to belong to whoever owns what this process makes, which when it's
+        // .NET's check on Windows expects the pipe to belong to whoever owns what this process makes, which when it's
         // elevated is Administrators rather than the user, so obm in an admin terminal couldn't reach the engine
         // (https://github.com/dotnet/runtime/issues/123903)
         var options = PipeOptions.Asynchronous | (OperatingSystem.IsWindows() ? PipeOptions.None : PipeOptions.CurrentUserOnly);
@@ -210,7 +210,7 @@ public sealed class EngineClient : IDisposable
             await _writing.WaitAsync(cancellationToken);
             try
             {
-                // Not flushed, as a pipe doesn't buffer, and flushing only checks it's open, which it may not be once the
+                // Not flushed: a pipe doesn't buffer, and flushing only checks it's open, which it may not be once the
                 // engine has answered stop
                 await _pipe.WriteAsync(EngineProtocol.Line(request, ProtocolJson.Default.RpcRequest), cancellationToken);
             }

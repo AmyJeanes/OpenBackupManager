@@ -6,7 +6,7 @@ namespace OpenBackupManager.Core;
 
 /// <summary>
 /// Reports of the app or the engine closing unexpectedly, in the state folder's crashes folder, where the app and obm
-/// show both. Each is plain English text, so it can be read and shared as it is. A running file in the state folder notes
+/// show both. Each is plain English text, so it can be read and shared as is. A running file in the state folder notes
 /// the copy that's running, so the next start can tell when a run ended without stopping or writing a report, as one
 /// that crashed outside .NET does
 /// </summary>
@@ -74,8 +74,8 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
     public string Write(string program, Run run, string details, DateTimeOffset? closedAt = null) =>
         Write($"{program} closed unexpectedly at {Local(closedAt ?? time.GetUtcNow())}", run, details);
 
-    // The report a run repeats, if it closed within a minute of starting, soon after it, as one that can't get going does
-    // when it's started again and again. That first report says why, and this keeps the others from replacing older ones
+    // The report a run repeats, if it closed within a minute of starting, soon after it, as one that can't start does
+    // when started again and again. That first report says why, and this keeps the others from replacing older ones
     public string? RepeatOf(Run run)
     {
         if (time.GetUtcNow() - run.Started >= Repeat || Reports().LastOrDefault(IsOwn) is not { } newest)
@@ -152,7 +152,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         return Write(heading, run, details.ToString());
     }
 
-    // Where launchd sends the engine's stderr when it runs as a service. Not named like its logs, which are found by name
+    // Where launchd sends the engine service's stderr. Not named like its logs, which are found by name
     public static string ErrorOutput(AppPaths paths) => Path.Combine(paths.Logs, "obmd-stderr.log");
 
     // From .NET's last words, as a FailFast prints them, to the end
@@ -288,7 +288,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         return Ending(reader.ReadToEnd());
     }
 
-    // coredumpctl is only named, not read, as its stacks for obmd are addresses with no names. In a container, the host's
+    // coredumpctl is only named, not read, as its stacks for obmd are bare addresses. In a container, the host's
     // systemd-coredump keeps a crash under the host's process ID, which the container never sees
     private static string? WhereToLook(Run run) =>
         OperatingSystem.IsMacOS() ? "If it ran as a service, /var/log/com.apple.xpc.launchd/launchd.log may say what closed it."
@@ -316,7 +316,7 @@ public sealed class CrashReports(AppPaths paths, TimeProvider time, string name)
         }
     }
 
-    // Whether systemd-coredump is what the kernel hands crashes to. Ubuntu's Apport, its usual one, ignores programs that
+    // Whether systemd-coredump is what the kernel hands crashes to. Ubuntu's own, Apport, ignores programs that
     // weren't installed from a package, so it has nothing to look in
     private static bool KeepsCoreDumps()
     {

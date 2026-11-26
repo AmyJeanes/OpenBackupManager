@@ -32,7 +32,7 @@ public static class Program
     // Held until the app ends, as only one copy for each home may start and stop its engine
     private static ProcessLock? _instanceLock;
 
-    // Marks a copy that wasn't installed, such as a build run while developing, so it's easy to tell from the installed app
+    // Marks a copy that wasn't installed, such as a dev build, so it's easy to tell from the installed app
     internal static string AppName { get; private set; } = typeof(Program).Assembly.GetCustomAttribute<AssemblyProductAttribute>()!.Product;
 
     internal static string Home { get; private set; } = "";
@@ -44,7 +44,7 @@ public static class Program
     private static string PackagedCommandLineFolder => Path.Combine(AppContext.BaseDirectory, "bin");
 
     // Only obm, outside current, as VS Code holds every PATH folder open, which stops Velopack replacing current. With
-    // Velopack's sq.version, as its locator looks beside the exe for it, which obm needs to find the installed app's home
+    // Velopack's sq.version, as its locator looks beside the exe, which obm needs to find the installed app's home
     private static string CommandLineFolder => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "bin"));
 
     private static string HookHome => AppHome.Chosen(null, Environment.GetEnvironmentVariable("OBM_HOME")) ?? AppHome.WindowsDefault(true, LocalAppData);
@@ -104,7 +104,7 @@ public static class Program
             return;
         }
 
-        // Off the UI thread, as Microsoft's single-instance guidance does, so the UI thread never blocks on the handover
+        // Off the UI thread, as Microsoft's single-instance guidance does, so it never blocks on the handover
         var instanceKey = AppHome.InstanceKey(Home);
         (_instanceLock, var handedOver, var error) = Task.Run(() => TakeLockOrHandOver(instanceKey, StartedAtLogin)).Result;
         if (_instanceLock is null)
@@ -241,7 +241,7 @@ public static class Program
 
     // False if there's no copy to hand over to here, as when it runs in another session or is another exe, with the
     // error that stopped it taking the lock, if it wasn't held
-    // Looks for a running copy first, as one in this session is the usual case, and hands over to it at once. The lock is
+    // Looks for a running copy first, as one in this session is usual, and hands over to it at once. The lock is
     // global, unlike AppInstance, so it also finds a copy in another session or of another exe. Both are tried for a
     // moment, as a copy launched at the same time registers just after it takes the lock, and something else, such as a
     // backup program, may have the lock's file open
@@ -288,7 +288,7 @@ public static class Program
             return;
         }
 
-        // Windows only lets the app the user just launched take focus, so this passes that on to the running copy's flyout
+        // Windows only lets the app the user just launched take focus, so this hands it to the running copy's flyout
         PInvoke.AllowSetForegroundWindow(running.ProcessId);
         running.RedirectActivationToAsync(AppInstance.GetCurrent().GetActivatedEventArgs()).AsTask().Wait();
     }
@@ -315,7 +315,7 @@ public static class Program
         return $"--home \"{home}{new string('\\', ending)}\"";
     }
 
-    // Null when there's nothing to say: it handed over, or another copy has the lock at sign-in, when nobody launched it.
+    // Null if there's nothing to say: it handed over, or another copy has the lock at sign-in, when nobody launched it.
     // A folder it can't use is said even then, as it wouldn't start at any sign-in
     internal static string? NotStartedMessage(bool handedOver, bool atLogin, Exception? error, string folder) =>
         error is not null ? Text.Format(Strings.Launch_CantUseFolder, AppName, error.Message, folder)

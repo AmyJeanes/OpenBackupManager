@@ -125,7 +125,7 @@ public sealed partial class Tray : IDisposable
             Text = "Crash",
             Items =
             {
-                // Queued, as async code resumes, rather than thrown by the item, which UI Automation's invoke would catch
+                // Queued, as async code resumes, not thrown by the item, which UI Automation's invoke would catch
                 Item("On the UI thread", () => _ui.Post(_ => throw new InvalidOperationException("Test crash on the UI thread"), null)),
                 Item("In a click", () => throw new InvalidOperationException("Test crash in a click")),
                 Item("On another thread", () => new Thread(() => throw new InvalidOperationException("Test crash on another thread")).Start()),

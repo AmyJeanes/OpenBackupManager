@@ -74,7 +74,7 @@ public sealed class Keychain(string prefix, string file) : ISecretStore
         return exitCode == 0 ? Names(output) : throw Failed("list", "the saved secrets", exitCode, error);
     }
 
-    // Each item starts with a keychain: line. Anything can save an item, so only those named as this store names them count
+    // Each item starts with a keychain: line. Anything can save one, so only those named as this store names them count
     private IReadOnlyList<string> Names(string dump)
     {
         var names = new List<string>();
@@ -107,7 +107,7 @@ public sealed class Keychain(string prefix, string file) : ISecretStore
 
     private string Service(string name) => $"{prefix}/{name}";
 
-    // Such as     "acct"<blob>="rclone-config". A value that isn't plain text is printed as hex, which no name of ours is
+    // Such as     "acct"<blob>="rclone-config". A value that isn't text is printed as hex, which no name of ours is
     private static string? Attribute(string line, string attribute)
     {
         var start = $"    \"{attribute}\"<blob>=\"";

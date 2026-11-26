@@ -205,7 +205,7 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
 }
 
 // Path is as far as it exists in the remote's own case, then as asked, ending in a separator unless it's the remote's
-// top. Folders are those directly in it, or null when it isn't there. BackupAbove is the highest folder above it holding
+// top. Folders are those directly in it, or null if it isn't there. BackupAbove is the highest folder above it holding
 // a backup's .obm, and NearMiss is a path that's there for one that isn't, that it may have been meant to be.
 // AboveUnlisted is when a folder above couldn't be listed, so a backup or case there wasn't seen
 internal sealed record FoundFolder(

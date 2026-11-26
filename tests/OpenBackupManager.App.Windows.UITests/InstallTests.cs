@@ -470,7 +470,7 @@ public sealed class InstallTests : AppTests
             }
         });
 
-    // The keys the app registers for its notifications: its ID, found by its icon, and the COM class Windows calls for clicks
+    // The app's notification keys: its ID, found by its icon, and the COM class Windows calls for clicks
     private static IEnumerable<string> NotificationRegistrations()
     {
         using var ids = Registry.CurrentUser.OpenSubKey(@"Software\Classes\AppUserModelId")!;
@@ -520,7 +520,7 @@ public sealed class InstallTests : AppTests
         Assert.That(process.ExitCode, Is.Zero, $"{Path.GetFileName(path)} should succeed");
     }
 
-    // Copied while whatever has it open keeps writing, as Windows does its notification store. Skipped if it's not there
+    // Copied while whatever has it open keeps writing, as Windows does its notification store. Skipped if not there
     private static void CopyOpen(string from, string to)
     {
         try

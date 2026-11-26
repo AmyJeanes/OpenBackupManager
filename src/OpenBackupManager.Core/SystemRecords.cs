@@ -47,7 +47,7 @@ public static class SystemRecords
         return Describe(events, exes, folders, since);
     }
 
-    // Windows' entries name the program's path. .NET's don't, so they're kept for the processes Windows' entries kept are
+    // Windows' entries name the exe's path. .NET's don't, so they're kept for the processes Windows' entries kept are
     // about. The rest are only counted
     internal static string Describe(IReadOnlyList<WindowsEvent> events, IReadOnlyList<string> exes, IReadOnlyList<string> folders, DateTimeOffset since)
     {

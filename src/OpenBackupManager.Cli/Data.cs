@@ -209,7 +209,7 @@ internal static class Data
         return process.ExitCode;
     }
 
-    // Beside obm, or on Windows, where the installed app keeps it: the folder above the packaged obm, or for the copy of
+    // Beside obm, or on Windows, where the installed app keeps it: above the packaged obm, or for the copy of
     // obm on PATH, current beside it
     private static string? Obmd()
     {

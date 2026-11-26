@@ -5,7 +5,7 @@ using OpenBackupManager.Core.Platform;
 
 namespace OpenBackupManager.App.Windows;
 
-// Starts the app at login, or not, as config.toml says. Left out, only the installed app's own home does, so dev builds,
+// Starts the app at login, or not, as config.toml says. Left out, only the installed app's home does, so dev builds,
 // test copies and other homes never add themselves
 public sealed partial class StartAtLoginSetting : IDisposable
 {

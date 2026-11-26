@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace OpenBackupManager.Core;
 
-// Takes personal details out of a crash report or a log before it's shared: the home folder, the user and computer names, and
+// Takes personal details out of a crash report or log before it's shared: the home folder, user and computer names, and
 // the values in web addresses, which can carry tokens. It can't know everything personal, so people check it too
 public static partial class Redaction
 {

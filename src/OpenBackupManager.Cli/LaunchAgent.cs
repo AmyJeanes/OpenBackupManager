@@ -125,7 +125,7 @@ internal sealed class LaunchAgent(string? home, string obmd, string obm, Func<st
         public static extern uint getuid();
     }
 
-    // SMAppService.statusForLegacyURL, from macOS 13, which says whether Login Items lets any agent's plist run. Reached
+    // SMAppService.statusForLegacyURL, from macOS 13, which says if Login Items lets any agent's plist run. Reached
     // through the Objective-C runtime, as .NET has no binding for it
     private static class ServiceManagement
     {

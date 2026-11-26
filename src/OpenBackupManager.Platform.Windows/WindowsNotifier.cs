@@ -14,7 +14,7 @@ namespace OpenBackupManager.Platform.Windows;
 // isn't running
 public sealed partial class WindowsNotifier : INotifier, IDisposable
 {
-    // WPN_E_PLATFORM_UNAVAILABLE, as when Windows' notification services are turned off, which debloating tools and some
+    // WPN_E_PLATFORM_UNAVAILABLE, as when Windows' notification services are off, which debloating tools and some
     // organisations' policies do
     private const int PlatformUnavailable = unchecked((int)0x803E0105);
 
@@ -57,7 +57,7 @@ public sealed partial class WindowsNotifier : INotifier, IDisposable
 
     public event Action<string>? Clicked;
 
-    // Windows starts the app this way to deliver a click when it isn't running, and the click then reaches the activator
+    // Windows starts the app this way to deliver a click when it isn't running, and the click reaches the activator
     public static bool StartedByClick => Environment.GetCommandLineArgs().Contains("-Embedding");
 
     public void Show(Notification notification)
@@ -121,7 +121,7 @@ public sealed partial class WindowsNotifier : INotifier, IDisposable
         return toast;
     }
 
-    // Written each time the app starts, so it follows the app when it moves, and a click starts it with the same arguments
+    // Written each time the app starts, so it follows the app if moved, and a click starts it with the same arguments
     private static void Register(string appName, string iconPath, string launchArguments)
     {
         using (var app = Registry.CurrentUser.CreateSubKey($@"Software\Classes\AppUserModelId\{AppId}"))
@@ -135,7 +135,7 @@ public sealed partial class WindowsNotifier : INotifier, IDisposable
         server.SetValue("", $"\"{Environment.ProcessPath}\" {launchArguments}");
     }
 
-    // Posted, rather than raised straight away, so a click that starts the app waits until the app has added its handlers
+    // Posted, not raised straight away, so a click that starts the app waits until the app has added its handlers
     private void OnActivated(string arguments)
     {
         if (_context is null)

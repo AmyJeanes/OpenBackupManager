@@ -4,7 +4,7 @@ using WinUIEx;
 
 namespace OpenBackupManager.App.Windows;
 
-// A window that's just been shown is blank until WinUI's first frame reaches the screen, and controls such as the title bar
+// A newly shown window is blank until WinUI's first frame reaches the screen, and controls such as the title bar
 // lay themselves out again a frame or two after that (https://github.com/microsoft/microsoft-ui-xaml/issues/10259)
 internal static class FirstDraw
 {

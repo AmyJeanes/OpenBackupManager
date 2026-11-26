@@ -20,12 +20,12 @@ public static class AppHome
         return string.IsNullOrEmpty(environment) ? null : Path.GetFullPath(environment);
     }
 
-    // Windows keeps everything in one folder anyway. A copy that wasn't installed, such as a build run while developing,
-    // gets a folder of its own so it never shares data with the installed app
+    // Windows keeps everything in one folder anyway. A copy that wasn't installed, such as a dev build, gets a folder
+    // of its own so it never shares data with the installed app
     public static string WindowsDefault(bool installed, string localAppData) =>
         installed ? InstalledHome(localAppData) : Path.Combine(localAppData, "OpenBackupManager-Dev");
 
-    // For obm and obmd: --home, then OBM_HOME, then the OS's usual folders. On Windows that's the same home the tray app
+    // For obm and obmd: --home, then OBM_HOME, then the OS's usual folders. On Windows that's the home the tray app
     // picks, so a dev build of obm works with a dev build of the app
     public static AppPaths CommandLinePaths(string? argument, Func<bool> installed)
     {

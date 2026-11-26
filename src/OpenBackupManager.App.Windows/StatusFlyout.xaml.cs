@@ -140,7 +140,7 @@ public sealed partial class StatusFlyout : Window
         OpenButton.Focus(FocusState.Programmatic);
     }
 
-    // Windows rescales a window after it moves to a display with different scaling, but the size is already right for it
+    // Windows rescales a window moved to a display with different scaling, but the size is already right for it
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
         if (args.DidSizeChange && !sender.Size.Equals(_size))
@@ -200,7 +200,7 @@ public sealed partial class StatusFlyout : Window
         AppWindow.Show(false);
     }
 
-    // Alt+F4 and the window's menu ask with this before closing it, where another program, as taskkill does, only closes it
+    // Alt+F4 and the window menu ask with this first, where another program, as taskkill does, only closes it
     private void OnMessage(object? sender, WindowMessageEventArgs e)
     {
         if (e.Message.MessageId == PInvoke.WM_SYSCOMMAND && (e.Message.WParam & 0xFFF0) == PInvoke.SC_CLOSE)
