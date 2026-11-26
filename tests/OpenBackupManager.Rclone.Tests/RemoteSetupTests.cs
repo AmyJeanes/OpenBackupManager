@@ -98,7 +98,7 @@ public class RemoteSetupTests
     [Test]
     public async Task AStepWithNoQuestion_GoesOn_AndItsErrorComesWithTheNext()
     {
-        await using var rc = new FakeRc(
+        await using var rc = FakeHttp.OnSocket(
             Socket,
             """{"State": "check", "Result": "found", "Error": "No drives found\n"}""",
             """{"State": "choose", "Option": {"Name": "drive", "Help": "Which drive?", "Default": "a", "DefaultStr": "a", "Examples": [{"Value": "a", "Help": "A"}], "Exclusive": true, "Type": "string"}}""");
@@ -118,7 +118,7 @@ public class RemoteSetupTests
     [Test]
     public async Task AnErrorFollowedByAnother_StopsIt()
     {
-        await using var rc = new FakeRc(
+        await using var rc = FakeHttp.OnSocket(
             Socket,
             """{"State": "token", "Error": "Couldn't decode response"}""",
             """{"State": "token", "Error": "Couldn't decode response"}""");
@@ -132,7 +132,7 @@ public class RemoteSetupTests
     [Test]
     public async Task AnErrorAsItEnds_StopsIt()
     {
-        await using var rc = new FakeRc(Socket, """{"State": "", "Error": "No drives found"}""");
+        await using var rc = FakeHttp.OnSocket(Socket, """{"State": "", "Error": "No drives found"}""");
         using var client = new RcClient(Socket);
         var setup = new RemoteSetup(client, "remote", NoParameters);
 
@@ -143,7 +143,7 @@ public class RemoteSetupTests
     [Test]
     public async Task EachStep_PassesTheParametersAgain()
     {
-        await using var rc = new FakeRc(
+        await using var rc = FakeHttp.OnSocket(
             Socket,
             """{"State": "next", "Option": {"Name": "region", "Default": null, "DefaultStr": "<nil>"}}""",
             """{"State": ""}""");
@@ -157,7 +157,7 @@ public class RemoteSetupTests
         {
             // As none was given
             Assert.That(question!.Default, Is.Empty);
-            Assert.That(rc.Calls.Select(call => call.Method), Is.EqualTo(["config/create", "config/update"]));
+            Assert.That(rc.Calls.Select(call => call.Path), Is.EqualTo(["config/create", "config/update"]));
             Assert.That(rc.Calls, Has.All.Matches<(string, string Body)>(call =>
                 call.Body.Contains("\"config_is_local\":\"false\"", StringComparison.Ordinal) && call.Body.Contains("\"config_fs_advanced\":\"false\"", StringComparison.Ordinal)));
         }

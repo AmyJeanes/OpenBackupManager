@@ -21,20 +21,20 @@ public class RemoteFoldersTests
     [Test]
     public async Task AWriteThatFails_IsStillDeleted()
     {
-        await using var rc = new FakeRc(Socket, name => name == "operations/uploadfile" ? (500, Error("disk full")) : (200, Done));
+        await using var rc = FakeHttp.OnSocket(Socket, path => path == "operations/uploadfile" ? (500, Error("disk full")) : (200, Done));
         using var rclone = new RcClient(Socket);
 
         Assert.That(
             () => new RemoteFolders(rclone, "nas:", fullPathsOnly: false).WriteTestAsync("Backups/", CancellationToken.None),
             Throws.TypeOf<RcloneException>().With.Message.Contains("disk full"));
-        Assert.That(rc.Calls.Select(call => call.Method), Does.Contain("operations/deletefile"));
+        Assert.That(rc.Calls.Select(call => call.Path), Does.Contain("operations/deletefile"));
     }
 
     // Rather than the delete's, which fails too when the file never got there
     [Test]
     public async Task AFailedCheck_KeepsItsReason_WhenTheDeleteFailsToo()
     {
-        await using var rc = new FakeRc(Socket, name => name switch
+        await using var rc = FakeHttp.OnSocket(Socket, path => path switch
         {
             "operations/stat" => (500, Error("not there")),
             "operations/deletefile" => (500, Error("can't delete")),
@@ -52,9 +52,9 @@ public class RemoteFoldersTests
     public async Task ACheckCancelledPartWay_StillDeletes()
     {
         using var cancelling = new CancellationTokenSource();
-        await using var rc = new FakeRc(Socket, name =>
+        await using var rc = FakeHttp.OnSocket(Socket, path =>
         {
-            if (name == "operations/stat")
+            if (path == "operations/stat")
             {
                 cancelling.Cancel();
             }
@@ -66,7 +66,7 @@ public class RemoteFoldersTests
         Assert.That(
             () => new RemoteFolders(rclone, "nas:", fullPathsOnly: false).WriteTestAsync("Backups/", cancelling.Token),
             Throws.Exception);
-        Assert.That(rc.Calls.Select(call => call.Method), Does.Contain("operations/deletefile"));
+        Assert.That(rc.Calls.Select(call => call.Path), Does.Contain("operations/deletefile"));
     }
 
     private static string Error(string message) => $"{{\"error\":\"{message}\"}}";

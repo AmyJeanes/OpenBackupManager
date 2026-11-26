@@ -282,21 +282,17 @@ public class SetupsTests
     [Test]
     public async Task ATopThatCantBeListed_IsPassedOver()
     {
-        using var server = new TcpListener(IPAddress.Loopback, 0);
-        server.Start();
-        using var stopping = new CancellationTokenSource();
-        var serving = ServeAsync(server, path => path switch
+        await using var server = FakeHttp.OnPort(path => path switch
         {
-            "/" => (403, ""),
-            "/Backups/" => (200, "<a href=\"notes.txt\">notes.txt</a>"),
-            "/Backups/notes.txt" => (200, ""),
+            "" => (403, ""),
+            "Backups/" => (200, "<a href=\"notes.txt\">notes.txt</a>"),
+            "Backups/notes.txt" => (200, ""),
             _ => (404, ""),
-        }, stopping.Token);
-        var url = $"http://{server.LocalEndpoint}/";
+        });
         await StartAsync();
         using var client = await ConnectAsync();
         var step = await client.SetupRemoteAsync(
-            new SetupRemoteParams("nas", "http", Parameters: new Dictionary<string, string> { ["url"] = url }),
+            new SetupRemoteParams("nas", "http", Parameters: new Dictionary<string, string> { ["url"] = server.Url! }),
             CancellationToken.None);
         while (step.Question is { Name: not SetupQuestion.Root } question)
         {
@@ -304,8 +300,6 @@ public class SetupsTests
         }
 
         var confirm = await client.AnswerSetupAsync("nas", "Backups", CancellationToken.None);
-        await stopping.CancelAsync();
-        await serving;
 
         Assert.That(confirm.Question?.Folder, Is.EqualTo(new RootFolder("Backups/", RootFolderState.HasFiles, 0, 1, AboveUnlisted: true)));
     }
@@ -658,33 +652,6 @@ public class SetupsTests
         catch (EngineException)
         {
             return new SetupStep();
-        }
-    }
-
-    // Answers each request by its path with a status and a page, until it's stopped
-    private static async Task ServeAsync(TcpListener server, Func<string, (int Status, string Page)> answer, CancellationToken cancellationToken)
-    {
-        try
-        {
-            while (true)
-            {
-                using var asked = await server.AcceptTcpClientAsync(cancellationToken);
-                await using var stream = asked.GetStream();
-                using var reader = new StreamReader(stream, leaveOpen: true);
-                var request = (await reader.ReadLineAsync(cancellationToken))!.Split(' ');
-                while (await reader.ReadLineAsync(cancellationToken) is { Length: > 0 })
-                {
-                }
-
-                var (status, page) = answer(Uri.UnescapeDataString(request[1]));
-                var body = request[0] == "HEAD" ? "" : page;
-                await stream.WriteAsync(System.Text.Encoding.UTF8.GetBytes(
-                    $"HTTP/1.1 {status} {status}\r\nContent-Type: text/html\r\nContent-Length: {page.Length}\r\nConnection: close\r\n\r\n{body}"),
-                    cancellationToken);
-            }
-        }
-        catch (OperationCanceledException)
-        {
         }
     }
 
