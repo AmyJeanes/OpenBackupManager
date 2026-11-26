@@ -1,6 +1,7 @@
 using System.IO.Pipes;
 using System.Runtime.Versioning;
 using System.Text;
+using System.Threading.Channels;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
@@ -157,16 +158,20 @@ internal sealed partial class Listener(
     {
         await using (pipe)
         {
+            // Cancelled once the client goes, as well as when the engine stops, so what it asked stops with it, such
+            // as a sign-in that waits for a browser, rather than running on
+            using var open = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var lines = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+            var reading = ReadAsync(pipe, lines.Writer, open);
             try
             {
                 await using var connection = new Connection(Status, config, secrets, remotes, setups, backends, logger);
-                using var reader = new StreamReader(pipe, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
-                while (!connection.Closing && await reader.ReadLineAsync(cancellationToken) is { } line)
+                await foreach (var line in lines.Reader.ReadAllAsync(open.Token))
                 {
-                    if (await connection.AnswerAsync(line, cancellationToken) is { } response)
+                    if (await connection.AnswerAsync(line, open.Token) is { } response)
                     {
-                        await pipe.WriteAsync(EngineProtocol.Line(response, ProtocolJson.Default.RpcResponse), cancellationToken);
-                        await pipe.FlushAsync(cancellationToken);
+                        await pipe.WriteAsync(EngineProtocol.Line(response, ProtocolJson.Default.RpcResponse), open.Token);
+                        await pipe.FlushAsync(open.Token);
                     }
 
                     if (connection.Stopping)
@@ -174,15 +179,47 @@ internal sealed partial class Listener(
                         LogAskedToStop();
                         lifetime.StopApplication();
                     }
+
+                    if (connection.Closing)
+                    {
+                        break;
+                    }
                 }
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
+                // Stopping, or it went away during a call, as a connection answers anything else cancelled as failed
             }
             catch (IOException)
             {
                 // It went away
             }
+            finally
+            {
+                await open.CancelAsync();
+                await reading;
+            }
+        }
+    }
+
+    // All along, not only between calls, so a client that goes is seen during one. Calls are still answered in turn
+    private static async Task ReadAsync(NamedPipeServerStream pipe, ChannelWriter<string> lines, CancellationTokenSource open)
+    {
+        try
+        {
+            using var reader = new StreamReader(pipe, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
+            while (await reader.ReadLineAsync(open.Token) is { } line)
+            {
+                await lines.WriteAsync(line, open.Token);
+            }
+        }
+        catch (Exception e) when (e is OperationCanceledException or IOException)
+        {
+        }
+        finally
+        {
+            lines.Complete();
+            await open.CancelAsync();
         }
     }
 

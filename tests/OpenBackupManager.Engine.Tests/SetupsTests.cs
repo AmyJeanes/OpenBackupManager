@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
@@ -401,20 +403,39 @@ public class SetupsTests
         }
 
         using var another = await ConnectAsync();
-        // Once the engine has seen it close
-        var timeout = DateTime.UtcNow + Timeout;
-        var again = await TrySetupAsync(another, "nas");
-        while (again.Question is null && DateTime.UtcNow < timeout)
-        {
-            await Task.Delay(100);
-            again = await TrySetupAsync(another, "nas");
-        }
+        var again = await SetUpAgainAsync(another, "nas");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(again.Question, Is.Not.Null);
             Assert.That(File.Exists(Path.Combine(RcloneFolder, "nas.conf")), Is.False);
         }
+    }
+
+    // Such as a sign-in waiting for a browser, here a server that never answers
+    [Test]
+    public async Task ClosingTheConnection_DuringALongCall_EndsIt()
+    {
+        using var server = new TcpListener(IPAddress.Loopback, 0);
+        server.Start();
+        var url = $"http://127.0.0.1:{((IPEndPoint)server.LocalEndpoint).Port}/";
+        await StartAsync();
+        var client = await ConnectAsync();
+        var step = await client.SetupRemoteAsync(
+            new SetupRemoteParams("nas", "http", Parameters: new Dictionary<string, string> { ["url"] = url }),
+            CancellationToken.None);
+        while (step.Question is { Name: not SetupQuestion.Root } question)
+        {
+            step = await client.AnswerSetupAsync("nas", question.Default, CancellationToken.None);
+        }
+
+        var answering = client.AnswerSetupAsync("nas", "Backups", CancellationToken.None);
+        using var asked = await server.AcceptTcpClientAsync().WaitAsync(Timeout);
+        client.Dispose();
+
+        Assert.That(async () => await answering, Throws.TypeOf<EngineException>());
+        using var another = await ConnectAsync();
+        Assert.That((await SetUpAgainAsync(another, "nas")).Question, Is.Not.Null);
     }
 
     [Test]
@@ -516,6 +537,20 @@ public class SetupsTests
         {
             return new SetupStep();
         }
+    }
+
+    // Once the engine has seen the last one end, or refused after the timeout
+    private static async Task<SetupStep> SetUpAgainAsync(EngineClient client, string id)
+    {
+        var timeout = DateTime.UtcNow + Timeout;
+        var again = await TrySetupAsync(client, id);
+        while (again.Question is null && DateTime.UtcNow < timeout)
+        {
+            await Task.Delay(100);
+            again = await TrySetupAsync(client, id);
+        }
+
+        return again;
     }
 
     // Once it's in that state, or what it was in after the timeout

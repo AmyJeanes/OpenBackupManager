@@ -54,7 +54,7 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
 - **Yes proves the root can hold files,** by writing, reading back and deleting a file, which also makes the folder. Its name is random, so two devices checking at once don't meet, and isn't `.obm-check`, which marks a synced folder. A remote set up again has no root question, so a failed check ends its setup.
 - **A no, a failed check, or a root that can't be looked at asks for the root again,** with rclone's reason, rather than ending the setup, as a wrong folder needs no new sign-in.
 - **An rcd of its own, writing a copy of the config,** which replaces the remote's config only once it's set up. So a setup stopped part way leaves what was there, and the remote's own rcd can run beside it. A new remote is added to `config.toml` last, as that starts its rcd.
-- **Owned by the connection that started it,** and ended when it closes, so nothing outlives a client that's gone, and there's nothing to resume or time out.
+- **Owned by the connection that started it,** and ended when it closes, even in the middle of a sign-in, so nothing outlives a client that's gone, such as a sign-in holding the port rclone's others need, and there's nothing to resume or time out.
 
 ## Fetching
 
