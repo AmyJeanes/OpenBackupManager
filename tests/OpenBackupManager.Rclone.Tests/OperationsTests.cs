@@ -111,8 +111,12 @@ public class OperationsTests
         }
     }
 
-    // As rclone's local backend takes it from the OS, not the filesystem
+    // Case as rclone's local backend takes it from the OS, not the filesystem
     [Test]
-    public async Task FsInfo_SaysWhetherItIgnoresCase() =>
-        Assert.That((await Client.FsInfoAsync(Fs, CancellationToken.None)).Features.CaseInsensitive, Is.EqualTo(!OperatingSystem.IsLinux()));
+    public async Task FsInfo_SaysWhetherItsLocal_AndIgnoresCase()
+    {
+        var features = (await Client.FsInfoAsync(Fs, CancellationToken.None)).Features;
+
+        Assert.That(features, Is.EqualTo(new FsFeatures(CaseInsensitive: !OperatingSystem.IsLinux(), IsLocal: true)));
+    }
 }

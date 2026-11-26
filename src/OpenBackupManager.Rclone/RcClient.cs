@@ -162,7 +162,7 @@ public sealed record ListRemotesResult(IReadOnlyList<string>? Remotes);
 
 public sealed record FsInfoResult(FsFeatures Features);
 
-public sealed record FsFeatures(bool CaseInsensitive);
+public sealed record FsFeatures(bool CaseInsensitive, bool IsLocal);
 
 // Path is from the root of the remote it was listed through, in the case it was asked for, while Name is in its own
 public sealed record ListItem(string Path, string Name, long Size, bool IsDir);

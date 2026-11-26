@@ -245,7 +245,7 @@ internal sealed class Setup(
         {
             found = await folders.FindAsync(path, cancellationToken);
         }
-        catch (Exception e) when (e is RcloneException or HttpRequestException or IOException)
+        catch (Exception e) when (e is RcloneException or HttpRequestException or IOException or ArgumentException)
         {
             throw new EngineException($"{Id}'s folders couldn't be listed: {e.Message}", e);
         }

@@ -51,7 +51,7 @@ internal sealed class RootQuestion(RemoteFolders folders, SetupChoices choices) 
         {
             found = await folders.FindAsync(answer, cancellationToken);
         }
-        catch (Exception e) when (e is RcloneException or HttpRequestException or IOException)
+        catch (Exception e) when (e is RcloneException or HttpRequestException or IOException or ArgumentException)
         {
             return Answered.Again(e.Message);
         }

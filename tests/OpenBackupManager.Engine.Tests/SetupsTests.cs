@@ -166,20 +166,42 @@ public class SetupsTests
     {
         Directory.CreateDirectory(Target);
         var full = Target.Replace('\\', '/');
-        await StartAsync();
-        using var client = await ConnectAsync();
-
-        // Such as whether to use UNC paths, on Windows
-        var step = await client.SetupRemoteAsync(new SetupRemoteParams("nas", "local"), CancellationToken.None);
-        while (step.Question is { Name: not SetupQuestion.Root } question)
-        {
-            step = await client.AnswerSetupAsync("nas", question.Default, CancellationToken.None);
-        }
+        using var client = await LocalAsync();
 
         await client.AnswerSetupAsync("nas", full, CancellationToken.None);
         await client.AnswerSetupAsync("nas", "yes", CancellationToken.None);
 
         Assert.That(await File.ReadAllTextAsync(_home.ConfigFile), Does.EndWith($"root = \"{full}/\"\n"));
+    }
+
+    // As Windows writes them, from a drive or a share, kept as given apart from the case
+    [Test]
+    [Platform("Win")]
+    public async Task AWindowsPath_IsTakenApartAtItsBackslashes([Values] bool share)
+    {
+        Directory.CreateDirectory(Path.Combine(Target, "Work"));
+        var full = share ? $@"\\localhost\{Target[0]}${Target[2..]}" : Target;
+        using var client = await LocalAsync();
+
+        var confirm = await client.AnswerSetupAsync("nas", full + @"\work", CancellationToken.None);
+
+        Assert.That(confirm.Question?.Folder, Is.EqualTo(new RootFolder(full + @"\Work\", RootFolderState.Empty, 0, 0)));
+    }
+
+    // As rclone would take them as steps, not folders
+    [TestCase("Work/./Backups")]
+    [TestCase("Work/../Backups")]
+    public async Task APathWithDots_IsAskedAgain(string path)
+    {
+        using var client = await SignedInAsync();
+
+        var again = await client.AnswerSetupAsync("nas", path, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(again.Question?.Name, Is.EqualTo(SetupQuestion.Root));
+            Assert.That(again.Question?.Error, Is.EqualTo("Give the path without . or .."));
+        }
     }
 
     [Test]
@@ -462,6 +484,21 @@ public class SetupsTests
         var client = await ConnectAsync();
         await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
         await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
+        return client;
+    }
+
+    // At the root question, through local, answering its own questions, such as whether to use UNC paths on Windows,
+    // as they come
+    private async Task<EngineClient> LocalAsync()
+    {
+        await StartAsync();
+        var client = await ConnectAsync();
+        var step = await client.SetupRemoteAsync(new SetupRemoteParams("nas", "local"), CancellationToken.None);
+        while (step.Question is { Name: not SetupQuestion.Root } question)
+        {
+            step = await client.AnswerSetupAsync("nas", question.Default, CancellationToken.None);
+        }
+
         return client;
     }
 
