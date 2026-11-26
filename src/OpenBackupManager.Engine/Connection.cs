@@ -9,7 +9,7 @@ namespace OpenBackupManager.Engine;
 
 // What the engine says to one client, a line at a time. It closes the connection once it's refused a client, and
 // ends the setups it started as it closes
-internal sealed partial class Connection(Func<StatusResult> status, ConfigWatcher config, Secrets secrets, Remotes remotes, Setups setups, ILogger logger)
+internal sealed partial class Connection(Func<StatusResult> status, ConfigWatcher config, Secrets secrets, Remotes remotes, Setups setups, Backends backends, ILogger logger)
     : IAsyncDisposable
 {
     private readonly Dictionary<string, Setup> _setups = [];
@@ -59,6 +59,7 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
                 EngineProtocol.MigrateSecrets => await MigrateSecretsAsync(id, request.Params, cancellationToken),
                 EngineProtocol.ReloadConfig => ReloadConfig(id),
                 EngineProtocol.RetryRemote => RetryRemote(id, request.Params),
+                EngineProtocol.ListBackends => Result(id, new ListBackendsResult(await backends.ListAsync(cancellationToken)), ProtocolJson.Default.ListBackendsResult),
                 EngineProtocol.SetupRemote => await SetupRemoteAsync(id, request.Params, cancellationToken),
                 EngineProtocol.AnswerSetup => await AnswerSetupAsync(id, request.Params, cancellationToken),
                 EngineProtocol.CancelSetup => await CancelSetupAsync(id, request.Params),

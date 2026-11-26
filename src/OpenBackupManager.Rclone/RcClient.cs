@@ -50,6 +50,9 @@ public sealed class RcClient : IDisposable
     public Task UnlockConfigAsync(string password, CancellationToken cancellationToken) =>
         CallAsync("config/unlock", new UnlockParams(password), RcJson.Default.UnlockParams, RcJson.Default.NoResult, cancellationToken);
 
+    public Task<ProvidersResult> ProvidersAsync(CancellationToken cancellationToken) =>
+        CallAsync("config/providers", new NoParams(), RcJson.Default.NoParams, RcJson.Default.ProvidersResult, cancellationToken);
+
     // Asking every question, not only those after the options, and each one back rather than at a terminal
     internal Task<ConfigStep> CreateConfigAsync(string name, string type, IReadOnlyDictionary<string, string> parameters, CancellationToken cancellationToken) =>
         CallAsync("config/create", new CreateConfigParams(name, type, parameters, new ConfigOpt(NonInteractive: true, All: true)),
@@ -110,6 +113,16 @@ public sealed record PidResult(int Pid);
 
 public sealed record ListRemotesResult(IReadOnlyList<string>? Remotes);
 
+public sealed record ProvidersResult(IReadOnlyList<Provider> Providers);
+
+// Prefix is what a remote's type takes, such as gcs for Google Cloud Storage, whose name is google cloud storage. Hide
+// marks an old name for another
+public sealed record Provider(string Name, string Prefix, string Description, bool Hide, ProviderOverview Overview);
+
+// rclone's own rating of a backend, as on rclone.org/tiers: its tier, such as "Tier 1", whether it wraps another
+// remote, such as crypt, and how its integration tests went, such as "Passing", or "N/A" where they can't run
+public sealed record ProviderOverview(string Tier, bool Virtual, string IntegrationTests);
+
 internal sealed record UnlockParams(string ConfigPassword);
 
 internal sealed record CreateConfigParams(string Name, string Type, IReadOnlyDictionary<string, string> Parameters, ConfigOpt Opt);
@@ -156,6 +169,7 @@ internal sealed record RcError(string? Error);
 [JsonSerializable(typeof(NoResult))]
 [JsonSerializable(typeof(PidResult))]
 [JsonSerializable(typeof(ListRemotesResult))]
+[JsonSerializable(typeof(ProvidersResult))]
 [JsonSerializable(typeof(UnlockParams))]
 [JsonSerializable(typeof(RcError))]
 [JsonSerializable(typeof(VersionResult))]

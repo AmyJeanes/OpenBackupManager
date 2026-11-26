@@ -120,6 +120,10 @@ public sealed class EngineClient : IDisposable
             ProtocolJson.Default.RetryRemoteResult,
             cancellationToken);
 
+    // Not limited, as the engine's first answer waits on starting rclone to ask it
+    public Task<ListBackendsResult> ListBackendsAsync(CancellationToken cancellationToken) =>
+        CallAsync(EngineProtocol.ListBackends, null, ProtocolJson.Default.ListBackendsResult, cancellationToken, limited: false);
+
     // Not limited, as a step can wait on a sign-in in the browser. The setup is this connection's, and ends with it
     public Task<SetupStep> SetupRemoteAsync(SetupRemoteParams setup, CancellationToken cancellationToken) =>
         CallAsync(

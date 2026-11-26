@@ -44,6 +44,25 @@ public class RcdTests
     }
 
     [Test]
+    public async Task Providers_HaveRclonesOwnRating()
+    {
+        await using var rcd = await Rcd.StartAsync(Options(), CancellationToken.None);
+
+        var providers = (await rcd.Client.ProvidersAsync(CancellationToken.None)).Providers.ToDictionary(provider => provider.Prefix);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(providers["onedrive"].Description, Is.EqualTo("Microsoft OneDrive"));
+            Assert.That(providers["onedrive"].Overview.Tier, Is.EqualTo("Tier 1"));
+            Assert.That(providers["onedrive"].Overview.Virtual, Is.False);
+            Assert.That(providers["crypt"].Overview.Virtual, Is.True);
+            Assert.That(providers["http"].Overview.IntegrationTests, Is.EqualTo("N/A"));
+            Assert.That(providers["tardigrade"].Hide, Is.True);
+            Assert.That(providers.ContainsKey("gcs"), Is.True);
+        }
+    }
+
+    [Test]
     public async Task StartAsync_ReplacesASocketLeftBehind()
     {
         var options = Options();

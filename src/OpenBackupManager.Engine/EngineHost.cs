@@ -29,6 +29,7 @@ public static class EngineHost
             .AddSingleton<Secrets>()
             .AddSingleton<RcloneConfig>()
             .AddSingleton<Setups>()
+            .AddSingleton<Backends>()
             .AddSingleton<Listener>()
             // Before the engine, as they stop in reverse, so the engine stops answering first
             .AddSingleton<UpdateWatcher>()

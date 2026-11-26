@@ -158,8 +158,10 @@ internal sealed partial class Remotes(ConfigWatcher config, RcloneConfig rcloneC
             rcloneConfig.FileFor(id) + (setup ? ".setup" : ""),
             Path.Combine(paths.Cache, "rclone", id),
             Path.Combine(paths.Logs, $"rclone-{id}.log"),
-            $"ISV|AmyJeanes|OpenBackupManager/{AppVersion.Current}");
+            UserAgent);
     }
+
+    internal static string UserAgent => $"ISV|AmyJeanes|OpenBackupManager/{AppVersion.Current}";
 
     // Until the engine stops, or it needs setting up
     private async Task RunAsync(Remote remote)

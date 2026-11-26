@@ -18,6 +18,7 @@ internal sealed partial class Listener(
     UpdateWatcher update,
     Remotes remotes,
     Setups setups,
+    Backends backends,
     IHostApplicationLifetime lifetime,
     TimeProvider time,
     ILogger<Listener> logger) : IDisposable
@@ -158,7 +159,7 @@ internal sealed partial class Listener(
         {
             try
             {
-                await using var connection = new Connection(Status, config, secrets, remotes, setups, logger);
+                await using var connection = new Connection(Status, config, secrets, remotes, setups, backends, logger);
                 using var reader = new StreamReader(pipe, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
                 while (!connection.Closing && await reader.ReadLineAsync(cancellationToken) is { } line)
                 {

@@ -18,6 +18,7 @@ public static class EngineProtocol
     public const string MigrateSecrets = "migrateSecrets";
     public const string ReloadConfig = "reloadConfig";
     public const string RetryRemote = "retryRemote";
+    public const string ListBackends = "listBackends";
     public const string SetupRemote = "setupRemote";
     public const string AnswerSetup = "answerSetup";
     public const string CancelSetup = "cancelSetup";
@@ -94,6 +95,13 @@ public sealed record MigrateSecretsResult(int Moved, IReadOnlyList<string> Left,
 public sealed record RetryRemoteParams(string Id);
 
 public sealed record RetryRemoteResult;
+
+// The backends a remote can be set up with, those Open Backup Manager is tested with first
+public sealed record ListBackendsResult(IReadOnlyList<BackendInfo> Backends);
+
+// Type is what setupRemote takes, and the description is rclone's, in English. Tier is rclone's own rating, from 1
+// (Core) to 4 (Experimental), as on rclone.org/tiers. Docs is rclone's page about it
+public sealed record BackendInfo(string Type, string Description, bool Tested, int Tier, Uri Docs);
 
 // Sets a remote up through rclone's own questions, or one that needs setting up again. Parameters answer any question
 // by its name, such as a preset's. Name and root are only for a new one, which is added to config.toml once it's set up
@@ -190,6 +198,7 @@ public sealed record CrashResult;
 [JsonSerializable(typeof(ReloadConfigResult))]
 [JsonSerializable(typeof(RetryRemoteParams))]
 [JsonSerializable(typeof(RetryRemoteResult))]
+[JsonSerializable(typeof(ListBackendsResult))]
 [JsonSerializable(typeof(SetupRemoteParams))]
 [JsonSerializable(typeof(AnswerSetupParams))]
 [JsonSerializable(typeof(SetupStep))]
