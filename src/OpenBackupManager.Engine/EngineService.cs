@@ -14,6 +14,8 @@ internal sealed partial class EngineService(Listener listener, ConfigWatcher con
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // Before anything can start a setup
+        await LeftBehind.ClearAsync(paths, cancellationToken);
         await listener.StartAsync();
         // A daemon reads its config again on SIGHUP, which would otherwise end it. Not on Windows, where it means the
         // console is closing

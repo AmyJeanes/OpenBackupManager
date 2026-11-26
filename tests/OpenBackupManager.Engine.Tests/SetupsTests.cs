@@ -148,6 +148,39 @@ public class SetupsTests
         }
     }
 
+    // Left by an engine that ended in the middle of a setup, such as by crashing, which on macOS leaves its rclone
+    // running
+    [Test]
+    public async Task Starting_ClearsWhatASetupLeft()
+    {
+        Directory.CreateDirectory(RcloneFolder);
+        foreach (var name in new[] { "nas.conf", "nas.conf.setup", "nas.conf.old", "nas.conf.setup123456" })
+        {
+            await File.WriteAllTextAsync(Path.Combine(RcloneFolder, name), "[remote]\ntype = local\n");
+        }
+
+        RunFolder.Create(_home);
+        var config = Path.Combine(_home.State, "left.conf");
+        await File.WriteAllTextAsync(config, "");
+        await using var left = await Rcd.StartAsync(
+            new RcdOptions(
+                BundledRclone.FilePath,
+                RunFolder.Socket(_home, "su-12345678.sock"),
+                config,
+                Path.Combine(_home.State, "left-cache"),
+                Path.Combine(_home.State, "left.log"),
+                "OpenBackupManager-Tests"),
+            CancellationToken.None);
+
+        await StartAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Directory.GetFiles(RcloneFolder).Select(Path.GetFileName), Is.EqualTo(["nas.conf"]));
+            Assert.That(() => left.Exited.WaitAsync(Timeout), Throws.Nothing);
+        }
+    }
+
     [Test]
     public async Task WhenConfigTomlCantTakeIt_ItIsntSetUp()
     {

@@ -35,8 +35,7 @@ public sealed class Rcd : IAsyncDisposable
         // Only this home's engine starts one here, so one answering was left by an engine that ended without
         // stopping it, as on macOS, which has no KillOnParentExit. A killed one leaves its socket, which stops the
         // next binding it
-        await StopLeftBehindAsync(options.Socket, cancellationToken);
-        File.Delete(options.Socket);
+        await ClearLeftBehindAsync(options.Socket, cancellationToken);
 
         using var none = File.OpenNullHandle();
         var start = new ProcessStartInfo(options.Rclone)
@@ -130,7 +129,14 @@ public sealed class Rcd : IAsyncDisposable
         }
     }
 
-    // Nothing answers after a crash, and the connection is refused at once
+    // Stops one still answering at the socket, and removes the socket. Nothing answers after a crash, and the
+    // connection is refused at once
+    public static async Task ClearLeftBehindAsync(string socket, CancellationToken cancellationToken)
+    {
+        await StopLeftBehindAsync(socket, cancellationToken);
+        File.Delete(socket);
+    }
+
     private static async Task StopLeftBehindAsync(string socket, CancellationToken cancellationToken)
     {
         using var client = new RcClient(socket);
