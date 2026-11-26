@@ -105,7 +105,7 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
             aboveUnlisted);
     }
 
-    // That it can hold files, by writing one, reading it back and deleting it, which makes the folder if it isn't there
+    // That it can hold files, by writing one, checking its size and deleting it, making the folder if it isn't there
     public async Task WriteTestAsync(string path, CancellationToken cancellationToken)
     {
         var fs = remote + path;
@@ -119,7 +119,7 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
             await rclone.UploadFileAsync(fs, "", name, content, cancellationToken);
             if ((await rclone.StatAsync(fs, name, cancellationToken))?.Size != content.Length)
             {
-                throw new RcloneException("What was written couldn't be read back");
+                throw new RcloneException("the test file written there was missing or cut short");
             }
 
             failed = false;
