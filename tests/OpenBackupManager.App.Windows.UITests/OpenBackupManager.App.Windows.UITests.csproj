@@ -19,11 +19,13 @@
 
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+    <Using Include="OpenBackupManager.Testing" />
   </ItemGroup>
 
   <!-- To check on the engine the app starts -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenBackupManager.Core\OpenBackupManager.Core.csproj" />
+    <ProjectReference Include="..\OpenBackupManager.Testing\OpenBackupManager.Testing.csproj" />
   </ItemGroup>
 
   <!-- Built first so the tests always run the current app, which they start as its own process rather than load -->

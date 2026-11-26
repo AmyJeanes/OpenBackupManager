@@ -1,7 +1,6 @@
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Net;
-using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
@@ -20,7 +19,7 @@ internal sealed class FakeGitHub : IDisposable
 
     public FakeGitHub()
     {
-        var port = FreePort();
+        var port = Ports.Free();
         Url = $"http://127.0.0.1:{port}";
         _listener.Prefixes.Add(Url + "/");
         _listener.Start();
@@ -111,13 +110,6 @@ internal sealed class FakeGitHub : IDisposable
         }
 
         return stream.ToArray();
-    }
-
-    private static int FreePort()
-    {
-        using var socket = new TcpListener(IPAddress.Loopback, 0);
-        socket.Start();
-        return ((IPEndPoint)socket.LocalEndpoint).Port;
     }
 
     private async Task AnswerAsync()

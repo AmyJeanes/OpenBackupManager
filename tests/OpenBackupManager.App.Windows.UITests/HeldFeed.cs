@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Sockets;
 
 namespace OpenBackupManager.App.Windows.UITests;
 
@@ -16,7 +15,7 @@ public sealed class HeldFeed : IDisposable
     public HeldFeed(string folder)
     {
         _folder = folder;
-        Url = $"http://localhost:{FreePort()}/";
+        Url = $"http://localhost:{Ports.Free()}/";
         _listener.Prefixes.Add(Url);
         _listener.Start();
         _serving = ServeAsync();
@@ -38,13 +37,6 @@ public sealed class HeldFeed : IDisposable
         _listener.Close();
         _serving.Wait();
         _release.Dispose();
-    }
-
-    private static int FreePort()
-    {
-        using var socket = new TcpListener(IPAddress.Loopback, 0);
-        socket.Start();
-        return ((IPEndPoint)socket.LocalEndpoint).Port;
     }
 
     private async Task ServeAsync()
