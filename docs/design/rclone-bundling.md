@@ -1,43 +1,67 @@
 # Bundled rclone
 
-The build fetches rclone at a pinned version and checks it's genuine, so the app can ship one it's been tested with rather than use whatever is installed. The engine runs it as `rclone rcd`, one for each remote. Every package has it beside `obmd`: the Windows app, the tarball, the .deb and .rpm, and the Docker image, which is made from the tarball.
+The build fetches rclone at a pinned version and checks it's genuine, so the app ships one it's been tested with rather than whatever is installed. The engine runs it as `rclone rcd`, one for each remote. Every package has it beside `obmd`: the Windows app, the tarball, the .deb and .rpm, and the Docker image.
 
 ## Code map
 
 - `rclone.version` pins the release. Renovate proposes updates, which wait for review.
-- `tools/RcloneFetch` downloads the release for one runtime and checks it against rclone's signing key, `rclone-signing-key.asc` beside it.
-- `OpenBackupManager.Rclone` runs the fetcher as it builds, and puts rclone next to anything that references it. `BundledRclone` says where it is and which version it is. `Rcd` starts and stops rcd, `RcClient` calls it, and `RemoteSetup` sets a remote up through rclone's own questions, a step at a time.
-- The engine's `Remotes` runs an rcd for each `[[remotes]]` in `config.toml`, and keeps how each is doing for `obm status`. `RcloneConfig` keeps their config files and password. `Setups` sets one up for a client, through the `setupRemote`, `answerSetup` and `cancelSetup` RPCs. `Backends` lists the backends setup offers, through `listBackends`: those tested first, then the rest of rclone's `config/providers`, less the ones rclone's own ratings rule out (wrappers, old names, tier 5, and those its tests can't run on).
+- `tools/RcloneFetch` downloads a release and checks it against `rclone-signing-key.asc` beside it.
+- `OpenBackupManager.Rclone` runs the fetcher as it builds and puts rclone next to anything that references it:
+  - `BundledRclone` says where it is and which version.
+  - `Rcd` starts and stops rcd, and `RcClient` calls it, each method named as rclone names it.
+  - `RemoteSetup` steps through rclone's own setup questions.
+- The engine:
+  - `Remotes` runs an rcd for each `[[remotes]]` and keeps how each is doing for `obm status`.
+  - `RcloneConfig` keeps their config files and password.
+  - `Backends` lists the backends setup offers, for `listBackends`.
+  - `Setups` runs a setup for a client, through `setupRemote`, `answerSetup`, `listFolders` and `cancelSetup`: rclone's questions, then our own, each an `OwnQuestion`, with `RemoteFolders` finding folders in the remote's own case.
 
 ## Shipping it
 
-- **Never on PATH as `rclone`,** so it can't stand in for the user's own. The engine runs it by full path. The tarball goes in a folder of its own, such as `~/.local/share/openbackupmanager`, with only `obm` and `obmd` linked onto PATH, as the .deb and .rpm do from `/usr/lib/openbackupmanager`, and on Windows only `obm` is on PATH.
+- **Never on PATH as `rclone`,** so it can't stand in for the user's own. The engine runs it by full path, and only `obm` and `obmd` are linked onto PATH (only `obm` on Windows).
 - **Named `obm-rclone`,** so it still can't if it's unpacked onto PATH, and shows as ours in process lists. rclone only minds names starting `mount`.
-- **Fetched for the runtime being published,** as `tools/Publish-App.ps1` passes `RcloneRuntimeIdentifier`. The Rclone project is built for any runtime, so it would otherwise get the build machine's.
+- **Fetched for the runtime being published,** as `tools/Publish-App.ps1` passes `RcloneRuntimeIdentifier`. Otherwise it would get the build machine's.
 
 ## Running it
 
-- **One rcd for each remote,** not each folder, as each account has its own sign-in, throttling and limits, and a crash only takes its own folders. Each starts with the engine, at about 50 MB idle, or once it's added to `config.toml`, and stops once it's taken out. One taken out and put back while its rcd is still quitting starts again once it's gone, as starting stops one still answering on its socket.
-- **Its own config, cache and log,** named from the remote's ID, as rclone's defaults are the user's own. The config is a file for each remote, as rclone rewrites the whole file when it refreshes a token, so two rcds sharing one could lose each other's.
-- **None of the user's `RCLONE_` variables,** which rclone reads as settings, such as their own config's password.
-- **Our own User-Agent,** `ISV|AmyJeanes|OpenBackupManager/<version>`, in the form Microsoft prioritises over clients it can't identify.
-- **One password for every remote's config,** `rclone-config` in the secret store, given to each rcd with `config/unlock` once it answers, rather than as `RCLONE_CONFIG_PASS`, which anything rclone starts would get too. Setup makes it if there's none, and without it rclone writes a new config in plain text. `OBM_RCLONE_CONFIG_SECRET`, or better `OBM_RCLONE_CONFIG_SECRET_FILE` naming a Docker secret, gives it instead and is never saved, so a copy of a container's volume, where the store is a file beside the configs, can't open them. Any secret can come from `OBM_<NAME>_SECRET` the same way, a suffix so none reads as a setting's variable, such as `OBM_SECRET_STORE`, and setting both is refused rather than one winning unseen. A stored copy of the same value, such as one setup made before it was given, is removed, while a different one is kept, as it's the one that works. It's never made anew while any config is encrypted, as a new one couldn't read them, which would hide that bringing the old store back would fix them.
-- **Setting one up asks rclone's own questions,** through `config/create` and `config/update` with `nonInteractive`, and `all` so every option is asked, not only those after them. Advanced options are answered no, by their option name, until other backends are offered. Each setup has an rcd of its own, on its own socket, unlocked before anything is written, and writes a copy of the remote's config, which replaces its own only once it's set up. So a setup stopped part way, or one of a remote that needs setting up again, leaves what was there, and the remote's own rcd can start beside it. A new remote is added to `config.toml` last, which starts its rcd. A setup belongs to the connection that started it and ends when it closes, so nothing is left running for a client that's gone, and there's nothing to resume or time out.
-- **No rcd for a remote that can't run,** rather than one failing every minute: no config yet, an encrypted one without its password or with the wrong one, or one rclone can't read. To the user they're the same: it needs setting up again, and its file is left. `obm status` says why, and `obm remote retry` tries it again, such as once its password is back. rclone only reads its config when first asked, so the engine lists its remotes once it starts to find a wrong password or a damaged file, and points to rclone's log for why, as rclone's message can quote a line of the config. rcd runs with `--ask-password=false`, so it never waits on a prompt. A locked secret store is checked again every 10 seconds, rather than backing off, so it carries on soon after it's unlocked, and is never asked to unlock. One that can't be read otherwise is retried like a crash.
-- **rc over a Unix socket with no password,** in the engine's `run` folder, which only the user can open, rather than localhost TCP, which any local user can reach. On Windows it's given an ACL of its own, as what it would inherit outside the user's profile, such as on another drive, often lets every user in. One another user made first is refused, as its owner can always let themselves back in. Windows has these since 10 1803. It's named from a hash of the ID, as the engine only checks `--home` has room for names of up to 16 bytes there. In Windows Sandbox, another standard user couldn't connect to it, in the default home or one outside the profile, while the owner could, and a `run` folder another user made first was refused (Nov 2026).
-- **It goes when the engine does,** through .NET 11's `KillOnParentExit` on Windows and Linux. On Linux that's `PR_SET_PDEATHSIG`, which fires when the thread that started the child ends, but .NET starts those children from a thread that lasts as long as the process. Stopping the systemd service signals only the engine, with `KillMode=mixed`, so it quits each rcd itself rather than racing rclone's own exit, and anything left is killed once it has gone. On macOS, which has nothing like it, launchd ends a service's process group, a terminal signals its foreground group, and a starting engine stops an rcd still answering on its socket. On a macOS VM, killing a service's `obmd` took its rcd with it, and launchd started both again (Nov 2026).
-- **Started again when it stops or can't start,** after a second, doubling up to a minute, and back to a second once one has stayed up a minute. A new rcd numbers its jobs from 1 again, so an old job ID names a different job. Only the failures each step can have are retried. Anything else is a bug, which stops that remote's rclone until it's tried again, and is logged as an error and shown by `obm status`.
-- **Stopping sends `core/quit`, then kills it after 4 seconds.** rcd exits 1.5 seconds after answering, or about 3 with a job running, Windows gives the engine about 5 at sign-out, and killing rcd loses nothing a later run can't redo.
+- **One rcd for each remote,** not each folder, as each account has its own sign-in, throttling and limits, and a crash only takes its own folders. About 50 MB idle. Starting one stops any old one still answering on its socket, so a remote taken out and put back while its rcd quits comes back.
+- **Its own config, cache and log,** as rclone's defaults are the user's own rclone's. A config file for each remote, as rclone rewrites the whole file when it refreshes a token, so two rcds sharing one could lose each other's.
+- **None of the user's `RCLONE_` variables,** as rclone reads them as settings, such as their own config's password.
+- **Our own User-Agent,** in the ISV form Microsoft prioritises over clients it can't identify.
+- **rc over a Unix socket with no password,** in the engine's `run` folder, which only the user can open, rather than localhost TCP, which any local user can reach. Windows has them since 10 1803. On Windows the folder gets its own ACL, as what it would inherit outside the profile often lets every user in, and one another user made first is refused, as its owner could always let themselves back in. The socket is named from a hash of the ID, to fit the room the engine checks for there. Checked in Windows Sandbox with a second user (Nov 2026).
+- **No rcd for a remote that can't run,** rather than one failing every minute. rclone only reads its config when first asked, so the engine lists remotes as soon as one starts, to catch a wrong password or a damaged file. It then points to rclone's log rather than quoting rclone, whose message can contain a line of the config.
+- **A new rcd numbers its jobs from 1 again,** so a job ID from before a restart names a different job.
+- **Only each step's expected failures are retried.** Anything else is a bug, so that remote stops until it's retried, rather than failing the same way every minute.
+- **It goes when the engine does.** On Linux, `KillOnParentExit` is `PR_SET_PDEATHSIG`, which fires when the starting thread ends, but .NET starts children from a thread that lasts as long as the process. The systemd service uses `KillMode=mixed`, so the engine quits each rcd itself rather than racing rclone's own exit. macOS has nothing like it, but launchd ends a service's process group, a terminal signals its foreground group, and a starting engine stops any rcd left answering. Checked on a macOS VM (Nov 2026).
+- **Stopping kills rcd after 4 seconds.** rcd exits 1.5 seconds after `core/quit`, about 3 with a job running, and Windows gives the engine about 5 at sign-out. Killing it loses nothing a later run can't redo.
+
+## The config password
+
+- **One for every remote's config,** given to each rcd with `config/unlock` rather than `RCLONE_CONFIG_PASS`, which anything rclone starts would inherit. Without it, rclone writes a new config in plain text, so setup makes one if there's none.
+- **Never made anew while any config is encrypted,** as a new one couldn't read them, which would hide that bringing the old store back is the fix.
+- **From the environment, it's never saved,** so a copy of a container's volume, where the store is a file beside the configs, can't open them. The variables end in `_SECRET` so none reads as a setting's variable. Setting both a value and a file is refused rather than one winning unseen. A stored copy of the same value is removed, but a different one is kept, as it's the one that works.
+- **A locked secret store is checked every 10 seconds rather than backing off,** so its remotes carry on soon after it's unlocked. It's never asked to unlock.
+
+## Setting a remote up
+
+- **The backends offered are left out only by rclone's own ratings, never by name,** so an rclone update changes the list by itself. Hiding only shapes the list: nothing is refused by type.
+- **rclone's own questions use `all` as well as `nonInteractive`,** as without it rclone only asks the questions its backend's own setup code adds, such as signing in, and expects the options themselves as parameters.
+- **The root comes last,** once rclone's questions are done, as only then can the account be reached, to list its folders or look at the one chosen. A remote set up again keeps its own.
+- **The root is rclone's own path, passed through untouched,** as what a path means is the backend's: empty is OneDrive's top but an SFTP user's home, where `/` is the server's root.
+- **Where the remote ignores case, the root takes the real names of the folders that exist,** so `config.toml` matches what's on the remote and later comparisons don't trip over case. Names are compared in one Unicode form, as macOS and Windows can write the same accented name two ways.
+- **A root that can't be looked at is asked again,** rather than ending the setup, as a wrong folder needs no new sign-in.
+- **An rcd of its own, writing a copy of the config,** which replaces the remote's config only once it's set up. So a setup stopped part way leaves what was there, and the remote's own rcd can run beside it. A new remote is added to `config.toml` last, as that starts its rcd.
+- **Owned by the connection that started it,** and ended when it closes, so nothing outlives a client that's gone, and there's nothing to resume or time out.
 
 ## Fetching
 
-- **The version and signing key are pinned, not each zip's hash.** A release has six zips we use, and Renovate can bump a version but can't recalculate hashes. The signed `SHA256SUMS` gives the same guarantee, and an update stays a one-line change.
-- **The signature is checked in .NET, with BouncyCastle, rather than with `gpg`.** GPG isn't on a stock Mac or on every Windows machine, and the build should work anywhere .NET does with nothing else installed.
-- **The fetcher is a console project, not a single-file script,** so the same analyzers, formatting and CI apply to it as to the rest of the code.
+- **The version and signing key are pinned, not each zip's hash.** Renovate can bump a version but can't recalculate six hashes, and the signed `SHA256SUMS` gives the same guarantee.
+- **The signature is checked in .NET with BouncyCastle, not `gpg`,** which isn't on a stock Mac or every Windows machine.
+- **The fetcher is a console project, not a script,** so the same analyzers, formatting and CI apply.
 
 ## Accepted limits
 
-- **rclone signs its releases with a 2001 DSA-1024 key, using SHA-1.** That's weak by today's standards, but it's the only signature rclone publishes, and it sits on top of HTTPS from GitHub. The key's fingerprint is `FBF7 37EC E9F8 AB18 604B D2AC 9393 5E02 FF3B 54FA`, which matched on [rclone.org](https://rclone.org/release_signing/), in rclone's GitHub repository and on keyserver.ubuntu.com. If rclone changes key, replace the key file by hand, after checking the new fingerprint the same way.
+- **rclone signs releases with a 2001 DSA-1024 key, using SHA-1.** Weak today, but it's the only signature rclone publishes, on top of HTTPS from GitHub. Its fingerprint, `FBF7 37EC E9F8 AB18 604B D2AC 9393 5E02 FF3B 54FA`, matched on [rclone.org](https://rclone.org/release_signing/), in rclone's GitHub repository and on keyserver.ubuntu.com. If rclone changes key, replace the file by hand after checking the new fingerprint the same way.
 - **Only x64 and ARM64 builds of Windows, macOS and Linux are fetched.** Other runtimes fail the build with a clear message.
-- **A config something holds open with no sharing as rcd starts reads as damaged,** so that remote needs setting up until it's tried again. Only Windows has such locks, nothing usual opens it that way, and the engine's own read of it just before is retried like a crash, so only the second or so while rcd starts is open to it.
-- **rcds share a foreground engine's process group,** so closing its terminal ends them while the engine, which takes SIGHUP as a reload, carries on and starts them again a second later, and Ctrl+C can log their exit as a restart as the engine stops. A service has no terminal, and systemd's `KillMode=mixed` signals only the engine.
+- **A config held open with no sharing as rcd starts reads as damaged,** so that remote needs setting up until it's retried. Only Windows has such locks, nothing usual takes one, and the window is the second or so while rcd starts.
+- **rcds share a foreground engine's process group,** so closing its terminal ends them while the engine carries on (it takes SIGHUP as a reload) and restarts them a second later, and Ctrl+C can log their exit as a restart. A service has no terminal, and `KillMode=mixed` signals only the engine.

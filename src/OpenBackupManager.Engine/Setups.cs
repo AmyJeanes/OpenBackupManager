@@ -16,7 +16,7 @@ namespace OpenBackupManager.Engine;
 internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, RcloneConfig rcloneConfig, Remotes remotes, ILogger<Setups> logger)
 {
     // The account's section in the remote's config, as crypt over it would be [crypt]
-    private const string Section = "remote";
+    internal const string Section = "remote";
 
     private readonly HashSet<string> _settingUp = [];
 
@@ -77,7 +77,19 @@ internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, Rclon
             });
 
             LogSettingUp(id, start.Type);
-            setup = new Setup(this, start, rcd, new RemoteSetup(rcd.Client, Section, start.Parameters ?? new Dictionary<string, string>()), options.Config);
+            // Ours, in order. One set up again keeps its root
+            var folders = new RemoteFolders(rcd.Client, Section + ":");
+            var choices = new SetupChoices();
+            OwnQuestion[] own = config.Config.Remotes.Any(remote => remote.Id == id) ? [] : [new RootQuestion(folders, choices)];
+            setup = new Setup(
+                this,
+                start,
+                new RemoteSetup(rcd.Client, Section, start.Parameters ?? new Dictionary<string, string>()),
+                own,
+                choices,
+                folders,
+                rcd,
+                options.Config);
             await setup.StepAsync(remoteSetup => remoteSetup.StartAsync(start.Type, cancellationToken));
             return setup;
         }
@@ -187,22 +199,58 @@ internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, Rclon
     private partial void LogSetUp(string id);
 }
 
-// One remote's setup, which belongs to the connection that started it, and ends with it
-internal sealed class Setup(Setups setups, SetupRemoteParams start, Rcd rcd, RemoteSetup remoteSetup, string copy) : IAsyncDisposable
+// One remote's setup, which belongs to the connection that started it, and ends with it: rclone's questions, then
+// our own
+internal sealed class Setup(
+    Setups setups,
+    SetupRemoteParams start,
+    RemoteSetup remoteSetup,
+    IReadOnlyList<OwnQuestion> own,
+    SetupChoices choices,
+    RemoteFolders folders,
+    Rcd rcd,
+    string copy) : IAsyncDisposable
 {
     private bool _ended;
+
+    // Once rclone's questions are done, as only then can it reach the remote
+    private bool _signedIn;
+
+    // Which of our own it's at
+    private int _own;
 
     public string Id => start.Id;
 
     public string? Name => start.Name;
 
-    public string? Root => start.Root;
+    public string? Root => choices.Root;
 
     // Null once it's set up
     public SetupQuestion? Question { get; private set; }
 
     public Task AnswerAsync(string answer, CancellationToken cancellationToken) =>
-        StepAsync(remoteSetup => remoteSetup.AnswerAsync(answer, cancellationToken));
+        _signedIn ? AnswerOwnAsync(answer, cancellationToken) : StepAsync(remoteSetup => remoteSetup.AnswerAsync(answer, cancellationToken));
+
+    // Without changing where the setup is, so a client can look around before it answers
+    public async Task<FoundFolder> ListFoldersAsync(string path, CancellationToken cancellationToken)
+    {
+        if (!_signedIn)
+        {
+            throw new EngineException($"{Id} isn't signed in yet, so its folders can't be listed");
+        }
+
+        FoundFolder found;
+        try
+        {
+            found = await folders.FindAsync(path, cancellationToken);
+        }
+        catch (Exception e) when (e is RcloneException or HttpRequestException or IOException)
+        {
+            throw new EngineException($"{Id}'s folders couldn't be listed: {e.Message}", e);
+        }
+
+        return found.Folders is null ? throw new EngineException($"There's no folder {found.Path} on {Id}") : found;
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -215,8 +263,9 @@ internal sealed class Setup(Setups setups, SetupRemoteParams start, Rcd rcd, Rem
 
     internal async Task StepAsync(Func<RemoteSetup, Task<Rclone.SetupQuestion?>> step)
     {
-        Question = await Setups.RcloneAsync(Id, () => step(remoteSetup)) is { } asked
-            ? new SetupQuestion(
+        if (await Setups.RcloneAsync(Id, () => step(remoteSetup)) is { } asked)
+        {
+            Question = new SetupQuestion(
                 asked.Name,
                 asked.Help,
                 asked.Default,
@@ -225,12 +274,36 @@ internal sealed class Setup(Setups setups, SetupRemoteParams start, Rcd rcd, Rem
                 asked.IsPassword,
                 asked.Exclusive,
                 asked.Type,
-                asked.Error)
-            : null;
-        if (Question is null)
-        {
-            _ended = true;
-            await setups.FinishAsync(this, rcd, copy);
+                asked.Error);
+            return;
         }
+
+        _signedIn = true;
+        await AskOwnAsync();
+    }
+
+    private async Task AnswerOwnAsync(string answer, CancellationToken cancellationToken)
+    {
+        if (await own[_own].AnswerAsync(answer, cancellationToken) is { } again)
+        {
+            Question = own[_own].Ask() with { Error = again };
+            return;
+        }
+
+        _own++;
+        await AskOwnAsync();
+    }
+
+    private async Task AskOwnAsync()
+    {
+        if (_own < own.Count)
+        {
+            Question = own[_own].Ask();
+            return;
+        }
+
+        Question = null;
+        _ended = true;
+        await setups.FinishAsync(this, rcd, copy);
     }
 }

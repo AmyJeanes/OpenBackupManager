@@ -20,6 +20,7 @@ public static class EngineProtocol
     public const string RetryRemote = "retryRemote";
     public const string ListBackends = "listBackends";
     public const string SetupRemote = "setupRemote";
+    public const string ListFolders = "listFolders";
     public const string AnswerSetup = "answerSetup";
     public const string CancelSetup = "cancelSetup";
 
@@ -104,12 +105,12 @@ public sealed record ListBackendsResult(IReadOnlyList<BackendInfo> Backends);
 public sealed record BackendInfo(string Type, string Description, bool Tested, int Tier, Uri Docs);
 
 // Sets a remote up through rclone's own questions, or one that needs setting up again. Parameters answer any question
-// by its name, such as a preset's. Name and root are only for a new one, which is added to config.toml once it's set up
+// by its name, such as a preset's. A new one is then asked for its root, and the name is only for a new one, which is
+// added to config.toml once it's set up
 public sealed record SetupRemoteParams(
     string Id,
     string Type,
     string? Name = null,
-    string? Root = null,
     IReadOnlyDictionary<string, string>? Parameters = null);
 
 public sealed record AnswerSetupParams(string Id, string Answer);
@@ -128,9 +129,20 @@ public sealed record SetupQuestion(
     bool IsPassword,
     bool Exclusive,
     string Type,
-    string? Error = null);
+    string? Error = null)
+{
+    // Ours, after rclone's, which clients word themselves, as no rclone question's name starts with obm-. The root is
+    // the path inside the remote, as rclone takes it, such as OpenBackupManager/, or empty for its top. listFolders
+    // helps choose it
+    public const string Root = "obm-root";
+}
 
 public sealed record SetupChoice(string Value, string Help);
+
+// The folders at a path on a remote being set up, once it's signed in. The path comes back in the remote's own case
+public sealed record ListFoldersParams(string Id, string Path);
+
+public sealed record ListFoldersResult(string Path, IReadOnlyList<string> Folders);
 
 // Leaves a remote that needs setting up again as it was
 public sealed record CancelSetupParams(string Id);
@@ -200,6 +212,8 @@ public sealed record CrashResult;
 [JsonSerializable(typeof(RetryRemoteResult))]
 [JsonSerializable(typeof(ListBackendsResult))]
 [JsonSerializable(typeof(SetupRemoteParams))]
+[JsonSerializable(typeof(ListFoldersParams))]
+[JsonSerializable(typeof(ListFoldersResult))]
 [JsonSerializable(typeof(AnswerSetupParams))]
 [JsonSerializable(typeof(SetupStep))]
 [JsonSerializable(typeof(CancelSetupParams))]

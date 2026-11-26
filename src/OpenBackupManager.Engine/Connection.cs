@@ -62,6 +62,7 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
                 EngineProtocol.ListBackends => Result(id, new ListBackendsResult(await backends.ListAsync(cancellationToken)), ProtocolJson.Default.ListBackendsResult),
                 EngineProtocol.SetupRemote => await SetupRemoteAsync(id, request.Params, cancellationToken),
                 EngineProtocol.AnswerSetup => await AnswerSetupAsync(id, request.Params, cancellationToken),
+                EngineProtocol.ListFolders => await ListFoldersAsync(id, request.Params, cancellationToken),
                 EngineProtocol.CancelSetup => await CancelSetupAsync(id, request.Params),
 #if DEBUG
                 EngineProtocol.Crash => Crash(id, request.Params),
@@ -202,6 +203,30 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
         }
 
         return Result(id, new SetupStep(setup.Question), ProtocolJson.Default.SetupStep);
+    }
+
+    // One that fails leaves the setup where it was
+    private async Task<RpcResponse> ListFoldersAsync(JsonElement id, JsonElement? parameters, CancellationToken cancellationToken)
+    {
+        if (Params(parameters, ProtocolJson.Default.ListFoldersParams) is not { } list)
+        {
+            return Error(id, RpcError.InvalidParams, $"{EngineProtocol.ListFolders} needs the remote's id and a path");
+        }
+
+        if (!_setups.TryGetValue(list.Id, out var setup))
+        {
+            return Error(id, RpcError.Failed, $"There's no setup of {list.Id} here. It may have finished or been cancelled, or another program may have started it");
+        }
+
+        try
+        {
+            var found = await setup.ListFoldersAsync(list.Path, cancellationToken);
+            return Result(id, new ListFoldersResult(found.Path, found.Folders!), ProtocolJson.Default.ListFoldersResult);
+        }
+        catch (EngineException e)
+        {
+            return Error(id, RpcError.Failed, e.Message);
+        }
     }
 
     private async Task<RpcResponse> CancelSetupAsync(JsonElement id, JsonElement? parameters)

@@ -141,6 +141,15 @@ public sealed class EngineClient : IDisposable
             cancellationToken,
             limited: false);
 
+    // Not limited, as a listing takes as long as the remote does
+    public Task<ListFoldersResult> ListFoldersAsync(string id, string path, CancellationToken cancellationToken) =>
+        CallAsync(
+            EngineProtocol.ListFolders,
+            JsonSerializer.SerializeToElement(new ListFoldersParams(id, path), ProtocolJson.Default.ListFoldersParams),
+            ProtocolJson.Default.ListFoldersResult,
+            cancellationToken,
+            limited: false);
+
     public Task CancelSetupAsync(string id, CancellationToken cancellationToken) =>
         CallAsync(
             EngineProtocol.CancelSetup,

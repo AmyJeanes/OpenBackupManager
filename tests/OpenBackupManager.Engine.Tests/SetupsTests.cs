@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
 using OpenBackupManager.Rclone;
+using SetupQuestion = OpenBackupManager.Core.Protocol.SetupQuestion;
 
 namespace OpenBackupManager.Engine.Tests;
 
@@ -56,16 +57,18 @@ public class SetupsTests
         await StartAsync();
         using var client = await ConnectAsync();
 
-        var first = await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias", "NAS", "/"), CancellationToken.None);
-        var last = await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
+        var first = await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias", "NAS"), CancellationToken.None);
+        var root = await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
+        var last = await client.AnswerSetupAsync("nas", "Backups", CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(first.Question?.Name, Is.EqualTo("remote"));
+            Assert.That(root.Question?.Name, Is.EqualTo(SetupQuestion.Root));
             Assert.That(last.Question, Is.Null);
             Assert.That(
                 await File.ReadAllTextAsync(_home.ConfigFile),
-                Is.EqualTo("secret-store = \"file\"\n\n[[remotes]]\nid = \"nas\"\nname = \"NAS\"\nroot = \"/\"\n"));
+                Is.EqualTo("secret-store = \"file\"\n\n[[remotes]]\nid = \"nas\"\nname = \"NAS\"\nroot = \"Backups/\"\n"));
             Assert.That(RcloneConfigFile.IsEncrypted(Path.Combine(RcloneFolder, "nas.conf")), Is.True);
             Assert.That(Directory.GetFiles(RcloneFolder).Select(Path.GetFileName), Is.EqualTo(["nas.conf"]));
             Assert.That(await StateAsync(client, "nas", RemoteState.Running), Is.EqualTo(RemoteState.Running));
@@ -81,10 +84,12 @@ public class SetupsTests
         await StateAsync(client, "nas", RemoteState.NeedsSetup);
 
         await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias", "Ignored"), CancellationToken.None);
-        await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
+        var last = await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
+            // It keeps its root, so it's done once rclone's questions are
+            Assert.That(last.Question, Is.Null);
             Assert.That(await StateAsync(client, "nas", RemoteState.Running), Is.EqualTo(RemoteState.Running));
             Assert.That(await File.ReadAllTextAsync(_home.ConfigFile), Is.EqualTo("secret-store = \"file\"\n\n[[remotes]]\nid = \"nas\"\n"));
         }
@@ -119,16 +124,125 @@ public class SetupsTests
         await StartAsync();
         using var client = await ConnectAsync();
         await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
+        await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
         await File.WriteAllTextAsync(_home.ConfigFile, "secret-store = \"file\"\nversion = \"one\"\n");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
-                () => client.AnswerSetupAsync("nas", Target, CancellationToken.None),
+                () => client.AnswerSetupAsync("nas", "", CancellationToken.None),
                 Throws.TypeOf<EngineException>().With.Message.Match(
                     "^nas wasn't set up, as adding it to config.toml failed: config.toml can't be changed until it's fixed: .+[^.]\\. Once that's fixed, set it up again$"));
             Assert.That(Directory.GetFiles(RcloneFolder), Is.Empty);
         }
+    }
+
+    [Test]
+    public async Task TheRoot_TakesTheCaseOfTheFoldersThatExist_WhereTheRemoteIgnoresCase()
+    {
+        Directory.CreateDirectory(Path.Combine(Target, "Work", "Archive"));
+        await StartAsync();
+        using var client = await ConnectAsync();
+        await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
+        await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
+
+        await client.AnswerSetupAsync("nas", "work/archive/new", CancellationToken.None);
+
+        Assert.That(
+            await File.ReadAllTextAsync(_home.ConfigFile),
+            Does.EndWith(OperatingSystem.IsLinux() ? "root = \"work/archive/new/\"\n" : "root = \"Work/Archive/new/\"\n"));
+    }
+
+    // local's remote is the whole filesystem, so its root is a full path from a drive or /
+    [Test]
+    public async Task AFullPath_KeepsItsDriveOrSlash()
+    {
+        Directory.CreateDirectory(Target);
+        var full = Target.Replace('\\', '/');
+        await StartAsync();
+        using var client = await ConnectAsync();
+
+        // Such as whether to use UNC paths, on Windows
+        var step = await client.SetupRemoteAsync(new SetupRemoteParams("nas", "local"), CancellationToken.None);
+        while (step.Question is { Name: not SetupQuestion.Root } question)
+        {
+            step = await client.AnswerSetupAsync("nas", question.Default, CancellationToken.None);
+        }
+
+        await client.AnswerSetupAsync("nas", full, CancellationToken.None);
+
+        Assert.That(await File.ReadAllTextAsync(_home.ConfigFile), Does.EndWith($"root = \"{full}/\"\n"));
+    }
+
+    [Test]
+    public async Task ARootThatCantBeLookedAt_IsAskedAgain_WithWhy()
+    {
+        await StartAsync();
+        using var client = await ConnectAsync();
+        await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
+        await client.AnswerSetupAsync("nas", "nowhere:files", CancellationToken.None);
+
+        var again = await client.AnswerSetupAsync("nas", "Backups", CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(again.Question?.Name, Is.EqualTo(SetupQuestion.Root));
+            Assert.That(again.Question?.Error, Does.StartWith("rclone's operations/fsinfo failed:"));
+        }
+    }
+
+    [Test]
+    public async Task Folders_AreListed_InTheRemotesOwnCase_WithoutAnsweringTheRoot()
+    {
+        Directory.CreateDirectory(Path.Combine(Target, "Work", "Backups"));
+        Directory.CreateDirectory(Path.Combine(Target, "Work", "Archive"));
+        await File.WriteAllTextAsync(Path.Combine(Target, "Work", "notes.txt"), "");
+        await StartAsync();
+        using var client = await ConnectAsync();
+        await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
+        await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
+
+        var top = await client.ListFoldersAsync("nas", "", CancellationToken.None);
+        var work = await client.ListFoldersAsync("nas", "Work", CancellationToken.None);
+        var last = await client.AnswerSetupAsync("nas", "Work/Backups", CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(top.Path, Is.Empty);
+            Assert.That(top.Folders, Is.EqualTo<string[]>(["Work"]));
+            Assert.That(work.Path, Is.EqualTo("Work/"));
+            Assert.That(work.Folders, Is.EqualTo<string[]>(["Archive", "Backups"]));
+            Assert.That(last.Question, Is.Null);
+        }
+    }
+
+    [Test]
+    public async Task ListingAFolderThatIsntThere_SaysSo_AndTheSetupCarriesOn()
+    {
+        await StartAsync();
+        using var client = await ConnectAsync();
+        await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
+        await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                () => client.ListFoldersAsync("nas", "Nowhere", CancellationToken.None),
+                Throws.TypeOf<EngineException>().With.Message.EqualTo("There's no folder Nowhere/ on nas"));
+            Assert.That((await client.AnswerSetupAsync("nas", "", CancellationToken.None)).Question, Is.Null);
+        }
+    }
+
+    [Test]
+    public async Task Folders_ArentListed_BeforeItsSignedIn()
+    {
+        await StartAsync();
+        using var client = await ConnectAsync();
+        await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
+
+        Assert.That(
+            () => client.ListFoldersAsync("nas", "", CancellationToken.None),
+            Throws.TypeOf<EngineException>().With.Message.EqualTo("nas isn't signed in yet, so its folders can't be listed"));
     }
 
     [Test]
