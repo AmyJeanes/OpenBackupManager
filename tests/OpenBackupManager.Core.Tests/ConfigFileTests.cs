@@ -331,6 +331,18 @@ public class ConfigFileTests
     public void Append_FitsTheFile(string text, string appended) =>
         Assert.That(ConfigFile.Append(text, "remotes", [("id", "nas")]), Is.EqualTo(appended));
 
+    // As two setups can finish at once in the engine, or one while its secrets are moved
+    [Test]
+    public void Changes_AtOnce_AreAllKept()
+    {
+        File.WriteAllText(FilePath, "version = 1\n");
+        var ids = Enumerable.Range(0, 20).Select(i => $"remote-{i}").ToList();
+
+        Parallel.ForEach(ids, id => new ConfigFile(FilePath).Add("remotes", [("id", id), ("root", "")]));
+
+        Assert.That(new ConfigFile(FilePath).Read().Config!.Remotes.Select(remote => remote.Id), Is.EquivalentTo(ids));
+    }
+
     [Test]
     public void Add_LeavesTheFileAlone_WhenItWouldBreakIt()
     {

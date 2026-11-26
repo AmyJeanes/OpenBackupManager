@@ -27,6 +27,10 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
 
         """;
 
+    // Shared by every instance in the program, as in the engine two setups can finish at once, or one while secrets are
+    // moved. Each change reads the file afresh under it, so none is lost, and two don't meet at .tmp
+    private static readonly Lock Writing = new();
+
     public string Path { get; } = path;
 
     // Allow tests to inject custom environment variables
@@ -37,9 +41,12 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
     // Writes the starting file if there isn't one, so there's something to edit
     public void CreateIfMissing()
     {
-        if (!File.Exists(Path))
+        lock (Writing)
         {
-            Write(DefaultText.ReplaceLineEndings("\n"));
+            if (!File.Exists(Path))
+            {
+                Write(DefaultText.ReplaceLineEndings("\n"));
+            }
         }
     }
 
@@ -111,26 +118,29 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
 
     private void Change(Func<string, string> edit, string what)
     {
-        var text = ReadText(Path) ?? DefaultText.ReplaceLineEndings("\n");
-        var result = Parse(text);
-        if (result.HasErrors)
+        lock (Writing)
         {
-            throw new ConfigException($"config.toml can't be changed until it's fixed: {result.Problems.First(p => p.IsError)}");
-        }
+            var text = ReadText(Path) ?? DefaultText.ReplaceLineEndings("\n");
+            var result = Parse(text);
+            if (result.HasErrors)
+            {
+                throw new ConfigException($"config.toml can't be changed until it's fixed: {result.Problems.First(p => p.IsError)}");
+            }
 
-        // Read for the settings this version knows, but never written, so the newer version's own aren't lost
-        if (result.Config!.Version > AppConfig.CurrentVersion)
-        {
-            throw new ConfigException("config.toml was written by a newer version of the app, so this version won't change it");
-        }
+            // Read for the settings this version knows, but never written, so the newer version's own aren't lost
+            if (result.Config!.Version > AppConfig.CurrentVersion)
+            {
+                throw new ConfigException("config.toml was written by a newer version of the app, so this version won't change it");
+            }
 
-        var updated = edit(text);
-        if (Parse(updated) is { HasErrors: true } check)
-        {
-            throw new InvalidOperationException($"{what} would break config.toml: {check.Problems.First(p => p.IsError)}");
-        }
+            var updated = edit(text);
+            if (Parse(updated) is { HasErrors: true } check)
+            {
+                throw new InvalidOperationException($"{what} would break config.toml: {check.Problems.First(p => p.IsError)}");
+            }
 
-        Write(updated);
+            Write(updated);
+        }
     }
 
     // At the end, where nothing after it can be read as its own
