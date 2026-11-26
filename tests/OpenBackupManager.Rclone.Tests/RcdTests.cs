@@ -78,15 +78,10 @@ public class RcdTests
     public async Task StartAsync_LeavesOutTheUsersRcloneVariables()
     {
         var options = Options();
-        Environment.SetEnvironmentVariable("RCLONE_LOG_LEVEL", "DEBUG");
-        try
+        using (new EnvironmentVariable("RCLONE_LOG_LEVEL", "DEBUG"))
         {
             await using var rcd = await Rcd.StartAsync(options, CancellationToken.None);
             await rcd.Client.VersionAsync(CancellationToken.None);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("RCLONE_LOG_LEVEL", null);
         }
 
         // Only made once it writes

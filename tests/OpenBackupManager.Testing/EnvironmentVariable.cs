@@ -1,7 +1,7 @@
-namespace OpenBackupManager.Engine.Tests;
+namespace OpenBackupManager.Testing;
 
 // Set until it's disposed, then put back as it was
-internal sealed class EnvironmentVariable : IDisposable
+public sealed class EnvironmentVariable : IDisposable
 {
     private readonly string _name;
     private readonly string? _before;

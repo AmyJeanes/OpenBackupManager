@@ -541,18 +541,11 @@ public class RemotesTests
         await SavePasswordAsync("password");
         var keyFile = Path.Combine(_home.State, "key");
         await File.WriteAllTextAsync(keyFile, "not the key");
-        Environment.SetEnvironmentVariable("_RCLONE_CONFIG_KEY_FILE", keyFile);
-        try
-        {
-            var (remotes, _, log) = Unstarted();
-            await remotes.StartAsync(CancellationToken.None);
+        using var key = new EnvironmentVariable("_RCLONE_CONFIG_KEY_FILE", keyFile);
+        var (remotes, _, log) = Unstarted();
+        await remotes.StartAsync(CancellationToken.None);
 
-            Assert.That(await log.LineAsync("onedrive"), Does.StartWith("Started rclone"));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("_RCLONE_CONFIG_KEY_FILE", null);
-        }
+        Assert.That(await log.LineAsync("onedrive"), Does.StartWith("Started rclone"));
     }
 
     // So it's never in the volume, which is the point of giving it

@@ -269,27 +269,16 @@ public class ServiceTests
     public void WithoutSystemd_SaysSo_AndLeavesNothingBehind()
     {
         var file = EngineService.ForThisOS(_home)!.File;
-        string[] names = ["XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"];
-        var before = names.ToDictionary(name => name, Environment.GetEnvironmentVariable);
-        Environment.SetEnvironmentVariable("XDG_RUNTIME_DIR", Path.Combine(_home, "nowhere"));
-        Environment.SetEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS", null);
-        try
-        {
-            var (exitCode, output) = Tool.Run("obm", "service", "install", "--home", _home);
+        using var runtime = new EnvironmentVariable("XDG_RUNTIME_DIR", Path.Combine(_home, "nowhere"));
+        using var bus = new EnvironmentVariable("DBUS_SESSION_BUS_ADDRESS", null);
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(exitCode, Is.EqualTo(1));
-                Assert.That(output, Does.Contain("systemd isn't present or can't be reached"));
-                Assert.That(File.Exists(file), Is.False);
-            }
-        }
-        finally
+        var (exitCode, output) = Tool.Run("obm", "service", "install", "--home", _home);
+
+        using (Assert.EnterMultipleScope())
         {
-            foreach (var (name, value) in before)
-            {
-                Environment.SetEnvironmentVariable(name, value);
-            }
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Does.Contain("systemd isn't present or can't be reached"));
+            Assert.That(File.Exists(file), Is.False);
         }
     }
 
@@ -391,13 +380,10 @@ public class ServiceTests
     [Test]
     public async Task WithoutAHome_TheEngineUsesTheShellsFolders()
     {
-        string[] names = ["XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"];
-        var before = names.ToDictionary(name => name, Environment.GetEnvironmentVariable);
-        foreach (var name in names)
-        {
-            Environment.SetEnvironmentVariable(name, Path.Combine(_home, name));
-        }
-
+        // Kept until after the service is uninstalled, which finds it through them
+        using var config = new EnvironmentVariable("XDG_CONFIG_HOME", Path.Combine(_home, "XDG_CONFIG_HOME"));
+        using var state = new EnvironmentVariable("XDG_STATE_HOME", Path.Combine(_home, "XDG_STATE_HOME"));
+        using var cache = new EnvironmentVariable("XDG_CACHE_HOME", Path.Combine(_home, "XDG_CACHE_HOME"));
         try
         {
             var (exitCode, output) = Tool.Run("obm", "service", "install");
@@ -416,10 +402,6 @@ public class ServiceTests
         finally
         {
             Tool.Run("obm", "service", "uninstall");
-            foreach (var (name, value) in before)
-            {
-                Environment.SetEnvironmentVariable(name, value);
-            }
         }
     }
 
