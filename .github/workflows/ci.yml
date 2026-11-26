@@ -167,6 +167,9 @@ jobs:
           dotnet format style OpenBackupManager.slnx --severity info
           dotnet format analyzers OpenBackupManager.slnx
 
+      - name: Check comments fit in 120 characters
+        run: dotnet run --project tools/CommentCheck
+
       - name: Check for changes
         shell: bash
         run: |

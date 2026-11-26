@@ -1,6 +1,6 @@
 #!/bin/sh
-# Formats staged C# files with dotnet format before each commit, so style is always fixed, and updates the user
-# guide's Settings page when what it's made from is staged
+# Formats staged C# files with dotnet format before each commit, so style is always fixed, checks their comments fit
+# in 120 characters, and updates the user guide's Settings page when what it's made from is staged
 # Enable once per clone: git config core.hooksPath .githooks
 
 # A commit that names its files, such as git commit -- file.cs, builds it in a temporary index that git doesn't copy
@@ -48,6 +48,8 @@ if [ -n "$partial" ]; then
     echo "Stage or stash those changes, then commit again"
     exit 1
 fi
+
+dotnet run --project tools/CommentCheck -- $files || exit 1
 
 if [ -n "$check" ]; then
     dotnet format whitespace OpenBackupManager.slnx --verify-no-changes --include $files &&
