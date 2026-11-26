@@ -576,7 +576,7 @@ public class RemotesTests
         using var engine = EngineHost.Build(_home);
         var config = engine.Services.GetRequiredService<RcloneConfig>();
 
-        var password = await config.PasswordForSetupAsync(CancellationToken.None);
+        var password = await config.PasswordForSetupAsync("onedrive", startAfresh: false, CancellationToken.None);
 
         using var store = new FileStore(Secrets);
         using (Assert.EnterMultipleScope())
@@ -607,8 +607,8 @@ public class RemotesTests
         using var engine = EngineHost.Build(_home);
         var config = engine.Services.GetRequiredService<RcloneConfig>();
 
-        var made = await config.PasswordForSetupAsync(CancellationToken.None);
-        var again = await config.PasswordForSetupAsync(CancellationToken.None);
+        var made = await config.PasswordForSetupAsync("onedrive", startAfresh: false, CancellationToken.None);
+        var again = await config.PasswordForSetupAsync("work", startAfresh: false, CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
@@ -625,23 +625,72 @@ public class RemotesTests
         using var engine = EngineHost.Build(_home);
         var config = engine.Services.GetRequiredService<RcloneConfig>();
 
-        var passwords = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => config.PasswordForSetupAsync(CancellationToken.None))));
+        var passwords = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => config.PasswordForSetupAsync("onedrive", startAfresh: false, CancellationToken.None))));
 
         Assert.That(passwords.Select(p => p.Reveal()).Distinct(), Is.EqualTo([(await config.ReadPasswordAsync(CancellationToken.None))!.Reveal()]));
     }
 
-    // Only the old password can read them
+    // Only the old password can read them, so bringing its store back may yet be the fix
     [Test]
-    public async Task PasswordForSetup_WithNone_ButEncryptedConfigs_MakesNone()
+    public async Task PasswordForSetup_WithNone_ButOthersEncryptedConfigs_MakesNone_NamingThem()
+    {
+        await RemotesAsync("onedrive", "work", "photos");
+        await EncryptedConfigAsync("onedrive", "password");
+        await EncryptedConfigAsync("work", "password");
+        await EncryptedConfigAsync("photos", "password");
+        using var engine = EngineHost.Build(_home);
+        var config = engine.Services.GetRequiredService<RcloneConfig>();
+
+        Assert.That(() => config.PasswordForSetupAsync("work", startAfresh: false, CancellationToken.None),
+            Throws.TypeOf<EngineException>()
+                .With.Property(nameof(EngineException.Problem)).EqualTo(EngineProblem.NoConfigPassword)
+                .And.Message.StartsWith("The password for the rclone config isn't in the secret store, so onedrive, photos can't be read."));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(await config.ReadPasswordAsync(CancellationToken.None), Is.Null);
+            Assert.That(File.Exists(config.FileFor("onedrive")), Is.True);
+            Assert.That(File.Exists(config.FileFor("work")), Is.True);
+        }
+    }
+
+    // As nothing could read them with a new one
+    [Test]
+    public async Task PasswordForSetup_WithNone_StartingAfresh_DeletesEveryEncryptedConfig()
+    {
+        await RemotesAsync("onedrive", "work", "photos");
+        await EncryptedConfigAsync("onedrive", "password");
+        await EncryptedConfigAsync("work", "password");
+        using var engine = EngineHost.Build(_home);
+        var config = engine.Services.GetRequiredService<RcloneConfig>();
+
+        var made = await config.PasswordForSetupAsync("work", startAfresh: true, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That((await config.ReadPasswordAsync(CancellationToken.None))?.Reveal(), Is.EqualTo(made.Reveal()));
+            Assert.That(File.Exists(config.FileFor("onedrive")), Is.False);
+            Assert.That(File.Exists(config.FileFor("work")), Is.False);
+            // Not encrypted, so it isn't the password's
+            Assert.That(File.Exists(config.FileFor("photos")), Is.True);
+        }
+    }
+
+    // Its own is replaced as it's set up, so it's no reason to keep the old password
+    [Test]
+    public async Task PasswordForSetup_WithNone_ButItsOwnEncryptedConfig_StartsItAfresh()
     {
         await RemotesAsync("onedrive");
         await EncryptedConfigAsync("onedrive", "password");
         using var engine = EngineHost.Build(_home);
         var config = engine.Services.GetRequiredService<RcloneConfig>();
 
-        Assert.That(() => config.PasswordForSetupAsync(CancellationToken.None),
-            Throws.TypeOf<EngineException>().With.Message.Contains("need setting up again"));
-        Assert.That(await config.ReadPasswordAsync(CancellationToken.None), Is.Null);
+        var made = await config.PasswordForSetupAsync("onedrive", startAfresh: false, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That((await config.ReadPasswordAsync(CancellationToken.None))?.Reveal(), Is.EqualTo(made.Reveal()));
+            Assert.That(File.Exists(config.FileFor("onedrive")), Is.False);
+        }
     }
 
     [Test]

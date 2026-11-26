@@ -228,9 +228,12 @@ public sealed class EngineClient : IDisposable
             var response = answer.Task.IsCompleted ? await answer.Task : throw new EngineException("The engine closed the connection");
             if (response.Error is { } error)
             {
-                throw error.Code == RpcError.ProtocolMismatch
-                    ? new EngineException(EngineProblem.AnotherVersion, error.Message)
-                    : new EngineException(error.Message);
+                throw error.Code switch
+                {
+                    RpcError.ProtocolMismatch => new EngineException(EngineProblem.AnotherVersion, error.Message),
+                    RpcError.NoConfigPassword => new EngineException(EngineProblem.NoConfigPassword, error.Message),
+                    _ => new EngineException(error.Message),
+                };
             }
 
             return response.Result is { } result && result.Deserialize(resultType) is { } value

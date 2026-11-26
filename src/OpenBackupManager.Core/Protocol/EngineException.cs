@@ -30,4 +30,5 @@ public enum EngineProblem
     AnotherUserOrAdmin,
     AnotherVersion,
     CantStart,
+    NoConfigPassword,
 }

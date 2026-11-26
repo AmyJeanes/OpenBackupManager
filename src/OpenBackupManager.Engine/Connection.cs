@@ -163,7 +163,7 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
         }
         catch (EngineException e)
         {
-            return Error(id, RpcError.Failed, e.Message);
+            return Error(id, e.Problem == EngineProblem.NoConfigPassword ? RpcError.NoConfigPassword : RpcError.Failed, e.Message);
         }
 
         if (setup.Question is not null)

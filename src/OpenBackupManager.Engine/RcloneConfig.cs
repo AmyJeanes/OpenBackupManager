@@ -19,8 +19,9 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposabl
     // Where the password is kept, as secret-store names it
     public string? Store => secrets.Chosen?.Name();
 
-    // Never made anew while a config is encrypted, as only the old password can read it
-    public async Task<Secret> PasswordForSetupAsync(CancellationToken cancellationToken)
+    // A new one leaves every encrypted config unreadable, so they're deleted. Only when asked, while another remote has
+    // one, as bringing the old store back would keep them. The remote being set up is replacing its own anyway
+    public async Task<Secret> PasswordForSetupAsync(string remoteId, bool startAfresh, CancellationToken cancellationToken)
     {
         await _setup.WaitAsync(cancellationToken);
         try
@@ -30,10 +31,22 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposabl
                 return password;
             }
 
-            if (Directory.Exists(Folder) && Directory.EnumerateFiles(Folder, "*.conf").Any(RcloneConfigFile.IsEncrypted))
+            if (Directory.Exists(Folder))
             {
-                throw new EngineException(
-                    "The password for the remotes' rclone config isn't in the secret store, so they need setting up again, or the store it was in brought back");
+                var unreadable = Directory.EnumerateFiles(Folder, "*.conf").Where(RcloneConfigFile.IsEncrypted).ToList();
+                var others = unreadable.Where(file => file != FileFor(remoteId)).Select(Path.GetFileNameWithoutExtension).Order(StringComparer.Ordinal).ToList();
+                if (others.Count > 0 && !startAfresh)
+                {
+                    throw new EngineException(
+                        EngineProblem.NoConfigPassword,
+                        $"The password for the rclone config isn't in the secret store, so {string.Join(", ", others)} can't be read. Bring back "
+                        + $"the store it was in, or start afresh, setting them all up again. See {AppLinks.Guide("files/#lost-config-password")}");
+                }
+
+                foreach (var file in unreadable)
+                {
+                    File.Delete(file);
+                }
             }
 
             var created = new Secret(RandomNumberGenerator.GetString("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 40));

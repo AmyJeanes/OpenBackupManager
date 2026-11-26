@@ -53,7 +53,7 @@ internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, Rclon
         Setup? setup = null;
         try
         {
-            var password = await RcloneAsync(id, () => rcloneConfig.PasswordForSetupAsync(cancellationToken));
+            var password = await RcloneAsync(id, () => rcloneConfig.PasswordForSetupAsync(id, start.StartAfresh, cancellationToken));
             rcd = await RcloneAsync(id, async () =>
             {
                 RunFolder.Create(paths);

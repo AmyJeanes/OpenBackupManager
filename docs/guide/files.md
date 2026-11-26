@@ -56,6 +56,13 @@ Each remote, somewhere your backups go, has an rclone config of its own beside `
 
 If `--home <folder>` was given, or the `OBM_HOME` environment variable is set, everything goes in that folder instead.
 
+### When the password for your remotes is gone {#lost-config-password}
+
+If the password that protects your remotes' connection details isn't with your secrets any more, such as after [`secret-store`](settings.md#secret-store) was changed by hand or the store was reset, each remote needs setting up, and setting one up asks whether to start afresh. Either:
+
+- Bring the password back, and your remotes carry on as they were: change `secret-store` back, restore `secrets.json` from a backup, or, if you know the password, give it in `OBM_RCLONE_CONFIG_SECRET` or a file named in `OBM_RCLONE_CONFIG_SECRET_FILE`, as [Docker](docker.md#moving-the-password) does. Then run `obm remote retry` for each remote, or restart the engine, which a modified environment variable needs.
+- Or start afresh, which deletes every remote's connection details, so each is set up again, signing in again. What's already backed up isn't touched.
+
 ## Logs
 
 Open Backup Manager writes what it does to logs. If something goes wrong, they're the first place to look, and they're worth attaching to a bug report, as [Sharing diagnostics](#sharing-diagnostics) describes.

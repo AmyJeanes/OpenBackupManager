@@ -127,6 +127,27 @@ public class SetupsTests
         }
     }
 
+    // Starting afresh loses what only the old password could read, so it's the person's choice
+    [Test]
+    public async Task WithoutTheConfigPassword_ItStartsAfresh_OnlyWhenAsked()
+    {
+        Directory.CreateDirectory(RcloneFolder);
+        await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "work.conf"), "RCLONE_ENCRYPT_V0:\nunreadable\n");
+        await StartAsync();
+        using var client = await ConnectAsync();
+
+        Assert.That(
+            () => client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None),
+            Throws.TypeOf<EngineException>().With.Property(nameof(EngineException.Problem)).EqualTo(EngineProblem.NoConfigPassword));
+        var afresh = await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias", StartAfresh: true), CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(afresh.Question, Is.Not.Null);
+            Assert.That(File.Exists(Path.Combine(RcloneFolder, "work.conf")), Is.False);
+        }
+    }
+
     [Test]
     public async Task WhenConfigTomlCantTakeIt_ItIsntSetUp()
     {

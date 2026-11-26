@@ -38,7 +38,7 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
 ## The config password
 
 - **One for every remote's config,** given to each rcd with `config/unlock` rather than `RCLONE_CONFIG_PASS`, which anything rclone starts would inherit. Without it, rclone writes a new config in plain text, so setup makes one if there's none.
-- **Never made anew while any config is encrypted,** as a new one couldn't read them, which would hide that bringing the old store back is the fix.
+- **Never made anew while another remote's config is encrypted, unless asked to start afresh,** as a new one can't read them and bringing the old store back would keep them, so it's the person's choice. Setup's refusal has its own error code, so clients can offer it. Starting afresh deletes every encrypted config, as nothing could read them. The remote being set up doesn't count, as it's replacing its own.
 - **From the environment, it's never saved,** so a copy of a container's volume, where the store is a file beside the configs, can't open them. The variables end in `_SECRET` so none reads as a setting's variable, and rclone is started without them, as it is without `RCLONE_` ones, so nothing it starts gets them. Setting both a value and a file is refused rather than one winning unseen. A stored copy of the same value is removed, but a different one is kept, as it's the one that works.
 - **A locked secret store is checked every 10 seconds rather than backing off,** so its remotes carry on soon after it's unlocked. It's never asked to unlock.
 

@@ -61,6 +61,10 @@ public sealed record RpcError(int Code, string Message)
 
     // It couldn't do what was asked, and the message says why
     public const int Failed = -32002;
+
+    // A remote can't be set up without a new config password, which would leave the others' configs unreadable, so
+    // the person chooses whether to start afresh, setting them all up again
+    public const int NoConfigPassword = -32003;
 }
 
 public sealed record HelloParams(int Protocol, string Version);
@@ -111,7 +115,8 @@ public sealed record SetupRemoteParams(
     string Id,
     string Type,
     string? Name = null,
-    IReadOnlyDictionary<string, string>? Parameters = null);
+    IReadOnlyDictionary<string, string>? Parameters = null,
+    bool StartAfresh = false);
 
 public sealed record AnswerSetupParams(string Id, string Answer);
 
