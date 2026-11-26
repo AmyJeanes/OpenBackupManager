@@ -78,7 +78,7 @@ public class SetupsTests
     [Test]
     public async Task OneThatNeedsSettingUp_IsSetUpWhereItIs()
     {
-        await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"nas\"\n");
+        await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"nas\"\nroot = \"\"\n");
         await StartAsync();
         using var client = await ConnectAsync();
         await StateAsync(client, "nas", RemoteState.NeedsSetup);
@@ -91,7 +91,7 @@ public class SetupsTests
             // It keeps its root, so it's done once rclone's questions are
             Assert.That(last.Question, Is.Null);
             Assert.That(await StateAsync(client, "nas", RemoteState.Running), Is.EqualTo(RemoteState.Running));
-            Assert.That(await File.ReadAllTextAsync(_home.ConfigFile), Is.EqualTo("secret-store = \"file\"\n\n[[remotes]]\nid = \"nas\"\n"));
+            Assert.That(await File.ReadAllTextAsync(_home.ConfigFile), Is.EqualTo("secret-store = \"file\"\n\n[[remotes]]\nid = \"nas\"\nroot = \"\"\n"));
         }
     }
 
@@ -99,7 +99,7 @@ public class SetupsTests
     public async Task Cancelling_LeavesWhatWasThere()
     {
         // One rclone can't read
-        await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"nas\"\n");
+        await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"nas\"\nroot = \"\"\n");
         Directory.CreateDirectory(RcloneFolder);
         await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "nas.conf"), "not a config");
         await StartAsync();
@@ -301,7 +301,7 @@ public class SetupsTests
     [Test]
     public async Task OneAlreadySetUp_IsRefused()
     {
-        await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"nas\"\n");
+        await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"nas\"\nroot = \"\"\n");
         Directory.CreateDirectory(RcloneFolder);
         await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "nas.conf"), "[remote]\ntype = local\n");
         await StartAsync();

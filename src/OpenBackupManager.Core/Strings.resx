@@ -54,6 +54,10 @@
     <value>the remote id "{0}" is used twice</value>
     <comment>A remote is a place backups go, such as OneDrive</comment>
   </data>
+  <data name="ConfigProblem_RemoteNeedsRoot" xml:space="preserve">
+    <value>the remote "{0}" needs a root, the folder on it to use, such as root = "OpenBackupManager/"</value>
+    <comment>root = "OpenBackupManager/" is written in the file, so stays as it is</comment>
+  </data>
   <data name="ConfigProblem_UnknownSetting" xml:space="preserve">
     <value>{0} isn't a known setting</value>
   </data>

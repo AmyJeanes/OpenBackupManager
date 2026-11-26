@@ -683,7 +683,7 @@ public class RemotesTests
     }
 
     private Task ConfigAsync(params string[] ids) =>
-        File.WriteAllTextAsync(_home.ConfigFile, "secret-store = \"file\"\n" + string.Concat(ids.Select(id => $"\n[[remotes]]\nid = \"{id}\"\n")));
+        File.WriteAllTextAsync(_home.ConfigFile, "secret-store = \"file\"\n" + string.Concat(ids.Select(id => $"\n[[remotes]]\nid = \"{id}\"\nroot = \"\"\n")));
 
     // Rather than waiting for the engine to see the file change
     private void Reload() => _services!.Services.GetRequiredService<ConfigWatcher>().Reload();

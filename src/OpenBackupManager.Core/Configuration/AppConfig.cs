@@ -40,7 +40,8 @@ public sealed record RemoteSettings
 
     public string? Name { get; init; }
 
-    public string? Root { get; init; }
+    // Always given, as config.toml needs it. Empty is the remote's top
+    public string Root { get; init; } = "";
 
     // It names the remote's own files, such as its rclone config, on any OS, as config.toml can be copied to another
     public static bool IsValidId(string id) =>

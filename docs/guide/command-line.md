@@ -193,6 +193,7 @@ Each remote has these fields:
 | `remoteNeedsId` | A `[[remotes]]` has no `id`. |
 | `remoteIdNotValid` | A remote's `id` has something other than lowercase letters, digits and hyphens, is over 32 characters, or is `con`, `prn`, `aux`, `nul`, `com0` to `com9` or `lpt0` to `lpt9`, which Windows keeps for devices. |
 | `remoteIdUsedTwice` | Two remotes have the same `id`. |
+| `remoteNeedsRoot` | A remote has no `root`, the folder on it to use. An empty one, `root = ""`, is the whole remote. |
 | `unknownSetting` | It isn't a setting this version knows, such as a misspelt one. |
 | `unknownSection` | It isn't a section this version knows. |
 

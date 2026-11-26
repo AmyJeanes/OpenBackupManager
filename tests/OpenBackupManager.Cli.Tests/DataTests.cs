@@ -34,7 +34,7 @@ public class DataTests
             await store.SaveAsync("token", new Secret("not really a token"));
         }
 
-        File.WriteAllText(Path.Combine(_home, "config.toml"), "secret-store = \"file\"\n\n[[remotes]]\nid = \"test\"\n");
+        File.WriteAllText(Path.Combine(_home, "config.toml"), "secret-store = \"file\"\n\n[[remotes]]\nid = \"test\"\nroot = \"\"\n");
         Directory.CreateDirectory(Path.Combine(_home, "rclone"));
         File.WriteAllText(Path.Combine(_home, "rclone", "test.conf"), "[test]\ntype = local\n");
         File.WriteAllText(Path.Combine(_home, "notes.txt"), "Someone's own file");

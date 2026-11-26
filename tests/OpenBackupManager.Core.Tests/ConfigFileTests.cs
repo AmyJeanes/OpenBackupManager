@@ -94,7 +94,8 @@ public class ConfigFileTests
     [TestCase("[[remotes]]\nid = \"abcdefghijklmnopqrstuvwxyz-1234567\"", 2, "the remote id \"abcdefghijklmnopqrstuvwxyz-1234567\" " + IdRules)]
     [TestCase("[[remotes]]\nid = \"nul\"", 2, "the remote id \"nul\" " + IdRules)]
     [TestCase("[[remotes]]\nid = \"com1\"", 2, "the remote id \"com1\" " + IdRules)]
-    [TestCase("[[remotes]]\nid = \"a\"\n[[remotes]]\nid = \"a\"", 4, "the remote id \"a\" is used twice")]
+    [TestCase("[[remotes]]\nid = \"a\"\nroot = \"\"\n[[remotes]]\nid = \"a\"\nroot = \"\"", 5, "the remote id \"a\" is used twice")]
+    [TestCase("[[remotes]]\nid = \"a\"", 1, "the remote \"a\" needs a root, the folder on it to use, such as root = \"OpenBackupManager/\"")]
     public void Parse_Mistake_IsAnErrorNamingTheLine(string text, int line, string message)
     {
         var result = ConfigFile.Parse(text);
@@ -111,7 +112,7 @@ public class ConfigFileTests
     [TestCase("com10")]
     [TestCase("nul-2")]
     public void Parse_ARemoteIdLikeADeviceName_IsFine(string id) =>
-        Assert.That(ConfigFile.Parse($"[[remotes]]\nid = \"{id}\"").Problems, Is.Empty);
+        Assert.That(ConfigFile.Parse($"[[remotes]]\nid = \"{id}\"\nroot = \"\"").Problems, Is.Empty);
 
     // Each OS's own list is checked by the CI runner for that OS
     [TestCase("vault")]
@@ -333,12 +334,12 @@ public class ConfigFileTests
     [Test]
     public void Add_LeavesTheFileAlone_WhenItWouldBreakIt()
     {
-        var text = "version = 1\n\n[[remotes]]\nid = \"nas\"\n";
+        var text = "version = 1\n\n[[remotes]]\nid = \"nas\"\nroot = \"\"\n";
         File.WriteAllText(FilePath, text);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(() => new ConfigFile(FilePath).Add("remotes", [("id", "nas")]),
+            Assert.That(() => new ConfigFile(FilePath).Add("remotes", [("id", "nas"), ("root", "")]),
                 Throws.TypeOf<InvalidOperationException>().With.Message.StartsWith("Adding to remotes would break config.toml"));
             Assert.That(File.ReadAllText(FilePath), Is.EqualTo(text));
         }

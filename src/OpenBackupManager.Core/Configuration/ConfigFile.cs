@@ -248,6 +248,11 @@ public sealed class ConfigFile(string path, Func<string, string?>? environment =
                 {
                     problems.Add(new ConfigProblem(Line(id), ConfigProblemKind.RemoteIdUsedTwice, IsError: true, value));
                 }
+                // As its rclone config holds no path, so it'd mean what each backend makes of none
+                else if (table.Items.All(kv => Name(kv.Key) != "root"))
+                {
+                    problems.Add(new ConfigProblem(Line(table), ConfigProblemKind.RemoteNeedsRoot, IsError: true, value));
+                }
             }
         }
     }

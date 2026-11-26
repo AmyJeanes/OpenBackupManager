@@ -10,7 +10,7 @@ public class RemoteTests
         _home = Path.Combine(Path.GetTempPath(), "obm-tests-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_home);
         // With no rclone config, so it needs setting up
-        File.WriteAllText(Path.Combine(_home, "config.toml"), "secret-store = \"file\"\n\n[[remotes]]\nid = \"onedrive\"\n");
+        File.WriteAllText(Path.Combine(_home, "config.toml"), "secret-store = \"file\"\n\n[[remotes]]\nid = \"onedrive\"\nroot = \"\"\n");
     }
 
     [TearDown]

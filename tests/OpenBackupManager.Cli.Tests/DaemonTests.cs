@@ -56,7 +56,7 @@ public class DaemonTests
     {
         var home = NewHome();
         Directory.CreateDirectory(home);
-        File.WriteAllText(Path.Combine(home, "config.toml"), "[[remotes]]\nid = \"test\"\n");
+        File.WriteAllText(Path.Combine(home, "config.toml"), "[[remotes]]\nid = \"test\"\nroot = \"\"\n");
         Directory.CreateDirectory(Path.Combine(home, "rclone"));
         File.WriteAllText(Path.Combine(home, "rclone", "test.conf"), "[test]\ntype = local\n");
         var daemon = Daemon(home);
