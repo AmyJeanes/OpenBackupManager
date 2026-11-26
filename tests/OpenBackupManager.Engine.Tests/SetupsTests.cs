@@ -400,6 +400,29 @@ public class SetupsTests
     }
 
     [Test]
+    public async Task AFolderThatIsntThere_PointsToTheNearest()
+    {
+        Directory.CreateDirectory(Path.Combine(Target, "Phones"));
+        Directory.CreateDirectory(Path.Combine(Target, "Photo"));
+        using var client = await SignedInAsync();
+
+        var confirm = (await client.AnswerSetupAsync("nas", "Photos", CancellationToken.None)).Question;
+
+        Assert.That(confirm?.Folder?.NearMiss, Is.EqualTo("Photo/"));
+    }
+
+    [Test]
+    public async Task AShortFolderThatIsntThere_PointsToNone()
+    {
+        Directory.CreateDirectory(Path.Combine(Target, "TV"));
+        using var client = await SignedInAsync();
+
+        var confirm = (await client.AnswerSetupAsync("nas", "PC", CancellationToken.None)).Question;
+
+        Assert.That(confirm?.Folder?.NearMiss, Is.Null);
+    }
+
+    [Test]
     public async Task No_AsksForTheRootAgain()
     {
         using var client = await SignedInAsync();

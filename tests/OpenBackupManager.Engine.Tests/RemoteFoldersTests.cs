@@ -2,7 +2,8 @@ using OpenBackupManager.Rclone;
 
 namespace OpenBackupManager.Engine.Tests;
 
-// The write check, against an rclone that fails as each test needs, where the rest is tested through setup
+// Against an rclone that answers as each test needs, for what a real one can't be made to give, where the rest is
+// tested through setup
 public class RemoteFoldersTests
 {
     private const string Done = "{}";
@@ -67,6 +68,24 @@ public class RemoteFoldersTests
             () => new RemoteFolders(rclone, "nas:", fullPathsOnly: false).WriteTestAsync("Backups/", cancelling.Token),
             Throws.Exception);
         Assert.That(rc.Calls.Select(call => call.Path), Does.Contain("operations/deletefile"));
+    }
+
+    // As macOS can't hold both forms of an accented name in one folder, to test it there too
+    [Test]
+    public async Task AFolderInBothForms_IsFoundAsGiven()
+    {
+        var composed = "Caf\u00e9";
+        var decomposed = "Cafe\u0301";
+        await using var rc = FakeHttp.OnSocket(Socket, path => path switch
+        {
+            "operations/fsinfo" => (200, """{"features":{"caseInsensitive":false,"isLocal":false}}"""),
+            _ => (200, $$"""{"list":[{"path":"{{decomposed}}","name":"{{decomposed}}","isDir":true},{"path":"{{composed}}","name":"{{composed}}","isDir":true}]}"""),
+        });
+        using var rclone = new RcClient(Socket);
+
+        var found = await new RemoteFolders(rclone, "nas:", fullPathsOnly: false).FindAsync(composed, CancellationToken.None);
+
+        Assert.That(found.Path, Is.EqualTo(composed + "/"));
     }
 
     private static string Error(string message) => $"{{\"error\":\"{message}\"}}";

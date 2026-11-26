@@ -81,12 +81,14 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
                 backupAbove ??= Joined(top, found, separator);
             }
 
-            var name = folders?.FirstOrDefault(folder => Same(folder, part, ignoreCase: false))
+            // As given before another form of it, as a remote that minds case can hold both
+            var name = folders?.FirstOrDefault(folder => folder == part)
+                ?? folders?.FirstOrDefault(folder => Same(folder, part, ignoreCase: false))
                 ?? (_features.CaseInsensitive ? folders?.FirstOrDefault(folder => Same(folder, part, ignoreCase: true)) : null);
             unseen = name is null && folders is not null;
             if (name is null && folders is not null)
             {
-                nearMiss = folders.FirstOrDefault(folder => Near(folder, part)) is { } near
+                nearMiss = Nearest(folders, part) is { } near
                     ? Joined(top, [.. found, near, .. parts[(found.Count + 1)..]], separator)
                     : null;
             }
@@ -149,9 +151,20 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
     private static bool Same(string folder, string part, bool ignoreCase) =>
         string.Equals(folder.Normalize(NormalizationForm.FormC), part.Normalize(NormalizationForm.FormC), ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
-    // A slip of a letter or two, or of case where the remote minds it
-    private static bool Near(string folder, string part) =>
-        Distance(folder.Normalize(NormalizationForm.FormC).ToUpperInvariant(), part.Normalize(NormalizationForm.FormC).ToUpperInvariant()) <= 2;
+    // The closest a slip of a letter or two away, or of case where the remote minds it. Fewer for a short name,
+    // where that many would make it another name altogether
+    private static string? Nearest(List<string> folders, string part)
+    {
+        var folded = Folded(part);
+        var most = Math.Min(2, (folded.Length - 1) / 2);
+        return folders.Select(folder => (Folder: folder, Distance: Distance(Folded(folder), folded)))
+            .Where(near => near.Distance <= most)
+            .OrderBy(near => near.Distance)
+            .Select(near => near.Folder)
+            .FirstOrDefault();
+    }
+
+    private static string Folded(string name) => name.Normalize(NormalizationForm.FormC).ToUpperInvariant();
 
     // How many letters to add, take away or change to make one the other
     private static int Distance(string a, string b)
