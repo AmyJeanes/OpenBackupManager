@@ -14,10 +14,12 @@
 
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+    <Using Include="OpenBackupManager.Testing" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenBackupManager.Engine\OpenBackupManager.Engine.csproj" />
+    <ProjectReference Include="..\OpenBackupManager.Testing\OpenBackupManager.Testing.csproj" />
   </ItemGroup>
 
 </Project>

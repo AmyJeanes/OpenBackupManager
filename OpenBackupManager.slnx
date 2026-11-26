@@ -22,6 +22,7 @@
     <Project Path="tests/OpenBackupManager.Platform.MacOS.Tests/OpenBackupManager.Platform.MacOS.Tests.csproj" />
     <Project Path="tests/OpenBackupManager.Platform.Windows.Tests/OpenBackupManager.Platform.Windows.Tests.csproj" />
     <Project Path="tests/OpenBackupManager.Rclone.Tests/OpenBackupManager.Rclone.Tests.csproj" />
+    <Project Path="tests/OpenBackupManager.Testing/OpenBackupManager.Testing.csproj" />
     <Project Path="tests/OpenBackupManager.ViewModels.Tests/OpenBackupManager.ViewModels.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
