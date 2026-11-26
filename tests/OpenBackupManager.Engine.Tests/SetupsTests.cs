@@ -59,13 +59,18 @@ public class SetupsTests
 
         var first = await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias", "NAS"), CancellationToken.None);
         var root = await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
-        var last = await client.AnswerSetupAsync("nas", "Backups", CancellationToken.None);
+        var confirm = await client.AnswerSetupAsync("nas", "Backups", CancellationToken.None);
+        var last = await client.AnswerSetupAsync("nas", "yes", CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(first.Question?.Name, Is.EqualTo("remote"));
             Assert.That(root.Question?.Name, Is.EqualTo(SetupQuestion.Root));
+            Assert.That(confirm.Question?.Name, Is.EqualTo(SetupQuestion.RootConfirm));
+            Assert.That(confirm.Question?.Folder, Is.EqualTo(new RootFolder("Backups/", RootFolderState.Missing, 0, 0)));
             Assert.That(last.Question, Is.Null);
+            // Made by the check that it can hold files, which leaves nothing behind
+            Assert.That(Directory.EnumerateFileSystemEntries(Path.Combine(Target, "Backups")), Is.Empty);
             Assert.That(
                 await File.ReadAllTextAsync(_home.ConfigFile),
                 Is.EqualTo("secret-store = \"file\"\n\n[[remotes]]\nid = \"nas\"\nname = \"NAS\"\nroot = \"Backups/\"\n"));
@@ -125,12 +130,13 @@ public class SetupsTests
         using var client = await ConnectAsync();
         await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
         await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
+        await client.AnswerSetupAsync("nas", "", CancellationToken.None);
         await File.WriteAllTextAsync(_home.ConfigFile, "secret-store = \"file\"\nversion = \"one\"\n");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
-                () => client.AnswerSetupAsync("nas", "", CancellationToken.None),
+                () => client.AnswerSetupAsync("nas", "yes", CancellationToken.None),
                 Throws.TypeOf<EngineException>().With.Message.Match(
                     "^nas wasn't set up, as adding it to config.toml failed: config.toml can't be changed until it's fixed: .+[^.]\\. Once that's fixed, set it up again$"));
             Assert.That(Directory.GetFiles(RcloneFolder), Is.Empty);
@@ -147,6 +153,7 @@ public class SetupsTests
         await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
 
         await client.AnswerSetupAsync("nas", "work/archive/new", CancellationToken.None);
+        await client.AnswerSetupAsync("nas", "yes", CancellationToken.None);
 
         Assert.That(
             await File.ReadAllTextAsync(_home.ConfigFile),
@@ -170,6 +177,7 @@ public class SetupsTests
         }
 
         await client.AnswerSetupAsync("nas", full, CancellationToken.None);
+        await client.AnswerSetupAsync("nas", "yes", CancellationToken.None);
 
         Assert.That(await File.ReadAllTextAsync(_home.ConfigFile), Does.EndWith($"root = \"{full}/\"\n"));
     }
@@ -204,7 +212,8 @@ public class SetupsTests
 
         var top = await client.ListFoldersAsync("nas", "", CancellationToken.None);
         var work = await client.ListFoldersAsync("nas", "Work", CancellationToken.None);
-        var last = await client.AnswerSetupAsync("nas", "Work/Backups", CancellationToken.None);
+        await client.AnswerSetupAsync("nas", "Work/Backups", CancellationToken.None);
+        var last = await client.AnswerSetupAsync("nas", "yes", CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
@@ -229,7 +238,108 @@ public class SetupsTests
             Assert.That(
                 () => client.ListFoldersAsync("nas", "Nowhere", CancellationToken.None),
                 Throws.TypeOf<EngineException>().With.Message.EqualTo("There's no folder Nowhere/ on nas"));
-            Assert.That((await client.AnswerSetupAsync("nas", "", CancellationToken.None)).Question, Is.Null);
+            Assert.That((await client.AnswerSetupAsync("nas", "", CancellationToken.None)).Question?.Name, Is.EqualTo(SetupQuestion.RootConfirm));
+        }
+    }
+
+    [TestCase("Work", RootFolderState.HasFiles, 2, 1, "no")]
+    [TestCase("Empty", RootFolderState.Empty, 0, 0, "yes")]
+    public async Task TheConfirm_SaysWhatsThere(string root, RootFolderState state, int folders, int files, string answer)
+    {
+        Directory.CreateDirectory(Path.Combine(Target, "Work", "Archive"));
+        Directory.CreateDirectory(Path.Combine(Target, "Work", "Backups"));
+        await File.WriteAllTextAsync(Path.Combine(Target, "Work", "notes.txt"), "");
+        Directory.CreateDirectory(Path.Combine(Target, "Empty"));
+        using var client = await SignedInAsync();
+
+        var confirm = (await client.AnswerSetupAsync("nas", root, CancellationToken.None)).Question;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(confirm?.Folder, Is.EqualTo(new RootFolder(root + "/", state, folders, files)));
+            Assert.That(confirm?.Default, Is.EqualTo(answer));
+        }
+    }
+
+    [Test]
+    public async Task AFolderThatIsntThere_PointsToOneItMayHaveMeant()
+    {
+        Directory.CreateDirectory(Path.Combine(Target, "Work", "Backups"));
+        using var client = await SignedInAsync();
+
+        var confirm = (await client.AnswerSetupAsync("nas", "Work/Bakups", CancellationToken.None)).Question;
+
+        Assert.That(confirm?.Folder, Is.EqualTo(new RootFolder("Work/Bakups/", RootFolderState.Missing, 0, 0, "Work/Backups/")));
+    }
+
+    [Test]
+    public async Task No_AsksForTheRootAgain()
+    {
+        using var client = await SignedInAsync();
+        await client.AnswerSetupAsync("nas", "Backups", CancellationToken.None);
+
+        var again = (await client.AnswerSetupAsync("nas", "no", CancellationToken.None)).Question;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(again?.Name, Is.EqualTo(SetupQuestion.Root));
+            Assert.That(again?.Error, Is.Null);
+            Assert.That(Directory.Exists(Path.Combine(Target, "Backups")), Is.False);
+        }
+    }
+
+    [TestCase("Work", "There's already an Open Backup Manager backup in Work/. Joining is not yet available")]
+    [TestCase("Work/PC Backup", "There's an Open Backup Manager backup in Work/, which Work/PC Backup/ is inside. Joining is not yet available")]
+    public async Task ABackupsFolder_OrOneInsideIt_IsRefused(string root, string why)
+    {
+        Directory.CreateDirectory(Path.Combine(Target, "Work", ".obm"));
+        Directory.CreateDirectory(Path.Combine(Target, "Work", "PC Backup"));
+        using var client = await SignedInAsync();
+
+        var again = (await client.AnswerSetupAsync("nas", root, CancellationToken.None)).Question;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(again?.Name, Is.EqualTo(SetupQuestion.Root));
+            Assert.That(again?.Error, Is.EqualTo(why));
+        }
+    }
+
+    [Test]
+    public async Task AFolderThatCantHoldFiles_AsksForTheRootAgain_WithWhy()
+    {
+        // A file where its folder would be
+        Directory.CreateDirectory(Target);
+        await File.WriteAllTextAsync(Path.Combine(Target, "Blocked"), "");
+        using var client = await SignedInAsync();
+        await client.AnswerSetupAsync("nas", "Blocked/Inside", CancellationToken.None);
+
+        var again = (await client.AnswerSetupAsync("nas", "yes", CancellationToken.None)).Question;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(again?.Name, Is.EqualTo(SetupQuestion.Root));
+            Assert.That(again?.Error, Does.StartWith("Blocked/Inside/ can't hold files: rclone's operations/mkdir failed:"));
+        }
+    }
+
+    [Test]
+    public async Task OneSetUpAgain_WhoseRootCantHoldFiles_IsntSetUp()
+    {
+        await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"nas\"\nroot = \"Blocked/\"\n");
+        Directory.CreateDirectory(Target);
+        await File.WriteAllTextAsync(Path.Combine(Target, "Blocked"), "");
+        await StartAsync();
+        using var client = await ConnectAsync();
+        await StateAsync(client, "nas", RemoteState.NeedsSetup);
+        await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                () => client.AnswerSetupAsync("nas", Target, CancellationToken.None),
+                Throws.TypeOf<EngineException>().With.Message.StartsWith("nas couldn't be set up, as Blocked/ can't hold files:"));
+            Assert.That(File.Exists(Path.Combine(RcloneFolder, "nas.conf")), Is.False);
         }
     }
 
@@ -343,6 +453,16 @@ public class SetupsTests
     {
         _engine = EngineHost.Build(_home);
         await _engine.StartAsync();
+    }
+
+    // At the root question, through alias to Target
+    private async Task<EngineClient> SignedInAsync()
+    {
+        await StartAsync();
+        var client = await ConnectAsync();
+        await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
+        await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
+        return client;
     }
 
     private async Task<EngineClient> ConnectAsync() =>

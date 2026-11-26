@@ -79,8 +79,9 @@ internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, Rclon
             LogSettingUp(id, start.Type);
             // Ours, in order. One set up again keeps its root
             var folders = new RemoteFolders(rcd.Client, Section + ":");
-            var choices = new SetupChoices();
-            OwnQuestion[] own = config.Config.Remotes.Any(remote => remote.Id == id) ? [] : [new RootQuestion(folders, choices)];
+            var root = config.Config.Remotes.FirstOrDefault(remote => remote.Id == id)?.Root;
+            var choices = new SetupChoices { Root = root };
+            OwnQuestion[] own = root is not null ? [] : [new RootQuestion(folders, choices), new RootConfirmQuestion(folders, choices)];
             setup = new Setup(
                 this,
                 start,
@@ -90,7 +91,7 @@ internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, Rclon
                 folders,
                 rcd,
                 options.Config);
-            await setup.StepAsync(remoteSetup => remoteSetup.StartAsync(start.Type, cancellationToken));
+            await setup.StepAsync(remoteSetup => remoteSetup.StartAsync(start.Type, cancellationToken), cancellationToken);
             return setup;
         }
         catch
@@ -229,7 +230,7 @@ internal sealed class Setup(
     public SetupQuestion? Question { get; private set; }
 
     public Task AnswerAsync(string answer, CancellationToken cancellationToken) =>
-        _signedIn ? AnswerOwnAsync(answer, cancellationToken) : StepAsync(remoteSetup => remoteSetup.AnswerAsync(answer, cancellationToken));
+        _signedIn ? AnswerOwnAsync(answer, cancellationToken) : StepAsync(remoteSetup => remoteSetup.AnswerAsync(answer, cancellationToken), cancellationToken);
 
     // Without changing where the setup is, so a client can look around before it answers
     public async Task<FoundFolder> ListFoldersAsync(string path, CancellationToken cancellationToken)
@@ -261,7 +262,7 @@ internal sealed class Setup(
         }
     }
 
-    internal async Task StepAsync(Func<RemoteSetup, Task<Rclone.SetupQuestion?>> step)
+    internal async Task StepAsync(Func<RemoteSetup, Task<Rclone.SetupQuestion?>> step, CancellationToken cancellationToken)
     {
         if (await Setups.RcloneAsync(Id, () => step(remoteSetup)) is { } asked)
         {
@@ -279,27 +280,35 @@ internal sealed class Setup(
         }
 
         _signedIn = true;
-        await AskOwnAsync();
+        await AskOwnAsync(null, cancellationToken);
     }
 
     private async Task AnswerOwnAsync(string answer, CancellationToken cancellationToken)
     {
-        if (await own[_own].AnswerAsync(answer, cancellationToken) is { } again)
-        {
-            Question = own[_own].Ask() with { Error = again };
-            return;
-        }
-
-        _own++;
-        await AskOwnAsync();
+        var answered = await own[_own].AnswerAsync(answer, cancellationToken);
+        _own += answered.Move;
+        await AskOwnAsync(answered.Why, cancellationToken);
     }
 
-    private async Task AskOwnAsync()
+    private async Task AskOwnAsync(string? why, CancellationToken cancellationToken)
     {
         if (_own < own.Count)
         {
-            Question = own[_own].Ask();
+            Question = own[_own].Ask() with { Error = why };
             return;
+        }
+
+        // One set up again has no root question to go back to
+        if (!choices.Written)
+        {
+            try
+            {
+                await folders.WriteTestAsync(choices.Root!, cancellationToken);
+            }
+            catch (Exception e) when (e is RcloneException or HttpRequestException or IOException)
+            {
+                throw new EngineException($"{Id} couldn't be set up, as {RootQuestion.Named(choices.Root!)} can't hold files: {e.Message}", e);
+            }
         }
 
         Question = null;

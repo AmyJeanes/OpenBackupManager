@@ -49,7 +49,10 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
 - **The root comes last,** once rclone's questions are done, as only then can the account be reached, to list its folders or look at the one chosen. A remote set up again keeps its own.
 - **The root is rclone's own path, passed through untouched,** as what a path means is the backend's: empty is OneDrive's top but an SFTP user's home, where `/` is the server's root.
 - **Where the remote ignores case, the root takes the real names of the folders that exist,** so `config.toml` matches what's on the remote and later comparisons don't trip over case. Names are compared in one Unicode form, as macOS and Windows can write the same accented name two ways.
-- **A root that can't be looked at is asked again,** rather than ending the setup, as a wrong folder needs no new sign-in.
+- **What's at the root is confirmed before it's used,** with the default no only when someone else's files are there, so a typo or the wrong folder is caught. A folder that isn't there points to one beside it a letter or two away, or differing in case where the remote minds case.
+- **A backup's folder, or one inside it, is refused,** as two backups never share files, until joining one is built.
+- **Yes proves the root can hold files,** by writing, reading back and deleting a file, which also makes the folder. Its name is random, so two devices checking at once don't meet, and isn't `.obm-check`, which marks a synced folder. A remote set up again has no root question, so a failed check ends its setup.
+- **A no, a failed check, or a root that can't be looked at asks for the root again,** with rclone's reason, rather than ending the setup, as a wrong folder needs no new sign-in.
 - **An rcd of its own, writing a copy of the config,** which replaces the remote's config only once it's set up. So a setup stopped part way leaves what was there, and the remote's own rcd can run beside it. A new remote is added to `config.toml` last, as that starts its rcd.
 - **Owned by the connection that started it,** and ended when it closes, so nothing outlives a client that's gone, and there's nothing to resume or time out.
 

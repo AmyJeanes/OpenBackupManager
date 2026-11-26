@@ -129,12 +129,30 @@ public sealed record SetupQuestion(
     bool IsPassword,
     bool Exclusive,
     string Type,
-    string? Error = null)
+    string? Error = null,
+    RootFolder? Folder = null)
 {
     // Ours, after rclone's, which clients word themselves, as no rclone question's name starts with obm-. The root is
     // the path inside the remote, as rclone takes it, such as OpenBackupManager/, or empty for its top. listFolders
     // helps choose it
     public const string Root = "obm-root";
+
+    // Whether to use the root chosen, yes or no, with what's there in Folder. No asks for the root again
+    public const string RootConfirm = "obm-root-confirm";
+}
+
+// Path is the root in the remote's own case. NearMiss is a folder that's there, for one that isn't, that it may have
+// been meant to be
+public sealed record RootFolder(string Path, RootFolderState State, int Folders, int Files, string? NearMiss = null);
+
+public enum RootFolderState
+{
+    // Made if it's used
+    Missing,
+    Empty,
+
+    // None of them Open Backup Manager's, which are left alone beside its own
+    HasFiles,
 }
 
 public sealed record SetupChoice(string Value, string Help);
@@ -196,6 +214,7 @@ public sealed record CrashResult;
         typeof(CamelCaseEnumConverter<ConfigProblemKind>),
         typeof(CamelCaseEnumConverter<RemoteState>),
         typeof(CamelCaseEnumConverter<RemoteReason>),
+        typeof(CamelCaseEnumConverter<RootFolderState>),
     ])]
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(RpcRequest))]
