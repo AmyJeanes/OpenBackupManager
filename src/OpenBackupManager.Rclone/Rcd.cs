@@ -60,9 +60,13 @@ public sealed class Rcd : IAsyncDisposable
         };
 
         // rclone reads these as settings, and any set are for the user's own rclone. With a _ before it, it's where a
-        // parent rclone left its config's key, which would win over the password
-        var rcloneVariables = start.Environment.Keys.Where(name => name.TrimStart('_').StartsWith("RCLONE_", StringComparison.OrdinalIgnoreCase));
-        foreach (var name in rcloneVariables.ToList())
+        // parent rclone left its config's key, which would win over the password. OBM_ secrets are the engine's, such
+        // as the config password, kept from rclone as config/unlock keeps the password from its environment
+        var leftOut = start.Environment.Keys.Where(name =>
+            name.TrimStart('_').StartsWith("RCLONE_", StringComparison.OrdinalIgnoreCase)
+            || (name.StartsWith("OBM_", StringComparison.OrdinalIgnoreCase)
+                && (name.EndsWith("_SECRET", StringComparison.OrdinalIgnoreCase) || name.EndsWith("_SECRET_FILE", StringComparison.OrdinalIgnoreCase))));
+        foreach (var name in leftOut.ToList())
         {
             start.Environment.Remove(name);
         }

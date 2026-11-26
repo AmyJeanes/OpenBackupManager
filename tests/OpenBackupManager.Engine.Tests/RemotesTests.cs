@@ -526,6 +526,24 @@ public class RemotesTests
         Assert.That(names, Does.Not.Contain("RCLONE_CONFIG_PASS"));
     }
 
+    // As much the engine's own as the password it holds, and a file's name says where to read it
+    [Test]
+    [Platform("Linux")]
+    public async Task WithItsPasswordFromAVariable_KeepsTheVariableOutOfRclonesEnvironment([Values] bool fromFile)
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("onedrive", "password");
+        var file = Path.Combine(_home.State, "password");
+        await File.WriteAllTextAsync(file, "password");
+        var name = fromFile ? "OBM_RCLONE_CONFIG_SECRET_FILE" : "OBM_RCLONE_CONFIG_SECRET";
+        using var given = new EnvironmentVariable(name, fromFile ? file : "password");
+        var engine = await StartedAsync();
+        var pid = await PidAsync(RemotesOf(engine).Options("onedrive").Socket);
+
+        var names = (await File.ReadAllTextAsync($"/proc/{pid}/environ")).Split('\0').Select(variable => variable.Split('=')[0]);
+        Assert.That(names, Does.Not.Contain(name));
+    }
+
     // Where a parent rclone leaves its config's key, which rclone would use instead of the password
     [Test]
     public async Task WithItsPassword_IgnoresTheUsersConfigKeyFile()
