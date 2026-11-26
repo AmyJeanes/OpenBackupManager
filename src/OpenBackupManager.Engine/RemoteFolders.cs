@@ -6,8 +6,9 @@ using OpenBackupManager.Rclone;
 namespace OpenBackupManager.Engine;
 
 // Folders on a remote, by paths as rclone takes them, found a folder at a time from the top, so where the remote
-// ignores case each part takes its real name. What a full path starts with, such as / or a drive, is kept as given
-internal sealed partial class RemoteFolders(RcClient rclone, string remote)
+// ignores case each part takes its real name. What a full path starts with, such as / or a drive, is kept as given.
+// FullPathsOnly is for local, where anything else would be from the folder the engine happened to start in
+internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool fullPathsOnly)
 {
     private const string Backup = ".obm";
 
@@ -16,6 +17,13 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote)
     // As far as it exists, with what's in it when all of it does
     public async Task<FoundFolder> FindAsync(string path, CancellationToken cancellationToken)
     {
+        if (fullPathsOnly && !Path.IsPathFullyQualified(path))
+        {
+            throw new ArgumentException(OperatingSystem.IsWindows()
+                ? @"Give the full path, from a drive such as C:\ or a share such as \\server\share\"
+                : "Give the full path, from /");
+        }
+
         _features ??= (await rclone.FsInfoAsync(remote, cancellationToken)).Features;
         var (top, parts, separator) = Split(path, _features.IsLocal && OperatingSystem.IsWindows());
         // The walk would take them as folders, where rclone takes them as steps

@@ -78,7 +78,7 @@ internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, Rclon
 
             LogSettingUp(id, start.Type);
             // Ours, in order. One set up again keeps its root
-            var folders = new RemoteFolders(rcd.Client, Section + ":");
+            var folders = new RemoteFolders(rcd.Client, Section + ":", fullPathsOnly: start.Type == "local");
             var root = config.Config.Remotes.FirstOrDefault(remote => remote.Id == id)?.Root;
             var choices = new SetupChoices { Root = root };
             OwnQuestion[] own = root is not null ? [] : [new RootQuestion(folders, choices), new RootConfirmQuestion(folders, choices)];

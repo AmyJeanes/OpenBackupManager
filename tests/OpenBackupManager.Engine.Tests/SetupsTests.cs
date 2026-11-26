@@ -199,6 +199,17 @@ public class SetupsTests
         Assert.That(await File.ReadAllTextAsync(_home.ConfigFile), Does.EndWith($"root = \"{full}/\"\n"));
     }
 
+    // As anything else is from the folder the engine started in, not the same for a service, the app and a shell
+    [TestCase("Backups")]
+    [TestCase("")]
+    public async Task ALocalRootThatIsntAFullPath_IsAskedAgain(string root) => await AskedAgainForAFullPathAsync(root);
+
+    // From the drive, or the folder on the drive, the engine started in
+    [Platform("Win")]
+    [TestCase(@"\Backups")]
+    [TestCase("C:Backups")]
+    public async Task ALocalRootFromNoDrive_IsAskedAgain(string root) => await AskedAgainForAFullPathAsync(root);
+
     // As Windows writes them, from a drive or a share, kept as given apart from the case
     [Test]
     [Platform("Win")]
@@ -583,6 +594,19 @@ public class SetupsTests
         await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None);
         await client.AnswerSetupAsync("nas", Target, CancellationToken.None);
         return client;
+    }
+
+    private async Task AskedAgainForAFullPathAsync(string root)
+    {
+        using var client = await LocalAsync();
+
+        var again = await client.AnswerSetupAsync("nas", root, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(again.Question?.Name, Is.EqualTo(SetupQuestion.Root));
+            Assert.That(again.Question?.Error, Does.StartWith("Give the full path, from "));
+        }
     }
 
     // At the root question, through local, answering its own questions, such as whether to use UNC paths on Windows,
