@@ -20,14 +20,14 @@
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
     <!-- CsWin32's generated Windows API code uses pointers -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- CsWin32 writes its code before compiling, so .NET's source generators convert every call, as NativeAOT needs -->
+    <!-- CsWin32 generates before compiling, so .NET's source generators convert every call, as NativeAOT needs -->
     <CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
     <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
     <!-- Program.cs has its own Main, which hands over to a copy that's already running -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
 
-  <!-- XAML code-behind for C# Dev Kit's IntelliSense until https://github.com/microsoft/vscode-dotnettools/issues/2990 is fixed.
+  <!-- XAML code-behind for C# Dev Kit until https://github.com/microsoft/vscode-dotnettools/issues/2990 is fixed.
        CsWin32's code comes first, as the XAML step fails when dotnet format loads the project and would leave it out.
        DesignTimeMarkupCompilation is internal to WinUI, so a WinUI update can break the build until it's renamed -->
   <PropertyGroup Condition="'$(BuildingInsideVisualStudio)' != 'true'">
@@ -49,7 +49,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenBackupManager.Core\OpenBackupManager.Core.csproj" />
-    <!-- obmd.exe goes beside the app, which starts it. Built for the app's runtime, or it can't find its files there -->
+    <!-- obmd.exe goes beside the app, which starts it. Built for the app's runtime, or it can't find its files -->
     <ProjectReference Include="..\OpenBackupManager.Daemon\OpenBackupManager.Daemon.csproj" AdditionalProperties="RuntimeIdentifier=$(RuntimeIdentifier)" />
     <ProjectReference Include="..\OpenBackupManager.Platform.Windows\OpenBackupManager.Platform.Windows.csproj" />
     <ProjectReference Include="..\OpenBackupManager.ViewModels\OpenBackupManager.ViewModels.csproj" />

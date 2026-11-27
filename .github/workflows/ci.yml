@@ -664,7 +664,7 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
         with:
-          # Pinned like the other images, as the builder is handed the registry token and reports the digest Attest signs
+          # Pinned like the other images, as the builder gets the registry token and reports the digest Attest signs
           driver-opts: image=moby/buildkit:v0.35.1@sha256:baf6138eb8c37644800c7c913fba051e840ebb9ba13eaf92d92ef9a1712d0b4c
 
       # One at a time, as only one can be loaded to run. The push reuses the cache
@@ -687,7 +687,7 @@ jobs:
           echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           tags=(--tag "$image:$VERSION")
           if [ -z "$TAG" ]; then tags+=(--tag "$image:edge"); fi
-          # GHCR lists Buildx's own provenance as an unknown/unknown platform, and the attestation below covers it anyway
+          # GHCR lists Buildx's provenance as an unknown/unknown platform, and the attestation below covers it anyway
           # (https://github.com/orgs/community/discussions/45969)
           docker buildx build --platform linux/amd64,linux/arm64 --file Dockerfile "${tags[@]}" \
               --label "org.opencontainers.image.version=$VERSION" --label "org.opencontainers.image.revision=$GITHUB_SHA" \

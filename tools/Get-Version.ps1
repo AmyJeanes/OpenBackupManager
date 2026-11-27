@@ -16,7 +16,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-# A lowercase label with its number after a dot, so they sort as people expect: beta.10 after beta.9, and Beta before alpha
+# A lowercase label with its number after a dot, so they sort as expected: beta.10 after beta.9, and Beta before alpha
 $pattern = '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[a-z]+\.(0|[1-9]\d*))?$'
 
 function Versions($tags) {
