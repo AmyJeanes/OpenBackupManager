@@ -1,0 +1,32 @@
+{
+  // Answered for the person, so rclone never asks
+  "answers": {
+    // Our own Microsoft app registration, so Microsoft's sign-in pages name us and we don't share rclone's throttling.
+    // Not a secret
+    "client_id": "d4df9a9d-eee4-4456-a7af-6cb071e8326f",
+    // A public client has none
+    "client_secret": "",
+    // It works for any organisation, and national clouds would need registrations of their own
+    "tenant": "",
+    "region": "global",
+    // No more than it needs: shared folders need the all-files scope. SharePoint would also need Sites.Read.All, which
+    // the registration doesn't have
+    "access_scopes": "Files.ReadWrite.All offline_access",
+    // Your own OneDrive, personal or work or school, as SharePoint isn't offered yet
+    "config_type": "onedrive"
+  },
+
+  // Plainer words for the questions left, in place of rclone's
+  "questions": {
+    "config_is_local": {
+      "help": "Sign in to Microsoft with a web browser on this computer?",
+      "choices": {
+        "true": "Yes, open the browser here",
+        "false": "No, sign in on another device"
+      }
+    },
+    "config_driveid": {
+      "help": "Which drive should backups go to?"
+    }
+  }
+}

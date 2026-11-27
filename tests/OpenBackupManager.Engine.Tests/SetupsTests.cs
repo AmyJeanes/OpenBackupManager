@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
 using OpenBackupManager.Rclone;
+using SetupChoice = OpenBackupManager.Core.Protocol.SetupChoice;
 using SetupQuestion = OpenBackupManager.Core.Protocol.SetupQuestion;
 
 namespace OpenBackupManager.Engine.Tests;
@@ -676,6 +677,25 @@ public class SetupsTests
                 () => client.AnswerSetupAsync("nas", "Backups", CancellationToken.None),
                 Throws.TypeOf<EngineException>().With.Message.StartsWith("nas couldn't be set up, as rclone stopped with exit code "));
             Assert.That((await SetUpAgainAsync(client, "nas")).Question, Is.Not.Null);
+        }
+    }
+
+    // Its preset answers the rest, such as our own app registration, and nothing reaches Microsoft before signing in
+    [Test]
+    public async Task OneDrive_AsksFirstToSignIn_InItsPresetsWords()
+    {
+        await StartAsync();
+        using var client = await ConnectAsync();
+
+        var first = await client.SetupRemoteAsync(new SetupRemoteParams("work", "onedrive"), CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first.Question?.Name, Is.EqualTo("config_is_local"));
+            Assert.That(first.Question?.Help, Is.EqualTo("Sign in to Microsoft with a web browser on this computer?"));
+            Assert.That(
+                first.Question?.Choices,
+                Is.EqualTo((SetupChoice[])[new("true", "Yes, open the browser here"), new("false", "No, sign in on another device")]));
         }
     }
 

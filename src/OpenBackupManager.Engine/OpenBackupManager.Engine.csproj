@@ -21,4 +21,8 @@
     <InternalsVisibleTo Include="OpenBackupManager.Engine.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Presets\*.jsonc" LogicalName="Presets/%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

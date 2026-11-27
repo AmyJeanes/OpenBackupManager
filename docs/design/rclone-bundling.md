@@ -15,6 +15,7 @@ The build fetches rclone at a pinned version and checks it's genuine, so the app
   - `RcloneConfig` keeps their config files and password.
   - `Backends` lists the backends setup offers, for `listBackends`.
   - `Setups` runs a setup for a client, through `setupRemote`, `answerSetup`, `listFolders` and `cancelSetup`: rclone's questions, then our own, each an `OwnQuestion`, with `RemoteFolders` finding folders in the remote's own case.
+  - `Preset` applies a backend's file in `Presets`, such as `onedrive.jsonc`, which answers the rclone questions we know the answers to and words the rest more plainly.
 
 ## Shipping it
 

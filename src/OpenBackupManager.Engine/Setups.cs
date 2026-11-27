@@ -82,10 +82,12 @@ internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, Rclon
             var root = config.Config.Remotes.FirstOrDefault(remote => remote.Id == id)?.Root;
             var choices = new SetupChoices { Root = root };
             OwnQuestion[] own = root is not null ? [] : [new RootQuestion(folders, choices), new RootConfirmQuestion(folders, choices)];
+            var preset = Preset.For(start.Type);
             setup = new Setup(
                 this,
                 start,
-                new RemoteSetup(rcd.Client, Section, start.Parameters ?? new Dictionary<string, string>()),
+                new RemoteSetup(rcd.Client, Section, Preset.Answer(preset, start.Parameters)),
+                preset,
                 own,
                 choices,
                 folders,
@@ -206,6 +208,7 @@ internal sealed class Setup(
     Setups setups,
     SetupRemoteParams start,
     RemoteSetup remoteSetup,
+    Preset? preset,
     IReadOnlyList<OwnQuestion> own,
     SetupChoices choices,
     RemoteFolders folders,
@@ -266,7 +269,7 @@ internal sealed class Setup(
     {
         if (await Setups.RcloneAsync(Id, () => step(remoteSetup)) is { } asked)
         {
-            Question = new SetupQuestion(
+            var question = new SetupQuestion(
                 asked.Name,
                 asked.Help,
                 asked.Default,
@@ -276,6 +279,7 @@ internal sealed class Setup(
                 asked.Exclusive,
                 asked.Type,
                 asked.Error);
+            Question = preset?.Word(question) ?? question;
             return;
         }
 

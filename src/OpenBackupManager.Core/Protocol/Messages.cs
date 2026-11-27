@@ -115,8 +115,8 @@ public sealed record ListBackendsResult(IReadOnlyList<BackendInfo> Backends);
 public sealed record BackendInfo(string Type, string Description, bool Tested, int Tier, Uri Docs);
 
 // Sets a remote up through rclone's own questions, or one that needs setting up again. Parameters answer any question
-// by its name, such as a preset's. A new one is then asked for its root, and the name is only for a new one, which is
-// added to config.toml once it's set up
+// by its name, over the engine's preset for the backend, such as someone's own client ID. A new one is then asked for
+// its root, and the name is only for a new one, which is added to config.toml once it's set up
 public sealed record SetupRemoteParams(
     string Id,
     string Type,
