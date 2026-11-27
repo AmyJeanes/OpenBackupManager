@@ -619,6 +619,8 @@ public class RemotesTests
         await EncryptedConfigAsync("onedrive", "password");
         await EncryptedConfigAsync("work", "password");
         await EncryptedConfigAsync("photos", "password");
+        // Taken out of config.toml, so no longer one to set up again
+        await EncryptedConfigAsync("old", "password");
         using var engine = EngineHost.Build(_home);
         var config = engine.Services.GetRequiredService<RcloneConfig>();
 
@@ -631,6 +633,24 @@ public class RemotesTests
             Assert.That(await config.ReadPasswordAsync(CancellationToken.None), Is.Null);
             Assert.That(File.Exists(config.FileFor("onedrive")), Is.True);
             Assert.That(File.Exists(config.FileFor("work")), Is.True);
+        }
+    }
+
+    // As it's no loss, being one taken out of config.toml
+    [Test]
+    public async Task PasswordForSetup_WithNone_ButARemovedRemotesEncryptedConfig_MakesOne()
+    {
+        await RemotesAsync("onedrive");
+        await EncryptedConfigAsync("old", "password");
+        using var engine = EngineHost.Build(_home);
+        var config = engine.Services.GetRequiredService<RcloneConfig>();
+
+        var made = await config.PasswordForSetupAsync("work", startAfresh: false, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That((await config.ReadPasswordAsync(CancellationToken.None))?.Reveal(), Is.EqualTo(made.Reveal()));
+            Assert.That(File.Exists(config.FileFor("old")), Is.False);
         }
     }
 

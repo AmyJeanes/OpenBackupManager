@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using OpenBackupManager.Core;
+using OpenBackupManager.Core.Configuration;
 using OpenBackupManager.Core.Platform;
 using OpenBackupManager.Core.Protocol;
 using OpenBackupManager.Rclone;
@@ -7,7 +8,7 @@ using OpenBackupManager.Rclone;
 namespace OpenBackupManager.Engine;
 
 // Each remote's rclone config file, all encrypted with one password kept in the secret store
-internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposable
+internal sealed class RcloneConfig(AppPaths paths, Secrets secrets, ConfigWatcher config) : IDisposable
 {
     // So two setups at once can't each make one, leaving a config encrypted with a password that's been replaced
     private readonly SemaphoreSlim _setup = new(1, 1);
@@ -20,7 +21,8 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposabl
     public string? Store => secrets.Chosen?.Name();
 
     // A new one leaves every other encrypted config unreadable, so they're deleted, only when asked, as bringing the
-    // old store back would keep them. Not the remote being set up's own, which finishing replaces and cancelling keeps
+    // old store back would keep them. Not the remote being set up's own, which finishing replaces and cancelling keeps.
+    // One taken out of config.toml isn't asked about, as it's no loss
     public async Task<Secret> PasswordForSetupAsync(string remoteId, bool startAfresh, CancellationToken cancellationToken)
     {
         await _setup.WaitAsync(cancellationToken);
@@ -34,9 +36,10 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposabl
             if (Directory.Exists(Folder))
             {
                 var others = Directory.EnumerateFiles(Folder, "*.conf").Where(file => file != FileFor(remoteId) && RcloneConfigFile.IsEncrypted(file)).ToList();
-                if (others.Count > 0 && !startAfresh)
+                var kept = others.Select(Path.GetFileNameWithoutExtension).Where(id => config.Config.Remotes.Any(remote => remote.Id == id)).ToList();
+                if (kept.Count > 0 && !startAfresh)
                 {
-                    var names = others.Select(Path.GetFileNameWithoutExtension).Order(StringComparer.Ordinal);
+                    var names = kept.Order(StringComparer.Ordinal);
                     throw new EngineException(
                         EngineProblem.NoConfigPassword,
                         $"The password for the rclone config isn't in the secret store, so {string.Join(", ", names)} can't be read. Bring back "

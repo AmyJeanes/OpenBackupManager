@@ -128,6 +128,7 @@ public class SetupsTests
     [Test]
     public async Task WithoutTheConfigPassword_ItStartsAfresh_OnlyWhenAsked()
     {
+        await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"work\"\nroot = \"\"\n");
         Directory.CreateDirectory(RcloneFolder);
         await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "work.conf"), "RCLONE_ENCRYPT_V0:\nunreadable\n");
         await StartAsync();
