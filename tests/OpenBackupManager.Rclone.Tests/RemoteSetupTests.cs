@@ -79,6 +79,24 @@ public class RemoteSetupTests
     }
 
     [Test]
+    public async Task APasswordGivenAsAParameter_IsObscured()
+    {
+        // Long enough and all base64, so it looks to rclone as if it's already obscured
+        var password = "correcthorsebatterystaple42";
+        await using var rcd = await Rcd.StartAsync(Options(), CancellationToken.None);
+        var setup = new RemoteSetup(rcd.Client, "remote", new Dictionary<string, string> { ["remote"] = Target, ["password"] = password });
+
+        var question = await setup.StartAsync("crypt", CancellationToken.None);
+        while (question is not null)
+        {
+            question = await setup.AnswerAsync("", CancellationToken.None);
+        }
+
+        var saved = Config().Split('\n').Select(line => line.Trim()).Single(line => line.StartsWith("password = ", StringComparison.Ordinal));
+        Assert.That(await RevealAsync(saved["password = ".Length..]), Is.EqualTo(password));
+    }
+
+    [Test]
     public async Task WithItsConfigUnlocked_ItsSavedEncrypted()
     {
         var options = Options();

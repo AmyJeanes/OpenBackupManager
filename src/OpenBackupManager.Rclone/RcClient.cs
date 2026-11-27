@@ -56,13 +56,13 @@ public sealed class RcClient : IDisposable
 
     // Asking every question, not only those after the options, and each one back rather than at a terminal
     internal Task<ConfigStep> CreateConfigAsync(string name, string type, IReadOnlyDictionary<string, string> parameters, CancellationToken cancellationToken) =>
-        CallAsync("config/create", new CreateConfigParams(name, type, parameters, new ConfigOpt(NonInteractive: true, All: true)),
+        CallAsync("config/create", new CreateConfigParams(name, type, parameters, new ConfigOpt(NonInteractive: true, Obscure: true, All: true)),
             RcJson.Default.CreateConfigParams, RcJson.Default.ConfigStep, cancellationToken);
 
     // Parameters answer only the questions of the call they're in, so each passes them again
     internal Task<ConfigStep> ContinueConfigAsync(
         string name, IReadOnlyDictionary<string, string> parameters, string state, string result, CancellationToken cancellationToken) =>
-        CallAsync("config/update", new UpdateConfigParams(name, parameters, new ConfigOpt(NonInteractive: true, Continue: true, State: state, Result: result)),
+        CallAsync("config/update", new UpdateConfigParams(name, parameters, new ConfigOpt(NonInteractive: true, Obscure: true, Continue: true, State: state, Result: result)),
             RcJson.Default.UpdateConfigParams, RcJson.Default.ConfigStep, cancellationToken);
 
     // As rclone keeps passwords in its config
@@ -195,7 +195,9 @@ internal sealed record CreateConfigParams(string Name, string Type, IReadOnlyDic
 
 internal sealed record UpdateConfigParams(string Name, IReadOnlyDictionary<string, string> Parameters, ConfigOpt Opt);
 
-internal sealed record ConfigOpt(bool NonInteractive, bool All = false, bool Continue = false, string? State = null, string? Result = null);
+// Obscure is for passwords among the parameters, as otherwise rclone leaves one that looks obscured as it is. Not
+// for the result, which is saved as given
+internal sealed record ConfigOpt(bool NonInteractive, bool Obscure, bool All = false, bool Continue = false, string? State = null, string? Result = null);
 
 // Where it goes next, with the question to ask there, if any. Done once State is empty
 internal sealed record ConfigStep(string? State, ConfigOption? Option, string? Error, string? Result);
