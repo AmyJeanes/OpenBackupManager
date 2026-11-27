@@ -28,6 +28,9 @@ public sealed class Rcd : IAsyncDisposable
     // However it ends, stopped or not
     public Task Exited { get; }
 
+    // From the OS, so it's true as soon as it has, where Exited completes a moment later
+    public bool HasExited => _process.HasExited;
+
     public int ExitCode => _process.ExitCode;
 
     public static async Task<Rcd> StartAsync(RcdOptions options, CancellationToken cancellationToken)
