@@ -72,10 +72,18 @@ public class SetupsTests
         }
     }
 
-    [Test]
-    public async Task OneThatNeedsSettingUp_IsSetUpWhereItIs()
+    // With no config, or one only a password that's gone could read, which setting it up replaces
+    [TestCase(null)]
+    [TestCase("RCLONE_ENCRYPT_V0:\nunreadable\n")]
+    public async Task OneThatNeedsSettingUp_IsSetUpWhereItIs(string? conf)
     {
         await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"nas\"\nroot = \"\"\n");
+        if (conf is not null)
+        {
+            Directory.CreateDirectory(RcloneFolder);
+            await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "nas.conf"), conf);
+        }
+
         await StartAsync();
         using var client = await ConnectAsync();
         await StateAsync(client, "nas", RemoteState.NeedsSetup);
@@ -92,13 +100,14 @@ public class SetupsTests
         }
     }
 
-    [Test]
-    public async Task Cancelling_LeavesWhatWasThere()
+    // One rclone can't read, or one only a password that's gone could, which bringing back its store would
+    [TestCase("not a config")]
+    [TestCase("RCLONE_ENCRYPT_V0:\nunreadable\n")]
+    public async Task Cancelling_LeavesWhatWasThere(string conf)
     {
-        // One rclone can't read
         await File.AppendAllTextAsync(_home.ConfigFile, "\n[[remotes]]\nid = \"nas\"\nroot = \"\"\n");
         Directory.CreateDirectory(RcloneFolder);
-        await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "nas.conf"), "not a config");
+        await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "nas.conf"), conf);
         await StartAsync();
         using var client = await ConnectAsync();
         await StateAsync(client, "nas", RemoteState.NeedsSetup);
@@ -108,7 +117,7 @@ public class SetupsTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(await File.ReadAllTextAsync(Path.Combine(RcloneFolder, "nas.conf")), Is.EqualTo("not a config"));
+            Assert.That(await File.ReadAllTextAsync(Path.Combine(RcloneFolder, "nas.conf")), Is.EqualTo(conf));
             Assert.That(Directory.GetFiles(RcloneFolder).Select(Path.GetFileName), Is.EqualTo(["nas.conf"]));
             // And it can be set up again
             Assert.That((await client.SetupRemoteAsync(new SetupRemoteParams("nas", "alias"), CancellationToken.None)).Question, Is.Not.Null);

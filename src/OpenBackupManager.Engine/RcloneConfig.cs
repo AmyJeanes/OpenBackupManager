@@ -19,8 +19,8 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposabl
     // Where the password is kept, as secret-store names it
     public string? Store => secrets.Chosen?.Name();
 
-    // A new one leaves every encrypted config unreadable, so they're deleted. Only when asked, while another remote has
-    // one, as bringing the old store back would keep them. The remote being set up is replacing its own anyway
+    // A new one leaves every other encrypted config unreadable, so they're deleted, only when asked, as bringing the
+    // old store back would keep them. Not the remote being set up's own, which finishing replaces and cancelling keeps
     public async Task<Secret> PasswordForSetupAsync(string remoteId, bool startAfresh, CancellationToken cancellationToken)
     {
         await _setup.WaitAsync(cancellationToken);
@@ -33,17 +33,17 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets) : IDisposabl
 
             if (Directory.Exists(Folder))
             {
-                var unreadable = Directory.EnumerateFiles(Folder, "*.conf").Where(RcloneConfigFile.IsEncrypted).ToList();
-                var others = unreadable.Where(file => file != FileFor(remoteId)).Select(Path.GetFileNameWithoutExtension).Order(StringComparer.Ordinal).ToList();
+                var others = Directory.EnumerateFiles(Folder, "*.conf").Where(file => file != FileFor(remoteId) && RcloneConfigFile.IsEncrypted(file)).ToList();
                 if (others.Count > 0 && !startAfresh)
                 {
+                    var names = others.Select(Path.GetFileNameWithoutExtension).Order(StringComparer.Ordinal);
                     throw new EngineException(
                         EngineProblem.NoConfigPassword,
-                        $"The password for the rclone config isn't in the secret store, so {string.Join(", ", others)} can't be read. Bring back "
+                        $"The password for the rclone config isn't in the secret store, so {string.Join(", ", names)} can't be read. Bring back "
                         + $"the store it was in, or start afresh, setting them all up again. See {AppLinks.Guide("files/#lost-config-password")}");
                 }
 
-                foreach (var file in unreadable)
+                foreach (var file in others)
                 {
                     File.Delete(file);
                 }

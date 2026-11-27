@@ -634,9 +634,9 @@ public class RemotesTests
         }
     }
 
-    // As nothing could read them with a new one
+    // As nothing could read them with a new one. Not its own, which a cancelled setup keeps
     [Test]
-    public async Task PasswordForSetup_WithNone_StartingAfresh_DeletesEveryEncryptedConfig()
+    public async Task PasswordForSetup_WithNone_StartingAfresh_DeletesTheOthersEncryptedConfigs()
     {
         await RemotesAsync("onedrive", "work", "photos");
         await EncryptedConfigAsync("onedrive", "password");
@@ -650,15 +650,15 @@ public class RemotesTests
         {
             Assert.That((await config.ReadPasswordAsync(CancellationToken.None))?.Reveal(), Is.EqualTo(made.Reveal()));
             Assert.That(File.Exists(config.FileFor("onedrive")), Is.False);
-            Assert.That(File.Exists(config.FileFor("work")), Is.False);
+            Assert.That(File.Exists(config.FileFor("work")), Is.True);
             // Not encrypted, so it isn't the password's
             Assert.That(File.Exists(config.FileFor("photos")), Is.True);
         }
     }
 
-    // Its own is replaced as it's set up, so it's no reason to keep the old password
+    // Its own is replaced as it's set up, so it's no reason to keep the old password, though it's kept until then
     [Test]
-    public async Task PasswordForSetup_WithNone_ButItsOwnEncryptedConfig_StartsItAfresh()
+    public async Task PasswordForSetup_WithNone_ButItsOwnEncryptedConfig_StartsItAfresh_KeepingIt()
     {
         await RemotesAsync("onedrive");
         await EncryptedConfigAsync("onedrive", "password");
@@ -670,7 +670,7 @@ public class RemotesTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That((await config.ReadPasswordAsync(CancellationToken.None))?.Reveal(), Is.EqualTo(made.Reveal()));
-            Assert.That(File.Exists(config.FileFor("onedrive")), Is.False);
+            Assert.That(File.Exists(config.FileFor("onedrive")), Is.True);
         }
     }
 
