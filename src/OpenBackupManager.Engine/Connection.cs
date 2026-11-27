@@ -15,13 +15,17 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
     private readonly Dictionary<string, Setup> _setups = [];
     private bool _greeted;
 
+    // The calls read but not yet answered, by their ids as JSON, so cancelRequest can stop one
+    private readonly Lock _cancelling = new();
+    private readonly Dictionary<string, CancellationTokenSource> _calls = [];
+
     public bool Closing { get; private set; }
 
     // Once it's answered stop, which the engine then does
     public bool Stopping { get; private set; }
 
-    // Null when nothing should be sent back: a message without an id is a notification, which JSON-RPC never answers
-    public async Task<RpcResponse?> AnswerAsync(string line, CancellationToken cancellationToken)
+    // As each line arrives, while an earlier call may still be being answered, so cancelRequest is acted on at once
+    public Received Receive(string line)
     {
         RpcRequest? request;
         try
@@ -30,19 +34,81 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
         }
         catch (JsonException)
         {
+            return new Received(Unreadable: true);
+        }
+
+        if (request is { JsonRpc: "2.0", Method: { } method })
+        {
+            if (request.Id is { } id)
+            {
+                var cancel = new CancellationTokenSource();
+                lock (_cancelling)
+                {
+                    _calls[id.GetRawText()] = cancel;
+                }
+
+                return new Received(request, cancel);
+            }
+
+            if (method == EngineProtocol.CancelRequest && Params(request.Params, ProtocolJson.Default.CancelRequestParams) is { } cancelRequest)
+            {
+                lock (_cancelling)
+                {
+                    if (_calls.TryGetValue(cancelRequest.Id.GetRawText(), out var call))
+                    {
+                        call.Cancel();
+                    }
+                }
+            }
+        }
+
+        return new Received(request);
+    }
+
+    // Null when nothing should be sent back: a message without an id is a notification, which JSON-RPC never answers
+    public async Task<RpcResponse?> AnswerAsync(Received received, CancellationToken cancellationToken)
+    {
+        if (received.Unreadable)
+        {
             return Error(null, RpcError.ParseError, "That isn't JSON");
         }
 
-        if (request is not { JsonRpc: "2.0", Method: { } method })
+        if (received.Request is not { JsonRpc: "2.0", Method: { } method } request)
         {
-            return Error(request?.Id, RpcError.InvalidRequest, "That isn't a JSON-RPC 2.0 request");
+            return Error(received.Request?.Id, RpcError.InvalidRequest, "That isn't a JSON-RPC 2.0 request");
         }
 
-        if (request.Id is not { } id)
+        if (request.Id is not { } id || received.Cancel is not { } cancel)
         {
             return null;
         }
 
+        try
+        {
+            using var answering = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cancel.Token);
+            return await AnswerAsync(id, method, request.Params, answering.Token);
+        }
+        catch (OperationCanceledException) when (cancel.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            return Error(id, RpcError.Cancelled, $"{method} was cancelled");
+        }
+        finally
+        {
+            lock (_cancelling)
+            {
+                var key = id.GetRawText();
+                if (_calls.TryGetValue(key, out var call) && call == cancel)
+                {
+                    _calls.Remove(key);
+                }
+            }
+
+            cancel.Dispose();
+        }
+    }
+
+    private async Task<RpcResponse> AnswerAsync(JsonElement id, string method, JsonElement? parameters, CancellationToken cancellationToken)
+    {
         if (!_greeted && method != EngineProtocol.Hello)
         {
             Closing = true;
@@ -53,19 +119,19 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
         {
             return method switch
             {
-                EngineProtocol.Hello => Hello(id, request.Params),
+                EngineProtocol.Hello => Hello(id, parameters),
                 EngineProtocol.Status => Result(id, status(), ProtocolJson.Default.StatusResult),
                 EngineProtocol.Stop => Stop(id),
-                EngineProtocol.MigrateSecrets => await MigrateSecretsAsync(id, request.Params, cancellationToken),
+                EngineProtocol.MigrateSecrets => await MigrateSecretsAsync(id, parameters, cancellationToken),
                 EngineProtocol.ReloadConfig => ReloadConfig(id),
-                EngineProtocol.RetryRemote => RetryRemote(id, request.Params),
+                EngineProtocol.RetryRemote => RetryRemote(id, parameters),
                 EngineProtocol.ListBackends => Result(id, new ListBackendsResult(await backends.ListAsync(cancellationToken)), ProtocolJson.Default.ListBackendsResult),
-                EngineProtocol.SetupRemote => await SetupRemoteAsync(id, request.Params, cancellationToken),
-                EngineProtocol.AnswerSetup => await AnswerSetupAsync(id, request.Params, cancellationToken),
-                EngineProtocol.ListFolders => await ListFoldersAsync(id, request.Params, cancellationToken),
-                EngineProtocol.CancelSetup => await CancelSetupAsync(id, request.Params),
+                EngineProtocol.SetupRemote => await SetupRemoteAsync(id, parameters, cancellationToken),
+                EngineProtocol.AnswerSetup => await AnswerSetupAsync(id, parameters, cancellationToken),
+                EngineProtocol.ListFolders => await ListFoldersAsync(id, parameters, cancellationToken),
+                EngineProtocol.CancelSetup => await CancelSetupAsync(id, parameters),
 #if DEBUG
-                EngineProtocol.Crash => Crash(id, request.Params),
+                EngineProtocol.Crash => Crash(id, parameters),
 #endif
                 _ => Error(id, RpcError.MethodNotFound, $"There's no method called {method}"),
             };
@@ -174,7 +240,7 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
         return Result(id, new SetupStep(setup.Question), ProtocolJson.Default.SetupStep);
     }
 
-    // A step that fails ends it, as rclone's own setup can't be told to go back
+    // A step that fails or is cancelled ends it, as rclone's own setup can't be told to go back
     private async Task<RpcResponse> AnswerSetupAsync(JsonElement id, JsonElement? parameters, CancellationToken cancellationToken)
     {
         if (Params(parameters, ProtocolJson.Default.AnswerSetupParams) is not { } answer)
@@ -195,6 +261,11 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
         {
             await EndAsync(setup);
             return Error(id, RpcError.Failed, e.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            await EndAsync(setup);
+            throw;
         }
 
         if (setup.Question is null)
@@ -284,6 +355,9 @@ internal sealed partial class Connection(Func<StatusResult> status, ConfigWatche
         return Result(id, new CrashResult(), ProtocolJson.Default.CrashResult);
     }
 #endif
+
+    // A line as it was read. A call has its own token, which cancelRequest cancels
+    internal sealed record Received(RpcRequest? Request = null, CancellationTokenSource? Cancel = null, bool Unreadable = false);
 
     // Null when they're missing or the wrong shape
     private static T? Params<T>(JsonElement? parameters, JsonTypeInfo<T> type)

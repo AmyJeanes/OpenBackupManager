@@ -24,6 +24,9 @@ public static class EngineProtocol
     public const string AnswerSetup = "answerSetup";
     public const string CancelSetup = "cancelSetup";
 
+    // LSP's, as StreamJsonRpc's is too. A notification, so it's never answered, but the call it names is, as cancelled
+    public const string CancelRequest = "$/cancelRequest";
+
 #if DEBUG
     // For testing crash reports
     public const string Crash = "crash";
@@ -65,6 +68,9 @@ public sealed record RpcError(int Code, string Message)
     // A remote can't be set up without a new config password, which would leave the others' configs unreadable, so
     // the person chooses whether to start afresh, setting them all up again
     public const int NoConfigPassword = -32003;
+
+    // LSP's, with $/cancelRequest
+    public const int Cancelled = -32800;
 }
 
 public sealed record HelloParams(int Protocol, string Version);
@@ -173,6 +179,9 @@ public sealed record CancelSetupParams(string Id);
 
 public sealed record CancelSetupResult;
 
+// Stops a call this client is waiting on, by its id, whether it's being answered or waiting its turn
+public sealed record CancelRequestParams(JsonElement Id);
+
 // What reading config.toml again found, as status gives it
 public sealed record ReloadConfigResult(IReadOnlyList<ConfigProblem> Problems);
 
@@ -243,6 +252,7 @@ public sealed record CrashResult;
 [JsonSerializable(typeof(SetupStep))]
 [JsonSerializable(typeof(CancelSetupParams))]
 [JsonSerializable(typeof(CancelSetupResult))]
+[JsonSerializable(typeof(CancelRequestParams))]
 #if DEBUG
 [JsonSerializable(typeof(CrashParams))]
 [JsonSerializable(typeof(CrashResult))]

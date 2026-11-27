@@ -204,6 +204,7 @@ public sealed class EngineClient : IDisposable
         var id = Interlocked.Increment(ref _lastId);
         var answer = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         _waiting[id] = answer;
+        var sent = false;
         try
         {
             var request = new RpcRequest("2.0", JsonSerializer.SerializeToElement(id, ProtocolJson.Default.Int32), method, parameters);
@@ -213,6 +214,7 @@ public sealed class EngineClient : IDisposable
                 // Not flushed: a pipe doesn't buffer, and flushing only checks it's open, which it may not be once the
                 // engine has answered stop
                 await _pipe.WriteAsync(EngineProtocol.Line(request, ProtocolJson.Default.RpcRequest), cancellationToken);
+                sent = true;
             }
             catch (IOException e)
             {
@@ -240,6 +242,11 @@ public sealed class EngineClient : IDisposable
                 ? value
                 : throw new EngineException($"The engine didn't answer {method}");
         }
+        catch (OperationCanceledException) when (callerToken.IsCancellationRequested && sent)
+        {
+            await CancelAsync(id);
+            throw;
+        }
         catch (OperationCanceledException e) when (!callerToken.IsCancellationRequested)
         {
             throw new EngineException(
@@ -249,6 +256,29 @@ public sealed class EngineClient : IDisposable
         finally
         {
             _waiting.TryRemove(id, out _);
+        }
+    }
+
+    // So the engine stops working on a call its caller gave up on, such as a sign-in someone cancelled
+    private async Task CancelAsync(int id)
+    {
+        var parameters = new CancelRequestParams(JsonSerializer.SerializeToElement(id, ProtocolJson.Default.Int32));
+        var notification = new RpcRequest(
+            "2.0",
+            Method: EngineProtocol.CancelRequest,
+            Params: JsonSerializer.SerializeToElement(parameters, ProtocolJson.Default.CancelRequestParams));
+        await _writing.WaitAsync();
+        try
+        {
+            await _pipe.WriteAsync(EngineProtocol.Line(notification, ProtocolJson.Default.RpcRequest));
+        }
+        catch (IOException)
+        {
+            // The engine's gone, and the call with it
+        }
+        finally
+        {
+            _writing.Release();
         }
     }
 

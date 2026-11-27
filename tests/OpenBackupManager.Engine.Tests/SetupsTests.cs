@@ -629,17 +629,7 @@ public class SetupsTests
     public async Task ClosingTheConnection_DuringALongCall_EndsIt()
     {
         using var server = new TcpListener(IPAddress.Loopback, 0);
-        server.Start();
-        var url = $"http://127.0.0.1:{((IPEndPoint)server.LocalEndpoint).Port}/";
-        await StartAsync();
-        var client = await ConnectAsync();
-        var step = await client.SetupRemoteAsync(
-            new SetupRemoteParams("nas", "http", Parameters: new Dictionary<string, string> { ["url"] = url }),
-            CancellationToken.None);
-        while (step.Question is { Name: not SetupQuestion.Root } question)
-        {
-            step = await client.AnswerSetupAsync("nas", question.Default, CancellationToken.None);
-        }
+        var client = await AtTheRootOfAsync(server);
 
         var answering = client.AnswerSetupAsync("nas", "Backups", CancellationToken.None);
         using var asked = await server.AcceptTcpClientAsync().WaitAsync(Timeout);
@@ -648,6 +638,22 @@ public class SetupsTests
         Assert.That(async () => await answering, Throws.TypeOf<EngineException>());
         using var another = await ConnectAsync();
         Assert.That((await SetUpAgainAsync(another, "nas")).Question, Is.Not.Null);
+    }
+
+    // Such as the app's Cancel during a sign-in, which the engine stops too, rather than finishing it first
+    [Test]
+    public async Task CancellingALongCall_StopsItInTheEngine_AndEndsTheSetup()
+    {
+        using var server = new TcpListener(IPAddress.Loopback, 0);
+        using var client = await AtTheRootOfAsync(server);
+        using var cancel = new CancellationTokenSource();
+
+        var answering = client.AnswerSetupAsync("nas", "Backups", cancel.Token);
+        using var asked = await server.AcceptTcpClientAsync().WaitAsync(Timeout);
+        await cancel.CancelAsync();
+
+        Assert.That(async () => await answering, Throws.InstanceOf<OperationCanceledException>());
+        Assert.That((await SetUpAgainAsync(client, "nas").WaitAsync(Timeout)).Question, Is.Not.Null);
     }
 
     [Test]
@@ -740,6 +746,24 @@ public class SetupsTests
         await StartAsync();
         var client = await ConnectAsync();
         var step = await client.SetupRemoteAsync(new SetupRemoteParams("nas", "local"), CancellationToken.None);
+        while (step.Question is { Name: not SetupQuestion.Root } question)
+        {
+            step = await client.AnswerSetupAsync("nas", question.Default, CancellationToken.None);
+        }
+
+        return client;
+    }
+
+    // At the root question, through http to a server that never answers, so listing a folder waits
+    private async Task<EngineClient> AtTheRootOfAsync(TcpListener server)
+    {
+        server.Start();
+        var url = $"http://127.0.0.1:{((IPEndPoint)server.LocalEndpoint).Port}/";
+        await StartAsync();
+        var client = await ConnectAsync();
+        var step = await client.SetupRemoteAsync(
+            new SetupRemoteParams("nas", "http", Parameters: new Dictionary<string, string> { ["url"] = url }),
+            CancellationToken.None);
         while (step.Question is { Name: not SetupQuestion.Root } question)
         {
             step = await client.AnswerSetupAsync("nas", question.Default, CancellationToken.None);

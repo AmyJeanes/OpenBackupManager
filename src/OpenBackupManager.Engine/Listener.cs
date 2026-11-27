@@ -161,11 +161,11 @@ internal sealed partial class Listener(
             // Cancelled once the client goes, as well as when the engine stops, so what it asked stops with it, such
             // as a sign-in that waits for a browser, rather than running on
             using var open = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var lines = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
-            var reading = ReadAsync(pipe, lines.Writer, open);
+            var lines = Channel.CreateUnbounded<Connection.Received>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+            await using var connection = new Connection(Status, config, secrets, remotes, setups, backends, logger);
+            var reading = ReadAsync(pipe, lines.Writer, connection, open);
             try
             {
-                await using var connection = new Connection(Status, config, secrets, remotes, setups, backends, logger);
                 await foreach (var line in lines.Reader.ReadAllAsync(open.Token))
                 {
                     if (await connection.AnswerAsync(line, open.Token) is { } response)
@@ -202,15 +202,16 @@ internal sealed partial class Listener(
         }
     }
 
-    // All along, not only between calls, so a client that goes is seen during one. Calls are still answered in turn
-    private static async Task ReadAsync(NamedPipeServerStream pipe, ChannelWriter<string> lines, CancellationTokenSource open)
+    // All along, not only between calls, so a client that goes, or cancels a call, is seen during one. Calls are still
+    // answered in turn
+    private static async Task ReadAsync(NamedPipeServerStream pipe, ChannelWriter<Connection.Received> lines, Connection connection, CancellationTokenSource open)
     {
         try
         {
             using var reader = new StreamReader(pipe, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
             while (await reader.ReadLineAsync(open.Token) is { } line)
             {
-                await lines.WriteAsync(line, open.Token);
+                await lines.WriteAsync(connection.Receive(line), open.Token);
             }
         }
         catch (Exception e) when (e is OperationCanceledException or IOException)
