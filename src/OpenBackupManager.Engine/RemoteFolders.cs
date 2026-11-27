@@ -138,14 +138,14 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
             {
                 throw new RcloneException("the test file written there was missing or cut short");
             }
+
+            await rclone.DeleteFileAsync(fs, name, cancellationToken);
         }
         catch
         {
             await DeleteAfterAFailureAsync(fs, name);
             throw;
         }
-
-        await rclone.DeleteFileAsync(fs, name, cancellationToken);
     }
 
     // Even once what asked has gone, though not for long, as the setup's rclone stops once the check returns. Quietly,

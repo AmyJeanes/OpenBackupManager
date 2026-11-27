@@ -70,6 +70,33 @@ public class RemoteFoldersTests
         Assert.That(rc.Calls.Select(call => call.Path), Does.Contain("operations/deletefile"));
     }
 
+    [Test]
+    public async Task ACheckCancelledAsItDeletes_DeletesAgain()
+    {
+        using var cancelling = new CancellationTokenSource();
+        var deletes = 0;
+        await using var rc = FakeHttp.OnSocket(Socket, path =>
+        {
+            switch (path)
+            {
+                case "operations/stat":
+                    return (200, """{"item":{"Path":"x","Name":"x","Size":64,"IsDir":false}}""");
+                case "operations/deletefile" when Interlocked.Increment(ref deletes) == 1:
+                    cancelling.Cancel();
+                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                    return (200, Done);
+                default:
+                    return (200, Done);
+            }
+        });
+        using var rclone = new RcClient(Socket);
+
+        Assert.That(
+            () => new RemoteFolders(rclone, "nas:", fullPathsOnly: false).WriteTestAsync("Backups/", cancelling.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+        Assert.That(rc.Calls.Count(call => call.Path == "operations/deletefile"), Is.EqualTo(2));
+    }
+
     // Such as when OneDrive asks it to wait before trying again
     [Test]
     public async Task ACheckThatPasses_WaitsForASlowDelete()
