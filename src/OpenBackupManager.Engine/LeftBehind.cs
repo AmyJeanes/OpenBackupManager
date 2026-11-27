@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
@@ -40,18 +39,9 @@ internal static partial class LeftBehind
         {
             foreach (var file in Directory.EnumerateFiles(configs, "*.conf*").Where(file => !file.EndsWith(".conf", StringComparison.Ordinal)))
             {
-                var saving = MovedAside().Match(file) is { Success: true } aside ? aside.Groups[1].Value : null;
                 try
                 {
-                    // rclone moves a config aside as it saves, so one it was stopped saving has only that copy
-                    if (saving is not null && !File.Exists(saving))
-                    {
-                        File.Move(file, saving);
-                    }
-                    else
-                    {
-                        File.Delete(file);
-                    }
+                    File.Delete(file);
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
@@ -60,10 +50,6 @@ internal static partial class LeftBehind
             }
         }
     }
-
-    // Its name, .old and a number, as rclone names it
-    [GeneratedRegex(@"\A(.+\.conf)\.old[0-9]*\z")]
-    private static partial Regex MovedAside();
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't clear {Path}, left by an engine that ended without stopping")]
     private static partial void LogNotCleared(ILogger logger, string path, Exception exception);
