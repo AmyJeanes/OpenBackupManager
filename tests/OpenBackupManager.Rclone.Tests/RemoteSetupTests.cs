@@ -187,13 +187,24 @@ public class RemoteSetupTests
 
     private string Config() => File.ReadAllText(Path.Combine(_folder, "rclone.conf"));
 
-    // With rclone's own reveal, and no config of the user's
+    // With rclone's own reveal, and no config of the user's. Saying how it ended, as on macOS it's printed nothing
     private static async Task<string> RevealAsync(string obscured)
     {
-        using var reveal = Process.Start(new ProcessStartInfo(BundledRclone.FilePath, ["reveal", "--config", "", obscured]) { RedirectStandardOutput = true })!;
-        var clear = await reveal.StandardOutput.ReadToEndAsync();
+        using var reveal = Process.Start(new ProcessStartInfo(BundledRclone.FilePath, ["reveal", "--config", "", obscured])
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        })!;
+        var output = reveal.StandardOutput.ReadToEndAsync();
+        var errors = reveal.StandardError.ReadToEndAsync();
         await reveal.WaitForExitAsync();
-        return clear.TrimEnd('\r', '\n');
+        var clear = (await output).TrimEnd('\r', '\n');
+        if (reveal.ExitCode != 0 || clear.Length == 0)
+        {
+            Assert.Fail($"rclone reveal printed \"{clear}\" and exited with {reveal.ExitCode}, saying: {await errors}");
+        }
+
+        return clear;
     }
 
     private RcdOptions Options() => new(
