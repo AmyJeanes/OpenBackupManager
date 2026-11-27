@@ -49,20 +49,22 @@ internal sealed class Backends(AppPaths paths)
         [
             .. providers
                 .Where(Offered)
-                .Select(provider => new BackendInfo(provider.Prefix, provider.Description, Tested.Contains(provider.Prefix), Tier(provider), Docs(provider)))
+                .Select(provider => new BackendInfo(provider.Prefix, provider.Description, Tested.Contains(provider.Prefix), Tier(provider.Overview.Tier)!.Value, Docs(provider)))
                 .OrderBy(backend => backend.Tested ? Array.IndexOf(Tested, backend.Type) : Tested.Length)
                 .ThenBy(backend => backend.Type, StringComparer.Ordinal),
         ];
     }
 
     // Not a wrapper, such as crypt, which comes later as part of setting up a remote; not an old name for another; not
-    // one rclone no longer maintains (tier 5); and not one its tests can't run on, as only the read-only ones are
+    // one rclone no longer maintains (tier 5) or rates some other way; and not one its tests can't run on, as only the
+    // read-only ones are
     private static bool Offered(Provider provider) =>
-        !provider.Overview.Virtual && !provider.Hide && Tier(provider) < 5 && provider.Overview.IntegrationTests != "N/A";
+        !provider.Overview.Virtual && !provider.Hide && Tier(provider.Overview.Tier) < 5 && provider.Overview.IntegrationTests != "N/A";
 
     // Named as rclone names the backend, without its spaces, such as rclone.org/googlecloudstorage
     private static Uri Docs(Provider provider) => new($"https://rclone.org/{provider.Name.Replace(" ", "", StringComparison.Ordinal)}/");
 
-    // Such as "Tier 1"
-    private static int Tier(Provider provider) => int.Parse(provider.Overview.Tier.Split(' ')[^1], CultureInfo.InvariantCulture);
+    // Such as "Tier 1", or null for a rating that isn't, so only that backend is left out rather than the list failing
+    internal static int? Tier(string rating) =>
+        int.TryParse(rating.Split(' ')[^1], CultureInfo.InvariantCulture, out var tier) ? tier : null;
 }

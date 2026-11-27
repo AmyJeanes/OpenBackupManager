@@ -70,6 +70,10 @@ public class BackendsTests
         Assert.That(backends.Select(backend => backend.Type), Has.No.Member(type));
     }
 
+    [TestCase("Tier 1", 1)]
+    [TestCase("Unrated", null)]
+    public void ATier_IsReadFromRclonesRating(string rating, int? tier) => Assert.That(Backends.Tier(rating), Is.EqualTo(tier));
+
     [Test]
     public async Task TheRcloneAsked_IsntLeftRunning()
     {
