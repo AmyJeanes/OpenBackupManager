@@ -2,4 +2,5 @@ using OpenBackupManager.Core.Protocol;
 
 namespace OpenBackupManager.Engine;
 
-public sealed record EngineOptions(EngineStarter StartedBy, string? ServiceFile = null);
+// Obmd is the file UpdateWatcher watches, or null for none
+public sealed record EngineOptions(EngineStarter StartedBy, string? ServiceFile = null, string? Obmd = null);

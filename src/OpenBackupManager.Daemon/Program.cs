@@ -42,7 +42,7 @@ command.SetAction((parseResult, cancellationToken) =>
     var paths = AppHome.CommandLinePaths(parseResult.GetValue(homeOption), Installed);
     return parseResult.GetValue(removeSecretsOption)
         ? SecretsRemoval.RunAsync(paths, services => AddPlatform(services, paths), cancellationToken)
-        : RunAsync(paths, new EngineOptions(parseResult.GetValue(startedByOption), parseResult.GetValue(serviceFileOption)), cancellationToken);
+        : RunAsync(paths, new EngineOptions(parseResult.GetValue(startedByOption), parseResult.GetValue(serviceFileOption), UpdateWatcher.Running()), cancellationToken);
 });
 
 // The host handles Ctrl+C and SIGTERM itself. System.CommandLine's own handling would end the process if stopping took

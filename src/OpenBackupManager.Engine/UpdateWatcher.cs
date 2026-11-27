@@ -27,22 +27,35 @@ public sealed partial class UpdateWatcher(
 
     private static readonly TimeSpan VersionTimeout = TimeSpan.FromSeconds(10);
 
+    // Read as it's made, before the engine starts, as ExecuteAsync runs later on the thread pool, by when an update may
+    // already have replaced it. One in the moment before this, as the process starts, is missed until a restart
+    private readonly (DateTime, long)? _started = options.Obmd is { } obmd ? Identity(obmd) : null;
+
     public int ExitCode { get; private set; }
 
     // The version an update installed, while this engine still runs the one before it
     public string? Installed { get; private set; }
 
+    // The obmd this process runs, to watch. Not when run through dotnet, as in development
+    public static string? Running()
+    {
+        if (OperatingSystem.IsWindows() || Environment.ProcessPath is not { } path || Path.GetFileName(path) != "obmd")
+        {
+            return null;
+        }
+
+        // Where it really is, when run through a link such as /usr/bin/obmd
+        return new FileInfo(path).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? path;
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Not when run through dotnet, as in development
-        if (OperatingSystem.IsWindows() || Environment.ProcessPath is not { } path || Path.GetFileName(path) != "obmd")
+        if (options.Obmd is not { } obmd)
         {
             return;
         }
 
-        // Where it really is, when run through a link such as /usr/bin/obmd
-        var obmd = new FileInfo(path).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? path;
-        var running = Identity(obmd);
+        var running = _started;
         var last = running;
         using var timer = new PeriodicTimer(CheckEvery, time);
         // Disposed rather than cancelled: a cancelled wait throws, logged as a crash when the engine can't start
