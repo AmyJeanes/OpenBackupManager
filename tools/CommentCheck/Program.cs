@@ -15,7 +15,8 @@ if (files is null)
 var over = 0;
 foreach (var file in files)
 {
-    if (Marker(file) is not { } marker)
+    // One that isn't there, such as one staged then deleted, has nothing to check
+    if (Marker(file) is not { } marker || !File.Exists(file))
     {
         continue;
     }
