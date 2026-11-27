@@ -9,6 +9,9 @@ internal sealed class Tool : IDisposable
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
+    // What Update installs
+    public const string NextVersion = "99.0.0";
+
     private readonly string _name;
     private readonly Process _process;
     private readonly List<string> _lines = [];
@@ -138,12 +141,16 @@ internal sealed class Tool : IDisposable
         }
     }
 
-    // As a package manager does, by renaming a newer file over it
+    // As a package manager does, by renaming another version over it. Here it's a script that says it's NextVersion,
+    // and runs this build for anything else, so a service restarting into it starts an engine
+    [UnsupportedOSPlatform("windows")]
     public static void Update(string file)
     {
+        var build = file + "-build";
+        File.Copy(file, build);
         var next = file + ".new";
-        File.Copy(file, next);
-        File.SetLastWriteTimeUtc(next, File.GetLastWriteTimeUtc(file).AddMinutes(1));
+        File.WriteAllText(next, $"#!/bin/sh\nif [ \"$1\" = --version ]; then echo {NextVersion}; exit; fi\nexec '{build}' \"$@\"\n");
+        File.SetUnixFileMode(next, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         File.Move(next, file, overwrite: true);
     }
 

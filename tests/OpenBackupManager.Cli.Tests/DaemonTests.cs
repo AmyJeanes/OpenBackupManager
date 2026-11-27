@@ -338,6 +338,7 @@ public class DaemonTests
     // As a .deb or .rpm does when it's upgraded. Nothing would start it again, so it carries on with the version before
     [Test]
     [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
     public void AnUpdate_StartedByHand_IsReported()
     {
         var home = NewHome();
@@ -351,7 +352,7 @@ public class DaemonTests
         daemon.WaitFor("is installed, but this engine runs the version before it until it's restarted");
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(Tool.Run("obm", "status", "--home", home).Output, Does.Contain($"Installed: {AppVersion.Current}, which runs once you restart the engine"));
+            Assert.That(Tool.Run("obm", "status", "--home", home).Output, Does.Contain($"Installed: {Tool.NextVersion}, which runs once you restart the engine"));
             Assert.That(daemon.HasExited, Is.False);
         }
     }
@@ -359,6 +360,7 @@ public class DaemonTests
     // Its service restarts it into the new version
     [Test]
     [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
     public void AnUpdate_StartedByItsService_Exits()
     {
         var obmd = CopyOfObmd();
@@ -378,6 +380,7 @@ public class DaemonTests
     // A new engine wouldn't start with the error, and its service would soon give up on it
     [Test]
     [Platform(Exclude = "Win")]
+    [UnsupportedOSPlatform("windows")]
     public void AnUpdate_StartedByItsService_WaitsForAnErrorInConfigTomlToBeFixed()
     {
         var home = NewHome();
@@ -394,7 +397,7 @@ public class DaemonTests
         daemon.WaitFor("is installed, but config.toml has an error a new engine wouldn't start with, so this one keeps running until it's fixed");
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(Tool.Run("obm", "status", "--home", home).Output, Does.Contain($"Installed: {AppVersion.Current}, which runs once config.toml's error is fixed"));
+            Assert.That(Tool.Run("obm", "status", "--home", home).Output, Does.Contain($"Installed: {Tool.NextVersion}, which runs once config.toml's error is fixed"));
             Assert.That(daemon.HasExited, Is.False);
         }
 

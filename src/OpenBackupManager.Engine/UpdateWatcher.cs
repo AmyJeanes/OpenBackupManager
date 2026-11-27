@@ -27,23 +27,37 @@ public sealed partial class UpdateWatcher(
 
     private static readonly TimeSpan VersionTimeout = TimeSpan.FromSeconds(10);
 
+    // No file's, so the next check counts as a change
+    private static readonly (DateTime, long)? Unknown = (DateTime.MinValue, -1);
+
     public int ExitCode { get; private set; }
 
     // The version an update installed, while this engine still runs the one before it
     public string? Installed { get; private set; }
 
+    // The obmd this process runs, to watch. Not when run through dotnet, as in development
+    public static string? Running()
+    {
+        if (OperatingSystem.IsWindows() || Environment.ProcessPath is not { } path || Path.GetFileName(path) != "obmd")
+        {
+            return null;
+        }
+
+        // Where it really is, when run through a link such as /usr/bin/obmd
+        return new FileInfo(path).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? path;
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Not when run through dotnet, as in development
-        if (OperatingSystem.IsWindows() || Environment.ProcessPath is not { } path || Path.GetFileName(path) != "obmd")
+        if (options.Obmd is not { } obmd)
         {
             return;
         }
 
-        // Where it really is, when run through a link such as /usr/bin/obmd
-        var obmd = new FileInfo(path).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? path;
-        var running = Identity(obmd);
-        var last = running;
+        // Asked its version once it's the same at two checks in a row, so a file still being written isn't run: first
+        // as the engine starts, as an update may already have replaced it, then each time it changes
+        var last = Identity(obmd);
+        var asked = Unknown;
         using var timer = new PeriodicTimer(CheckEvery, time);
         // Disposed rather than cancelled: a cancelled wait throws, logged as a crash when the engine can't start
         using var stopping = stoppingToken.Register(timer.Dispose);
@@ -57,12 +71,11 @@ public sealed partial class UpdateWatcher(
             // Can't tell, such as while its folder's permissions change, so the two checks in a row start again
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                last = running;
+                last = Unknown;
                 continue;
             }
 
-            // Only once it's the same at two checks in a row, so a file still being written isn't run
-            if (now != last || now == running)
+            if (now != last || now == asked)
             {
                 last = now;
             }
@@ -79,8 +92,14 @@ public sealed partial class UpdateWatcher(
             }
             else
             {
-                running = now;
-                if (Version(obmd) is { } version)
+                asked = now;
+                var version = Version(obmd);
+                // Such as one reinstalled, or put back after an update, which has nothing new to restart into
+                if (version == AppVersion.Current)
+                {
+                    Installed = null;
+                }
+                else if (version is not null)
                 {
                     Installed = version;
                     if (options.StartedBy != EngineStarter.Service)
