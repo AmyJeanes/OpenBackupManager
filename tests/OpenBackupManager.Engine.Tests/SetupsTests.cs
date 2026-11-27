@@ -222,6 +222,26 @@ public class SetupsTests
         }
     }
 
+    // As rclone saves a config by moving it aside first, so if it was stopped before putting the new one in its place,
+    // that's the only copy
+    [Test]
+    public async Task Starting_PutsBackAConfigRcloneWasStoppedSaving()
+    {
+        Directory.CreateDirectory(RcloneFolder);
+        await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "nas.conf.old123456789"), "[remote]\ntype = local\n");
+        await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "nas.conf987654321"), "[remote]\n");
+        // Moved aside from a setup's copy, so deleted rather than put back
+        await File.WriteAllTextAsync(Path.Combine(RcloneFolder, "nas.conf.setup.old123456789"), "[remote]\n");
+
+        await StartAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Directory.GetFiles(RcloneFolder).Select(Path.GetFileName), Is.EqualTo(["nas.conf"]));
+            Assert.That(await File.ReadAllTextAsync(Path.Combine(RcloneFolder, "nas.conf")), Is.EqualTo("[remote]\ntype = local\n"));
+        }
+    }
+
     [Test]
     public async Task WhenConfigTomlCantTakeIt_ItIsntSetUp()
     {
