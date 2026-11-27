@@ -135,6 +135,16 @@ public class SecretsTests
         Assert.That(secrets.Status().FromEnvironment, Is.EqualTo(["OBM_HEARTBEAT_SECRET_FILE"]));
     }
 
+    // As only Windows ignores case in their names, so only there is it used
+    [Test]
+    public void Status_NamesOneInLowerCase_OnlyOnWindows()
+    {
+        var secrets = SecretsWith("secret-store = \"file\"");
+        using var given = new EnvironmentVariable("obm_heartbeat_secret", "given");
+
+        Assert.That(secrets.Status().FromEnvironment, OperatingSystem.IsWindows() ? Is.EqualTo(["obm_heartbeat_secret"]) : Is.Null);
+    }
+
     [Test]
     public void Status_WithNoVariables_LeavesThemOut() =>
         Assert.That(SecretsWith("secret-store = \"file\"").Status().FromEnvironment, Is.Null);

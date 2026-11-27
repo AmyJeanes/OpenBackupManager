@@ -52,8 +52,10 @@ public sealed partial class Secrets(IServiceProvider services, ConfigWatcher con
 
     internal SecretsStatus Status()
     {
+        // Windows ignores case in their names, so there one in lower case is used too
         var fromEnvironment = Environment.GetEnvironmentVariables().Keys.Cast<string>()
-            .Where(variable => EnvVarPattern().IsMatch(variable) && Environment.GetEnvironmentVariable(variable) is { Length: > 0 })
+            .Where(variable => EnvVarPattern().IsMatch(OperatingSystem.IsWindows() ? variable.ToUpperInvariant() : variable)
+                && Environment.GetEnvironmentVariable(variable) is { Length: > 0 })
             .Order(StringComparer.Ordinal)
             .ToList() is { Count: > 0 } found ? found : null;
         return Chosen is { } kind
