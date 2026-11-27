@@ -343,6 +343,19 @@ public class ConfigFileTests
         Assert.That(new ConfigFile(FilePath).Read().Config!.Remotes.Select(remote => remote.Id), Is.EquivalentTo(ids));
     }
 
+    // As TOML takes a backslash in a quoted string as the start of an escape, which a Windows root is full of
+    [TestCase(@"D:\Backups\new\")]
+    [TestCase(@"\\nas\share\Back ups\")]
+    [TestCase("Mine \"quoted\"\twith # in it/")]
+    public void Add_KeepsARootAsGiven(string root)
+    {
+        File.WriteAllText(FilePath, "version = 1\n");
+
+        new ConfigFile(FilePath).Add("remotes", [("id", "nas"), ("root", root)]);
+
+        Assert.That(new ConfigFile(FilePath).Read().Config!.Remotes.Single().Root, Is.EqualTo(root));
+    }
+
     [Test]
     public void Add_LeavesTheFileAlone_WhenItWouldBreakIt()
     {
