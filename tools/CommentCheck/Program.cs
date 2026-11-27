@@ -6,6 +6,12 @@ using System.Diagnostics;
 const int Most = 120;
 
 var files = args.Length > 0 ? args : Tracked();
+if (files is null)
+{
+    Console.Error.WriteLine("git couldn't list the files, so none were checked");
+    return 1;
+}
+
 var over = 0;
 foreach (var file in files)
 {
@@ -35,10 +41,11 @@ static string? Marker(string file) => Path.GetExtension(file) switch
     _ => Path.GetFileName(file) is "Dockerfile" or "pre-commit" ? "#" : null,
 };
 
-static string[] Tracked()
+// Null if git fails, such as outside a checkout or in one owned by another user, which would otherwise pass unchecked
+static string[]? Tracked()
 {
     using var git = Process.Start(new ProcessStartInfo("git", ["ls-files"]) { RedirectStandardOutput = true })!;
     var files = git.StandardOutput.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries);
     git.WaitForExit();
-    return files;
+    return git.ExitCode == 0 ? files : null;
 }
