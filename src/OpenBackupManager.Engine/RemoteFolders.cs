@@ -37,8 +37,9 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
         string? nearMiss = null;
         var aboveUnlisted = false;
         var missing = false;
-        // Not in the listing above, so only there if that listing hid it
+        // Not in the listing above, so only there if that listing hid it, or the remote ignores case after all
         var unseen = false;
+        string? otherCase = null;
         IReadOnlyList<ListItem>? items = null;
         for (var level = 0; ; level++)
         {
@@ -52,12 +53,26 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
                 try
                 {
                     items = await rclone.ListAsync(remote + top + string.Join(separator, found), "", dirsOnly: !root, cancellationToken);
+                    // In a bucket a folder is only part of its files' names, so one that isn't there lists empty. Not a
+                    // bucket itself, which may be another account's and so not listed
+                    if (unseen && _features.BucketBased && found.Count > 1)
+                    {
+                        items = null;
+                    }
+
                     missing = items is null;
-                    // As local's does, listing a folder it can't open as empty
                     if (unseen && !missing)
                     {
-                        aboveUnlisted = true;
                         nearMiss = null;
+                        if (otherCase is not null)
+                        {
+                            found[^1] = otherCase;
+                        }
+                        else
+                        {
+                            // As local's does, listing a folder it can't open as empty
+                            aboveUnlisted = true;
+                        }
                     }
                 }
                 catch (RcloneException) when (!root)
@@ -86,6 +101,7 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
                 ?? folders?.FirstOrDefault(folder => Same(folder, part, ignoreCase: false))
                 ?? (_features.CaseInsensitive ? folders?.FirstOrDefault(folder => Same(folder, part, ignoreCase: true)) : null);
             unseen = name is null && folders is not null;
+            otherCase = name is null ? folders?.FirstOrDefault(folder => Same(folder, part, ignoreCase: true)) : null;
             if (name is null && folders is not null)
             {
                 nearMiss = Nearest(folders, part) is { } near

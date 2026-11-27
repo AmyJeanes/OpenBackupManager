@@ -88,5 +88,47 @@ public class RemoteFoldersTests
         Assert.That(found.Path, Is.EqualTo(composed + "/"));
     }
 
+    // As S3's and the others' folders are only part of their files' names, so one that isn't there lists as empty
+    [Test]
+    public async Task AFolderThatIsntThere_InABucket_IsMissing()
+    {
+        await using var rc = FakeHttp.OnSocket(
+            Socket,
+            """{"features":{"caseInsensitive":false,"isLocal":false,"bucketBased":true}}""",
+            """{"list":[{"path":"bucket","name":"bucket","isDir":true}]}""",
+            """{"list":[{"path":"bucket/Backups","name":"Backups","isDir":true}]}""",
+            """{"list":[]}""");
+        using var rclone = new RcClient(Socket);
+
+        var found = await new RemoteFolders(rclone, "s3:", fullPathsOnly: false).FindAsync("bucket/Bakups", CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(found.Folders, Is.Null);
+            Assert.That(found.NearMiss, Is.EqualTo("bucket/Backups/"));
+            Assert.That(found.AboveUnlisted, Is.False);
+        }
+    }
+
+    // Such as SFTP to a Windows server, which rclone can't tell ignores case
+    [Test]
+    public async Task AFolderInAnotherCase_ThatListsAsTyped_TakesItsOwnCase()
+    {
+        await using var rc = FakeHttp.OnSocket(
+            Socket,
+            """{"features":{"caseInsensitive":false,"isLocal":false,"bucketBased":false}}""",
+            """{"list":[{"path":"Backups","name":"Backups","isDir":true}]}""",
+            """{"list":[]}""");
+        using var rclone = new RcClient(Socket);
+
+        var found = await new RemoteFolders(rclone, "nas:", fullPathsOnly: false).FindAsync("backups", CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(found.Path, Is.EqualTo("Backups/"));
+            Assert.That(found.AboveUnlisted, Is.False);
+        }
+    }
+
     private static string Error(string message) => $"{{\"error\":\"{message}\"}}";
 }

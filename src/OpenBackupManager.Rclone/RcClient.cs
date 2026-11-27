@@ -69,7 +69,7 @@ public sealed class RcClient : IDisposable
     internal async Task<string> ObscureAsync(string clear, CancellationToken cancellationToken) =>
         (await CallAsync("core/obscure", new ObscureParams(clear), RcJson.Default.ObscureParams, RcJson.Default.ObscureResult, cancellationToken)).Obscured;
 
-    // Of which only whether it ignores case is read
+    // Of which only a few of its features are read
     public Task<FsInfoResult> FsInfoAsync(string fs, CancellationToken cancellationToken) =>
         CallAsync("operations/fsinfo", new FsParams(fs), RcJson.Default.FsParams, RcJson.Default.FsInfoResult, cancellationToken);
 
@@ -162,7 +162,7 @@ public sealed record ListRemotesResult(IReadOnlyList<string>? Remotes);
 
 public sealed record FsInfoResult(FsFeatures Features);
 
-public sealed record FsFeatures(bool CaseInsensitive, bool IsLocal);
+public sealed record FsFeatures(bool CaseInsensitive, bool IsLocal, bool BucketBased);
 
 // Path is from the root of the remote it was listed through, in the case it was asked for, while Name is in its own
 public sealed record ListItem(string Path, string Name, long Size, bool IsDir);

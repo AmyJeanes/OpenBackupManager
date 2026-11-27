@@ -105,6 +105,6 @@ public class OperationsTests
     {
         var features = (await Client.FsInfoAsync(Fs, CancellationToken.None)).Features;
 
-        Assert.That(features, Is.EqualTo(new FsFeatures(CaseInsensitive: !OperatingSystem.IsLinux(), IsLocal: true)));
+        Assert.That(features, Is.EqualTo(new FsFeatures(CaseInsensitive: !OperatingSystem.IsLinux(), IsLocal: true, BucketBased: false)));
     }
 }
