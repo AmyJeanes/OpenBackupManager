@@ -187,10 +187,11 @@ public class RemoteSetupTests
 
     private string Config() => File.ReadAllText(Path.Combine(_folder, "rclone.conf"));
 
-    // With rclone's own reveal, and no config of the user's. Saying how it ended, as on macOS it's printed nothing
+    // With rclone's own reveal, and no config of the user's. After --, as one in 64 starts with -, which rclone would
+    // take as a flag. Saying how it ended otherwise
     private static async Task<string> RevealAsync(string obscured)
     {
-        using var reveal = Process.Start(new ProcessStartInfo(BundledRclone.FilePath, ["reveal", "--config", "", obscured])
+        using var reveal = Process.Start(new ProcessStartInfo(BundledRclone.FilePath, ["reveal", "--config", "", "--", obscured])
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
