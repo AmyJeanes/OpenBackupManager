@@ -286,6 +286,12 @@ internal sealed class Setup(
     private async Task AnswerOwnAsync(string answer, CancellationToken cancellationToken)
     {
         var answered = await own[_own].AnswerAsync(answer, cancellationToken);
+        // Ours take rclone's errors as the answer's fault, so they'd be asked forever with nothing to reach the remote
+        if (rcd.Exited.IsCompleted)
+        {
+            throw new EngineException($"{Id} couldn't be set up, as rclone stopped with exit code {rcd.ExitCode}");
+        }
+
         _own += answered.Move;
         await AskOwnAsync(answered.Why, cancellationToken);
     }

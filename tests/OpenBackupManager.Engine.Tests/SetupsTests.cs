@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenBackupManager.Core;
 using OpenBackupManager.Core.Protocol;
@@ -654,6 +656,27 @@ public class SetupsTests
 
         Assert.That(async () => await answering, Throws.InstanceOf<OperationCanceledException>());
         Assert.That((await SetUpAgainAsync(client, "nas").WaitAsync(Timeout)).Question, Is.Not.Null);
+    }
+
+    // Rather than asking for the root again forever, as nothing can reach the remote
+    [Test]
+    public async Task OneWhoseRcloneHasStopped_Ends()
+    {
+        using var client = await SignedInAsync();
+        using (var rc = new RcClient(_engine!.Services.GetRequiredService<Remotes>().Options("nas", setup: true).Socket))
+        using (var rclone = Process.GetProcessById((await rc.PidAsync(CancellationToken.None)).Pid))
+        {
+            rclone.Kill();
+            await rclone.WaitForExitAsync().WaitAsync(Timeout);
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                () => client.AnswerSetupAsync("nas", "Backups", CancellationToken.None),
+                Throws.TypeOf<EngineException>().With.Message.StartsWith("nas couldn't be set up, as rclone stopped with exit code "));
+            Assert.That((await SetUpAgainAsync(client, "nas")).Question, Is.Not.Null);
+        }
     }
 
     [Test]
