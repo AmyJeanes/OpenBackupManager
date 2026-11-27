@@ -81,8 +81,8 @@ internal sealed class FakeGitHub : IDisposable
         }
     }
 
-    // The programs as they are, as they're what runs, but dated later as a newer build's would be, with licences to
-    // tell it apart
+    // The programs as they are, as they're what runs, but dated later as a newer build's would be, with an obmd that
+    // says it's another version, and licences to tell it apart
     [UnsupportedOSPlatform("windows")]
     public static byte[] NewVersionOf(string programs, string? alsoNamed = null)
     {
@@ -93,7 +93,7 @@ internal sealed class FakeGitHub : IDisposable
             foreach (var name in (string[])["obm", "obmd", "obm-rclone"])
             {
                 var path = Path.Combine(programs, name);
-                using var content = File.OpenRead(path);
+                using var content = name == "obmd" ? new MemoryStream(Encoding.UTF8.GetBytes(Tool.NextObmd(path))) : (Stream)File.OpenRead(path);
                 writer.WriteEntry(new UstarTarEntry(TarEntryType.RegularFile, name)
                 {
                     Mode = File.GetUnixFileMode(path),

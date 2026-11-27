@@ -9,7 +9,7 @@ internal sealed class Tool : IDisposable
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
-    // What Update installs
+    // What NextObmd says it is
     public const string NextVersion = "99.0.0";
 
     private readonly string _name;
@@ -141,17 +141,23 @@ internal sealed class Tool : IDisposable
         }
     }
 
-    // As a package manager does, by renaming another version over it. Here it's a script that says it's NextVersion,
-    // and runs this build for anything else, so a service restarting into it starts an engine
+    // As a package manager does, by renaming another version over it
     [UnsupportedOSPlatform("windows")]
-    public static void Update(string file)
+    public static void Update(string obmd)
     {
-        var build = file + "-build";
-        File.Copy(file, build);
-        var next = file + ".new";
-        File.WriteAllText(next, $"#!/bin/sh\nif [ \"$1\" = --version ]; then echo {NextVersion}; exit; fi\nexec '{build}' \"$@\"\n");
+        var next = obmd + ".new";
+        File.WriteAllText(next, NextObmd(obmd));
         File.SetUnixFileMode(next, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        File.Move(next, file, overwrite: true);
+        File.Move(next, obmd, overwrite: true);
+    }
+
+    // Another version of this obmd: a script that says it's NextVersion, and runs a copy of this build for anything
+    // else, so an engine started from it, such as by its service, still runs
+    public static string NextObmd(string obmd)
+    {
+        var build = obmd + "-build";
+        File.Copy(obmd, build, overwrite: true);
+        return $"#!/bin/sh\nif [ \"$1\" = --version ]; then echo {NextVersion}; exit; fi\nexec '{build}' \"$@\"\n";
     }
 
     // Runs it to the end
