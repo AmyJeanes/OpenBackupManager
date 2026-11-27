@@ -70,6 +70,28 @@ public class RemoteFoldersTests
         Assert.That(rc.Calls.Select(call => call.Path), Does.Contain("operations/deletefile"));
     }
 
+    // Such as when OneDrive asks it to wait before trying again
+    [Test]
+    public async Task ACheckThatPasses_WaitsForASlowDelete()
+    {
+        await using var rc = FakeHttp.OnSocket(Socket, path =>
+        {
+            switch (path)
+            {
+                case "operations/stat":
+                    return (200, """{"item":{"Path":"x","Name":"x","Size":64,"IsDir":false}}""");
+                case "operations/deletefile":
+                    Thread.Sleep(TimeSpan.FromSeconds(11));
+                    return (200, Done);
+                default:
+                    return (200, Done);
+            }
+        });
+        using var rclone = new RcClient(Socket);
+
+        Assert.That(() => new RemoteFolders(rclone, "nas:", fullPathsOnly: false).WriteTestAsync("Backups/", CancellationToken.None), Throws.Nothing);
+    }
+
     // As macOS can't hold both forms of an accented name in one folder, to test it there too
     [Test]
     public async Task AFolderInBothForms_IsFoundAsGiven()

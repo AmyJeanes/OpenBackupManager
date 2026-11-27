@@ -128,7 +128,6 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
         var name = ".obm-write-test-" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(4));
         var content = "Open Backup Manager checks it can write here, then deletes this\n"u8.ToArray();
         await rclone.MkdirAsync(fs, "", cancellationToken);
-        var failed = true;
         try
         {
             // A write that fails may still leave the file
@@ -137,25 +136,26 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
             {
                 throw new RcloneException("the test file written there was missing or cut short");
             }
-
-            failed = false;
         }
-        finally
+        catch
         {
-            await DeleteTestFileAsync(fs, name, quietly: failed);
+            await DeleteAfterAFailureAsync(fs, name);
+            throw;
         }
+
+        await rclone.DeleteFileAsync(fs, name, cancellationToken);
     }
 
-    // Even once what asked has gone, though not for long, as the setup's rclone stops once the check returns. Quietly
-    // after a failure, such as when the file never got there, which would hide why
-    private async Task DeleteTestFileAsync(string fs, string name, bool quietly)
+    // Even once what asked has gone, though not for long, as the setup's rclone stops once the check returns. Quietly,
+    // such as when the file never got there, which would hide why
+    private async Task DeleteAfterAFailureAsync(string fs, string name)
     {
         using var deleting = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         try
         {
             await rclone.DeleteFileAsync(fs, name, deleting.Token);
         }
-        catch (Exception e) when (quietly && e is RcloneException or HttpRequestException or IOException or OperationCanceledException)
+        catch (Exception e) when (e is RcloneException or HttpRequestException or IOException or OperationCanceledException)
         {
         }
     }
