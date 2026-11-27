@@ -145,6 +145,50 @@ public class SetupsTests
         }
     }
 
+    // Such as one antivirus has open, which the next start can clear
+    [Test]
+    public async Task Starting_CarriesOn_PastWhatItCantClear()
+    {
+        Directory.CreateDirectory(RcloneFolder);
+        var left = Path.Combine(RcloneFolder, "nas.conf.setup");
+        await File.WriteAllTextAsync(left, "");
+        // Windows won't delete an open file, and elsewhere one can't be deleted from a folder that can't be written
+        using var held = OperatingSystem.IsWindows() ? new FileStream(left, FileMode.Open, FileAccess.Read, FileShare.None) : null;
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(RcloneFolder, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        }
+
+        try
+        {
+            await StartAsync();
+        }
+        finally
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(RcloneFolder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
+
+        Assert.That(File.Exists(left), Is.True);
+    }
+
+    // As another user's link could lead it to delete files elsewhere, or a socket there name a process of this user's
+    // for it to stop
+    [Test]
+    [Platform(Exclude = "Win")]
+    public async Task ARunFolderThatsALink_IsRefused_BeforeAnythingIsCleared()
+    {
+        var elsewhere = Path.Combine(_home.State, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        await File.WriteAllTextAsync(Path.Combine(elsewhere, "backends.sock"), "");
+        Directory.CreateSymbolicLink(RunFolder.Path(_home), elsewhere);
+
+        Assert.That(() => StartAsync(), Throws.TypeOf<EngineException>().With.Message.Contains("is a link"));
+        Assert.That(File.Exists(Path.Combine(elsewhere, "backends.sock")), Is.True);
+    }
+
     // Left by an engine that ended in the middle of a setup, such as by crashing, which on macOS leaves its rclone
     // running
     [Test]
