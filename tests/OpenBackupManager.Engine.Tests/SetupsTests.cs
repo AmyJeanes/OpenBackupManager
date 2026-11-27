@@ -175,6 +175,22 @@ public class SetupsTests
         Assert.That(File.Exists(left), Is.True);
     }
 
+    // Such as another user's, which isn't refused
+    [Test]
+    public async Task Starting_CarriesOn_PastAnRcloneFolderItCantList()
+    {
+        Directory.CreateDirectory(RcloneFolder);
+        SetListable(RcloneFolder, listable: false);
+        try
+        {
+            Assert.That(() => StartAsync(), Throws.Nothing);
+        }
+        finally
+        {
+            SetListable(RcloneFolder, listable: true);
+        }
+    }
+
     // As another user's link could lead it to delete files elsewhere, or a socket there name a process of this user's
     // for it to stop
     [Test]

@@ -36,7 +36,18 @@ internal static partial class LeftBehind
         // backup from saving one, so it holds the same secrets
         if (RcloneConfig.ExistingFolder(paths) is { } configs)
         {
-            foreach (var file in Directory.EnumerateFiles(configs, "*.conf*").Where(file => !file.EndsWith(".conf", StringComparison.Ordinal)))
+            List<string> files;
+            try
+            {
+                files = [.. Directory.EnumerateFiles(configs, "*.conf*").Where(file => !file.EndsWith(".conf", StringComparison.Ordinal))];
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                LogNotCleared(logger, configs, e);
+                return;
+            }
+
+            foreach (var file in files)
             {
                 try
                 {
