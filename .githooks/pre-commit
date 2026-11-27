@@ -37,8 +37,11 @@ if ! git diff --cached --quiet -- $settings tools/DocsGen $page; then
     fi
 fi
 
-# Of every kind it knows, not only C#
-dotnet run --project tools/CommentCheck -- $(git diff --cached --name-only --diff-filter=ACMR) || exit 1
+# Of every kind it knows, not only C#. Not with none, as it would check every tracked file
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -n "$staged" ]; then
+    dotnet run --project tools/CommentCheck -- $staged || exit 1
+fi
 
 files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cs')
 [ -z "$files" ] && exit 0
