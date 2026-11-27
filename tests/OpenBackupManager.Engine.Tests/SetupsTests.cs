@@ -234,10 +234,12 @@ public class SetupsTests
     [TestCase("")]
     public async Task ALocalRootThatIsntAFullPath_IsAskedAgain(string root) => await AskedAgainForAFullPathAsync(root);
 
-    // From the drive, or the folder on the drive, the engine started in
+    // From the drive, or the folder on the drive, the engine started in. A server with no share would be one there too
     [Platform("Win")]
     [TestCase(@"\Backups")]
     [TestCase("C:Backups")]
+    [TestCase(@"\\nas")]
+    [TestCase(@"\\nas\")]
     public async Task ALocalRootFromNoDrive_IsAskedAgain(string root) => await AskedAgainForAFullPathAsync(root);
 
     // As Windows writes them, from a drive or a share, kept as given apart from the case

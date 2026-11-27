@@ -17,15 +17,17 @@ internal sealed partial class RemoteFolders(RcClient rclone, string remote, bool
     // As far as it exists, with what's in it when all of it does
     public async Task<FoundFolder> FindAsync(string path, CancellationToken cancellationToken)
     {
-        if (fullPathsOnly && !Path.IsPathFullyQualified(path))
+        _features ??= (await rclone.FsInfoAsync(remote, cancellationToken)).Features;
+        var windows = _features.IsLocal && OperatingSystem.IsWindows();
+        var (top, parts, separator) = Split(path, windows);
+        // A \\server with no share is fully qualified to .NET, but rclone would take it from the engine's drive
+        if (fullPathsOnly && (!Path.IsPathFullyQualified(path) || (windows && top.Length == 1)))
         {
             throw new ArgumentException(OperatingSystem.IsWindows()
                 ? @"Give the full path, from a drive such as C:\ or a share such as \\server\share\"
                 : "Give the full path, from /");
         }
 
-        _features ??= (await rclone.FsInfoAsync(remote, cancellationToken)).Features;
-        var (top, parts, separator) = Split(path, _features.IsLocal && OperatingSystem.IsWindows());
         // The walk would take them as folders, where rclone takes them as steps
         if (parts.Any(part => part is "." or ".."))
         {
