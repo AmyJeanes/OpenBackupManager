@@ -1,5 +1,5 @@
 #!/bin/sh
-# Formats staged C# files with dotnet format before each commit, so style is always fixed, checks their comments fit
+# Formats staged C# files with dotnet format before each commit, so style is always fixed, checks staged comments fit
 # in 120 characters, and updates the user guide's Settings page when what it's made from is staged
 # Enable once per clone: git config core.hooksPath .githooks
 
@@ -37,6 +37,9 @@ if ! git diff --cached --quiet -- $settings tools/DocsGen $page; then
     fi
 fi
 
+# Of every kind it knows, not only C#
+dotnet run --project tools/CommentCheck -- $(git diff --cached --name-only --diff-filter=ACMR) || exit 1
+
 files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cs')
 [ -z "$files" ] && exit 0
 
@@ -48,8 +51,6 @@ if [ -n "$partial" ]; then
     echo "Stage or stash those changes, then commit again"
     exit 1
 fi
-
-dotnet run --project tools/CommentCheck -- $files || exit 1
 
 if [ -n "$check" ]; then
     dotnet format whitespace OpenBackupManager.slnx --verify-no-changes --include $files &&
