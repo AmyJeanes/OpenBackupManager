@@ -33,9 +33,9 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets, ConfigWatche
                 return password;
             }
 
-            if (Directory.Exists(Folder))
+            if (ExistingFolder(paths) is { } folder)
             {
-                var others = Directory.EnumerateFiles(Folder, "*.conf").Where(file => file != FileFor(remoteId) && RcloneConfigFile.IsEncrypted(file)).ToList();
+                var others = Directory.EnumerateFiles(folder, "*.conf").Where(file => file != FileFor(remoteId) && RcloneConfigFile.IsEncrypted(file)).ToList();
                 var kept = others.Select(Path.GetFileNameWithoutExtension).Where(id => config.Config.Remotes.Any(remote => remote.Id == id)).ToList();
                 if (kept.Count > 0 && !startAfresh)
                 {
@@ -64,5 +64,21 @@ internal sealed class RcloneConfig(AppPaths paths, Secrets secrets, ConfigWatche
 
     public void Dispose() => _setup.Dispose();
 
-    private string Folder => Path.Combine(paths.State, "rclone");
+    // Null if it isn't there. Not a link, as another user's could lead starting afresh, or clearing what a crash left,
+    // to delete what's there
+    public static string? ExistingFolder(AppPaths paths)
+    {
+        var folder = FolderIn(paths);
+        var info = new DirectoryInfo(folder);
+        if (!info.Exists)
+        {
+            return null;
+        }
+
+        return info.LinkTarget is null ? folder : throw new EngineException($"{folder} is a link, so the engine won't keep remotes' configs there");
+    }
+
+    private static string FolderIn(AppPaths paths) => Path.Combine(paths.State, "rclone");
+
+    private string Folder => FolderIn(paths);
 }

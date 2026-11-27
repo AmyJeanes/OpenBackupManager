@@ -676,6 +676,24 @@ public class RemotesTests
         }
     }
 
+    // As another user's link could lead it to delete encrypted configs elsewhere, such as the user's own rclone's
+    [Test]
+    [Platform(Exclude = "Win")]
+    public async Task PasswordForSetup_StartingAfresh_InAnRcloneFolderThatsALink_IsRefused()
+    {
+        var elsewhere = Path.Combine(_home.State, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        Directory.CreateSymbolicLink(Path.Combine(_home.State, "rclone"), elsewhere);
+        await RemotesAsync("onedrive", "work");
+        await EncryptedConfigAsync("onedrive", "password");
+        using var engine = EngineHost.Build(_home);
+        var config = engine.Services.GetRequiredService<RcloneConfig>();
+
+        Assert.That(() => config.PasswordForSetupAsync("work", startAfresh: true, CancellationToken.None),
+            Throws.TypeOf<EngineException>().With.Message.Contains("is a link"));
+        Assert.That(File.Exists(Path.Combine(elsewhere, "onedrive.conf")), Is.True);
+    }
+
     // Its own is replaced as it's set up, so it's no reason to keep the old password, though it's kept until then
     [Test]
     public async Task PasswordForSetup_WithNone_ButItsOwnEncryptedConfig_StartsItAfresh_KeepingIt()

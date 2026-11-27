@@ -34,8 +34,7 @@ internal static partial class LeftBehind
 
         // Each remote's config is kept. Anything else beside them is a setup's copy, or rclone's own temporary file or
         // backup from saving one, so it holds the same secrets
-        var configs = Path.Combine(paths.State, "rclone");
-        if (Directory.Exists(configs))
+        if (RcloneConfig.ExistingFolder(paths) is { } configs)
         {
             foreach (var file in Directory.EnumerateFiles(configs, "*.conf*").Where(file => !file.EndsWith(".conf", StringComparison.Ordinal)))
             {

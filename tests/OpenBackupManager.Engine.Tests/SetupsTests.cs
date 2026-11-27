@@ -190,6 +190,20 @@ public class SetupsTests
         Assert.That(File.Exists(Path.Combine(elsewhere, "backends.sock")), Is.True);
     }
 
+    // As another user's link could lead it to delete files elsewhere
+    [Test]
+    [Platform(Exclude = "Win")]
+    public async Task AnRcloneFolderThatsALink_IsRefused_BeforeAnythingIsCleared()
+    {
+        var elsewhere = Path.Combine(_home.State, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        await File.WriteAllTextAsync(Path.Combine(elsewhere, "notes.conf.bak"), "");
+        Directory.CreateSymbolicLink(RcloneFolder, elsewhere);
+
+        Assert.That(() => StartAsync(), Throws.TypeOf<EngineException>().With.Message.Contains("is a link"));
+        Assert.That(File.Exists(Path.Combine(elsewhere, "notes.conf.bak")), Is.True);
+    }
+
     // Left by an engine that ended in the middle of a setup, such as by crashing, which on macOS leaves its rclone
     // running
     [Test]
