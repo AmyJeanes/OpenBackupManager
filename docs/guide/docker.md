@@ -57,7 +57,7 @@ If `config` belongs to someone else, the engine stops straight away, and `docker
 obmd: the engine can't keep its state in /config. Access to the path '/config/engine.lock' is denied.
 ```
 
-Change its owner with `sudo chown -R 1000:1000 config`, or change `user` to whoever owns it. If `password.txt` does, the engine runs, but `obm status` says it can't read it, and `sudo chown 1000:1000 password.txt` fixes it.
+Change its owner with `sudo chown -R 1000:1000 config`, or change `user` to whoever owns it. If `password.txt` does, the engine runs, but setting up a remote says it can't read it, as does `obm status` for any already set up, and `sudo chown 1000:1000 password.txt` fixes it.
 
 ## Use it
 
