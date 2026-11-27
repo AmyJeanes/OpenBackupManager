@@ -159,6 +159,28 @@ public class RemoteFoldersTests
         }
     }
 
+    // Such as another account's, which can be opened but isn't listed
+    [Test]
+    public async Task ABucketThatIsntListed_ButOpens_IsThere()
+    {
+        await using var rc = FakeHttp.OnSocket(
+            Socket,
+            """{"features":{"caseInsensitive":false,"isLocal":false,"bucketBased":true}}""",
+            """{"list":[{"path":"bucket","name":"bucket","isDir":true}]}""",
+            """{"list":[{"path":"shared/Backups","name":"Backups","isDir":true}]}""",
+            """{"list":[]}""");
+        using var rclone = new RcClient(Socket);
+
+        var found = await new RemoteFolders(rclone, "s3:", fullPathsOnly: false).FindAsync("shared/Backups", CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(found.Path, Is.EqualTo("shared/Backups/"));
+            Assert.That(found.Folders, Is.Empty);
+            Assert.That(found.NearMiss, Is.Null);
+        }
+    }
+
     // Such as SFTP to a Windows server, which rclone can't tell ignores case
     [Test]
     public async Task AFolderInAnotherCase_ThatListsAsTyped_TakesItsOwnCase()
