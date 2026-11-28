@@ -218,6 +218,9 @@ internal sealed class Setup(
     // How often it looks whether rclone's step is waiting for a sign-in, as rclone doesn't say
     private static readonly TimeSpan SignInCheck = TimeSpan.FromMilliseconds(100);
 
+    // rclone's, for a sign-in pasted from rclone authorize on another device
+    private const string PastedSignIn = "config_token";
+
     // Cancelled as it ends, as rclone's step can outlast the client's call, such as one waiting for a sign-in
     private readonly CancellationTokenSource _ending = new();
 
@@ -244,7 +247,7 @@ internal sealed class Setup(
     public Task AnswerAsync(string answer, CancellationToken cancellationToken) =>
         Question?.Name == SetupQuestion.SignIn ? SignedInAsync(cancellationToken)
         : _signedIn ? AnswerOwnAsync(answer, cancellationToken)
-        : StepAsync((remoteSetup, ending) => remoteSetup.AnswerAsync(answer, ending), cancellationToken);
+        : AnswerRcloneAsync(answer, cancellationToken);
 
     // Without changing where the setup is, so a client can look around before it answers
     public async Task<FoundFolder> ListFoldersAsync(string path, CancellationToken cancellationToken)
@@ -281,6 +284,18 @@ internal sealed class Setup(
         }
 
         _ending.Dispose();
+    }
+
+    // A blank sign-in is asked for again, as rclone would take it as nothing to change and carry on without one
+    private Task AnswerRcloneAsync(string answer, CancellationToken cancellationToken)
+    {
+        if (Question is { Name: PastedSignIn } question && string.IsNullOrWhiteSpace(answer))
+        {
+            Question = question with { Error = "Paste what rclone authorize printed" };
+            return Task.CompletedTask;
+        }
+
+        return StepAsync((remoteSetup, ending) => remoteSetup.AnswerAsync(answer, ending), cancellationToken);
     }
 
     internal Task StepAsync(Func<RemoteSetup, CancellationToken, Task<Rclone.SetupQuestion?>> step, CancellationToken cancellationToken)

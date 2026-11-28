@@ -725,6 +725,27 @@ public class SetupsTests
         }
     }
 
+    // rclone would take it as nothing to change, and carry on without a sign-in
+    [TestCase("")]
+    [TestCase(" \n")]
+    public async Task ABlankSignInFromAnotherDevice_IsAskedForAgain(string pasted)
+    {
+        await StartAsync();
+        using var client = await ConnectAsync();
+        await client.SetupRemoteAsync(new SetupRemoteParams("work", "onedrive"), CancellationToken.None);
+        var paste = await client.AnswerSetupAsync("work", "false", CancellationToken.None);
+
+        var again = await client.AnswerSetupAsync("work", pasted, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(paste.Question?.Help, Does.Contain("rclone authorize \"onedrive\""));
+            Assert.That(again.Question?.Name, Is.EqualTo(paste.Question?.Name));
+            Assert.That(again.Question?.Help, Is.EqualTo(paste.Question?.Help));
+            Assert.That(again.Question?.Error, Is.EqualTo("Paste what rclone authorize printed"));
+        }
+    }
+
     [Test]
     public async Task OneBeingSetUp_IsRefused_ElsewhereToo()
     {
