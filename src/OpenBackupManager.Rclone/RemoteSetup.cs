@@ -20,8 +20,9 @@ public sealed class RemoteSetup
     {
         _client = client;
         _name = name;
-        // Advanced options are hidden until other backends are offered, and each backend has some
-        _parameters = new Dictionary<string, string>(parameters) { ["config_fs_advanced"] = "false" };
+        // Advanced options are hidden until other backends are offered, and each backend has some. rclone doesn't open
+        // a browser to sign in, as the client does, where the person is, which rclone may not be, such as in a service
+        _parameters = new Dictionary<string, string>(parameters) { ["config_fs_advanced"] = "false", ["config_auth_no_browser"] = "true" };
     }
 
     public async Task<SetupQuestion?> StartAsync(string type, CancellationToken cancellationToken) =>

@@ -699,6 +699,32 @@ public class SetupsTests
         }
     }
 
+    // The client opens the link, as it's where the person is. Cancelling stops rclone waiting, so its web server's port
+    // is free for the next
+    [Test]
+    public async Task SigningInWithABrowser_IsAskedWithItsLink_AndCancellingStopsIt()
+    {
+        await StartAsync();
+        using var client = await ConnectAsync();
+        await client.SetupRemoteAsync(new SetupRemoteParams("work", "onedrive"), CancellationToken.None);
+
+        var signIn = await client.AnswerSetupAsync("work", "true", CancellationToken.None).WaitAsync(Timeout);
+        using var cancel = new CancellationTokenSource();
+        var waiting = client.AnswerSetupAsync("work", "", cancel.Token);
+        await cancel.CancelAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(signIn.Question?.Name, Is.EqualTo(SetupQuestion.SignIn));
+            Assert.That(signIn.Question?.Link?.ToString(), Does.StartWith("http://127.0.0.1:53682/auth?state="));
+            Assert.That(async () => await waiting, Throws.InstanceOf<OperationCanceledException>());
+            await SetUpAgainAsync(client, "work", "onedrive");
+            Assert.That(
+                (await client.AnswerSetupAsync("work", "true", CancellationToken.None).WaitAsync(Timeout)).Question?.Name,
+                Is.EqualTo(SetupQuestion.SignIn));
+        }
+    }
+
     [Test]
     public async Task OneBeingSetUp_IsRefused_ElsewhereToo()
     {
@@ -819,11 +845,11 @@ public class SetupsTests
         await EngineClient.ConnectAsync(_home, Timeout, CancellationToken.None) ?? throw new AssertionException("The engine isn't running");
 
     // Refused while the last one is still ending
-    private static async Task<SetupStep> TrySetupAsync(EngineClient client, string id)
+    private static async Task<SetupStep> TrySetupAsync(EngineClient client, string id, string type = "alias")
     {
         try
         {
-            return await client.SetupRemoteAsync(new SetupRemoteParams(id, "alias"), CancellationToken.None);
+            return await client.SetupRemoteAsync(new SetupRemoteParams(id, type), CancellationToken.None);
         }
         catch (EngineException)
         {
@@ -857,14 +883,14 @@ public class SetupsTests
     }
 
     // Once the engine has seen the last one end, or refused after the timeout
-    private static async Task<SetupStep> SetUpAgainAsync(EngineClient client, string id)
+    private static async Task<SetupStep> SetUpAgainAsync(EngineClient client, string id, string type = "alias")
     {
         var timeout = DateTime.UtcNow + Timeout;
-        var again = await TrySetupAsync(client, id);
+        var again = await TrySetupAsync(client, id, type);
         while (again.Question is null && DateTime.UtcNow < timeout)
         {
             await Task.Delay(100);
-            again = await TrySetupAsync(client, id);
+            again = await TrySetupAsync(client, id, type);
         }
 
         return again;

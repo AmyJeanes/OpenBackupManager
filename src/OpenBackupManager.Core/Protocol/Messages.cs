@@ -141,7 +141,8 @@ public sealed record SetupQuestion(
     bool Exclusive,
     string Type,
     string? Error = null,
-    RootFolder? Folder = null)
+    RootFolder? Folder = null,
+    Uri? Link = null)
 {
     // Ours, after rclone's, which clients word themselves, as no rclone question's name starts with obm-. The root is
     // the path inside the remote, as rclone takes it, such as OpenBackupManager/, or empty for its top. listFolders
@@ -150,6 +151,10 @@ public sealed record SetupQuestion(
 
     // Whether to use the root chosen, yes or no, with what's there in Folder. No asks for the root again
     public const string RootConfirm = "obm-root-confirm";
+
+    // rclone's waiting for someone to sign in in a browser, at Link, which the client opens. Answered with anything
+    // once it has, and the answer comes back once they've signed in
+    public const string SignIn = "obm-sign-in";
 }
 
 // Path is the root in the remote's own case. NearMiss is a folder that's there, for one that isn't, that it may have

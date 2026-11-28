@@ -93,7 +93,7 @@ internal sealed partial class Setups(AppPaths paths, ConfigWatcher config, Rclon
                 folders,
                 rcd,
                 options.Config);
-            await setup.StepAsync(remoteSetup => remoteSetup.StartAsync(start.Type, cancellationToken), cancellationToken);
+            await setup.StepAsync((remoteSetup, ending) => remoteSetup.StartAsync(start.Type, ending), cancellationToken);
             return setup;
         }
         catch
@@ -215,7 +215,16 @@ internal sealed class Setup(
     Rcd rcd,
     string copy) : IAsyncDisposable
 {
+    // How often it looks whether rclone's step is waiting for a sign-in, as rclone doesn't say
+    private static readonly TimeSpan SignInCheck = TimeSpan.FromMilliseconds(100);
+
+    // Cancelled as it ends, as rclone's step can outlast the client's call, such as one waiting for a sign-in
+    private readonly CancellationTokenSource _ending = new();
+
     private bool _ended;
+
+    // rclone's latest, which may still be going
+    private Task<Rclone.SetupQuestion?>? _step;
 
     // Once rclone's questions are done, as only then can it reach the remote
     private bool _signedIn;
@@ -233,7 +242,9 @@ internal sealed class Setup(
     public SetupQuestion? Question { get; private set; }
 
     public Task AnswerAsync(string answer, CancellationToken cancellationToken) =>
-        _signedIn ? AnswerOwnAsync(answer, cancellationToken) : StepAsync(remoteSetup => remoteSetup.AnswerAsync(answer, cancellationToken), cancellationToken);
+        Question?.Name == SetupQuestion.SignIn ? SignedInAsync(cancellationToken)
+        : _signedIn ? AnswerOwnAsync(answer, cancellationToken)
+        : StepAsync((remoteSetup, ending) => remoteSetup.AnswerAsync(answer, ending), cancellationToken);
 
     // Without changing where the setup is, so a client can look around before it answers
     public async Task<FoundFolder> ListFoldersAsync(string path, CancellationToken cancellationToken)
@@ -261,13 +272,46 @@ internal sealed class Setup(
         if (!_ended)
         {
             _ended = true;
+            if (_step is { IsCompleted: false } step)
+            {
+                await StopAsync(step);
+            }
+
             await setups.EndAsync(Id, rcd, copy);
         }
+
+        _ending.Dispose();
     }
 
-    internal async Task StepAsync(Func<RemoteSetup, Task<Rclone.SetupQuestion?>> step, CancellationToken cancellationToken)
+    internal Task StepAsync(Func<RemoteSetup, CancellationToken, Task<Rclone.SetupQuestion?>> step, CancellationToken cancellationToken)
     {
-        if (await Setups.RcloneAsync(Id, () => step(remoteSetup)) is { } asked)
+        _step = Setups.RcloneAsync(Id, () => step(remoteSetup, _ending.Token));
+        return AskedAsync(cancellationToken);
+    }
+
+    // Once rclone's asked its next question, or is waiting for a sign-in, which is asked as our own, with its link
+    private async Task AskedAsync(CancellationToken cancellationToken)
+    {
+        var step = _step!;
+        while (await Task.WhenAny(step, Task.Delay(SignInCheck, cancellationToken)) != step)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if ((await Setups.RcloneAsync(Id, () => rcd.Client.OAuthStatusAsync(cancellationToken))).AuthUrl is { } link)
+            {
+                Question = new SetupQuestion(SetupQuestion.SignIn, "", "", [], Required: false, IsPassword: false, Exclusive: false, "string", Link: new Uri(link));
+                return;
+            }
+        }
+
+        await NextAsync(await step, cancellationToken);
+    }
+
+    private async Task SignedInAsync(CancellationToken cancellationToken) =>
+        await NextAsync(await _step!.WaitAsync(cancellationToken), cancellationToken);
+
+    private async Task NextAsync(Rclone.SetupQuestion? asked, CancellationToken cancellationToken)
+    {
+        if (asked is not null)
         {
             var question = new SetupQuestion(
                 asked.Name,
@@ -285,6 +329,32 @@ internal sealed class Setup(
 
         _signedIn = true;
         await AskOwnAsync(null, cancellationToken);
+    }
+
+    // Now rather than as its rcd stops, which frees rclone's sign-in port for the next, and seen to end, or the engine
+    // would log its failure as one nothing saw
+    private async Task StopAsync(Task step)
+    {
+        try
+        {
+            if ((await rcd.Client.OAuthStatusAsync(CancellationToken.None)).AuthUrl is not null)
+            {
+                await rcd.Client.OAuthStopAsync(CancellationToken.None);
+            }
+        }
+        // Its rcd has gone, and the step with it
+        catch (Exception e) when (e is RcloneException or HttpRequestException or IOException)
+        {
+        }
+
+        await _ending.CancelAsync();
+        try
+        {
+            await step;
+        }
+        catch (Exception e) when (e is EngineException or OperationCanceledException)
+        {
+        }
     }
 
     private async Task AnswerOwnAsync(string answer, CancellationToken cancellationToken)

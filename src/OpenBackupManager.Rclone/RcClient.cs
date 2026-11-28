@@ -107,6 +107,14 @@ public sealed class RcClient : IDisposable
     public Task DeleteFileAsync(string fs, string remote, CancellationToken cancellationToken) =>
         CallAsync("operations/deletefile", new PathParams(fs, remote), RcJson.Default.PathParams, RcJson.Default.NoResult, cancellationToken);
 
+    // AuthUrl is set while a setup step waits for someone to sign in through rclone's own web server
+    public Task<OAuthStatusResult> OAuthStatusAsync(CancellationToken cancellationToken) =>
+        CallAsync("config/oauthstatus", new NoParams(), RcJson.Default.NoParams, RcJson.Default.OAuthStatusResult, cancellationToken);
+
+    // The step waiting fails, and the web server's port is free again
+    public Task OAuthStopAsync(CancellationToken cancellationToken) =>
+        CallAsync("config/oauthstop", new NoParams(), RcJson.Default.NoParams, RcJson.Default.NoResult, cancellationToken);
+
     public Task<PidResult> PidAsync(CancellationToken cancellationToken) =>
         CallAsync("core/pid", new NoParams(), RcJson.Default.NoParams, RcJson.Default.PidResult, cancellationToken);
 
@@ -157,6 +165,8 @@ public sealed class RcClient : IDisposable
 public sealed record VersionResult(string Version);
 
 public sealed record PidResult(int Pid);
+
+public sealed record OAuthStatusResult(string Status, string? AuthUrl = null);
 
 public sealed record ListRemotesResult(IReadOnlyList<string>? Remotes);
 
@@ -236,6 +246,7 @@ internal sealed record RcError(string? Error);
 [JsonSerializable(typeof(NoParams))]
 [JsonSerializable(typeof(NoResult))]
 [JsonSerializable(typeof(PidResult))]
+[JsonSerializable(typeof(OAuthStatusResult))]
 [JsonSerializable(typeof(ListRemotesResult))]
 [JsonSerializable(typeof(ProvidersResult))]
 [JsonSerializable(typeof(FsParams))]
