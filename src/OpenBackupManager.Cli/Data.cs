@@ -25,7 +25,7 @@ internal static class Data
     // Only rclone writes in it
     private static readonly string RcloneCache = Path.Combine("cache", "rclone");
 
-    public static async Task<int> RemoveAsync(AppPaths paths, string? home, EngineService? service, bool yes, CancellationToken cancellationToken)
+    public static async Task<int> RemoveAsync(AppPaths paths, string? home, EngineService? service, bool yes, Prompts prompts, CancellationToken cancellationToken)
     {
         // Stopping the engine would stop the container
         if (Update.InstalledBy(Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory)) == "docker")
@@ -65,13 +65,12 @@ internal static class Data
             Console.WriteLine("  Its secrets, wherever it kept them");
             if (!yes)
             {
-                if (Console.IsInputRedirected)
+                if (!prompts.CanAsk)
                 {
                     return Fail("--yes is required when not running interactively");
                 }
 
-                Console.Write("Remove them? [y/N] ");
-                if (Console.ReadLine()?.Trim().ToLowerInvariant() is not ("y" or "yes"))
+                if (!prompts.Confirm("Remove them?", defaultAnswer: false))
                 {
                     Console.WriteLine("Nothing was removed");
                     return 1;

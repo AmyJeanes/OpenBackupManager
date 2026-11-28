@@ -137,6 +137,7 @@ removeCommand.SetAction((parseResult, cancellationToken) =>
         AppHome.Chosen(parseResult.GetValue(homeOption), Environment.GetEnvironmentVariable("OBM_HOME")),
         ServiceFor(parseResult),
         parseResult.GetValue(yesOption),
+        Prompts.ForThisTerminal(),
         cancellationToken));
 
 var dataCommand = new Command("data", "Everything Open Backup Manager keeps on this device")

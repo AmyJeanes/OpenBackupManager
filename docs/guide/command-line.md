@@ -221,6 +221,10 @@ Each remote has these fields:
 | `summary` | The first line of what went wrong, in English or as the OS recorded it. |
 | `new` | `true` if it hasn't been seen with `obm crashes show` or in the app. |
 
+## Questions
+
+When a command asks something, such as `obm data remove` asking before it removes anything, you choose with the arrow keys and can type to search. Set `OBM_ACCESSIBLE_PROMPTS=1` for plain questions instead, asked a line at a time with no animations, which work better with screen readers and braille displays. They're plain anyway in a terminal that can't redraw, where `TERM` is `dumb`. A script can't answer questions, so it passes their options instead, such as `--yes`.
+
 ## Options
 
 `--home <folder>` keeps everything in that folder instead of the usual ones, as the `OBM_HOME` environment variable does. See [Files and folders](files.md).
